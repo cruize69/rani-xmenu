@@ -2,6 +2,9 @@
 node_modules
 .preview-app
 .claude
+.agents
+skills-lock.json
 .DS_Store
 .env
 .env.local
+.env*
