@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE } from "./lib/menu.js";
+import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import AccountPortal from "./AccountPortal.jsx";
 
 // ── Fonts — matches the Rani Mahal marketing site (Fraunces / Inter / Great Vibes) ──
@@ -12,21 +12,7 @@ const T = {
   bone: "#FAF6EF", muted: "#B8A995",
 };
 
-// ── Menu data (MENU_ITEMS, ITEM_MAP, QA, TAX_RATE) — imported from lib/menu.js, shared with the backend ──
-
-const SECTIONS = [
-  { id:"appetizers", eyebrow:"To start",                 title:"Appetizers",         note:"",                                                                  subsections:[{ label:"Vegetarian", ids:["item-samosa","item-pakora","item-mixed-app","item-papad","item-masala-dosa","item-gobi-manchurian","item-ragada"] },{ label:"Non-Vegetarian", ids:["item-meat-samosa","item-seek-kabab","item-chicken-malai","item-shrimp-bagari","item-rani-offering","item-keema-dosa"] }] },
-  { id:"soups",      eyebrow:"Light courses",            title:"Soups & Salads",     note:"",                                                                  subsections:[{ label:"", ids:["item-mulligatawny","item-tomato-soup","item-chicken-soup","item-salad"] }] },
-  { id:"breads",     eyebrow:"From the oven",            title:"Breads",              note:"",                                                                  subsections:[{ label:"", ids:["item-naan","item-onion-naan","item-garlic-naan","item-rani-naan","item-peshwari","item-poori","item-chapathi","item-aloo-paratha","item-keema-paratha"] }] },
-  { id:"medley",     eyebrow:"Chicken, lamb and shrimp", title:"Medley",              note:"A delicate combination of chicken, lamb and shrimp — served with basmati rice", subsections:[{ label:"", ids:["item-dhaba","item-sag-medley","item-masala-medley","item-vindaloo-medley","item-biriyani-medley","item-korma-medley","item-bhuna-medley","item-madras-medley"] }] },
-  { id:"tandoori",   eyebrow:"Clay oven specialties",    title:"Tandoori",            note:"All entrees served with aromatic basmati rice",                    subsections:[{ label:"", ids:["item-tandoori-chicken","item-chicken-tikka","item-lamb-tikka","item-tandoori-fish","item-shrimp-tandoori","item-tandoori-medley","item-lobster","item-paneer-tikka"] }] },
-  { id:"chicken",    eyebrow:"Entrees",                  title:"Chicken",             note:"All entrees served with aromatic basmati rice",                    subsections:[{ label:"", ids:["item-ctm","item-makhni","item-korma-c","item-sagwala","item-vindaloo-c","item-madras-c","item-jalfreazy-c","item-do-paiza-c","item-biriyani-c","item-bhuna-c","item-curry-c"] }] },
-  { id:"lamb",       eyebrow:"Entrees",                  title:"Lamb",                note:"All entrees served with aromatic basmati rice",                    subsections:[{ label:"", ids:["item-rogan","item-sag-l","item-korma-l","item-do-paiza-l","item-kadai","item-vindaloo-l","item-boti","item-phaal","item-biriyani-l","item-lamb-chops"] }] },
-  { id:"seafood",    eyebrow:"From the sea",             title:"Seafood",             note:"All entrees served with aromatic basmati rice",                    subsections:[{ label:"", ids:["item-shrimp-korma","item-tandoori-shrimp-masala","item-shrimp-bhuna","item-shrimp-manglorian","item-fish-curry","item-shrimp-sag","item-shrimp-vindaloo","item-shrimp-malai","item-shrimp-biriyani"] }] },
-  { id:"vegetarian", eyebrow:"Entrees",                  title:"Vegetarian",          note:"All entrees served with aromatic basmati rice",                    subsections:[{ label:"", ids:["item-aloo-gobi","item-baingan","item-chana-masala","item-palak-paneer","item-malai-kofta","item-shahi-paneer","item-navaratan","item-dal-maharani","item-dal-tarka","item-veg-biriyani","item-chana-sag"] }] },
-  { id:"sides",      eyebrow:"On the side",              title:"Sides & Condiments",  note:"",                                                                  subsections:[{ label:"", ids:["item-mango-chutney","item-mixed-pickles","item-raita","item-rice","item-masala-sauce"] }] },
-  { id:"drinks",     eyebrow:"To drink",                 title:"Drinks",              note:"",                                                                  subsections:[{ label:"", ids:["item-mango-lassi","item-sweet-lassi","item-nemkin-lassi","item-nimbu-pani","item-root-beer","item-san-pellegrino","item-poland-spring","item-juices","item-soda","item-tea-coffee"] }] },
-];
+// ── Menu data (MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS) — imported from lib/menu.js, shared with the backend ──
 
 // ── Classification sets ──────────────────────────────────────────
 const S = {
@@ -659,6 +645,49 @@ export default function RaniMahal() {
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.images) setCloudImages(data.images); })
       .catch(() => {}); // silent fail — localStorage fallback handles it
+  }, []);
+
+  // Cart preload from an external link (e.g. the marketing site's "Order
+  // this" buttons): ?add=item-id[,item-id2,...]. Runs once on mount, after
+  // the persisted cart has already loaded, so it adds on top rather than
+  // replacing anything. Never trusts a price from the URL — always re-derives
+  // from MENU_ITEMS/QA, same as every other cart-add path in this file.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const addParam = params.get("add");
+    if (!addParam) return;
+
+    const ids = addParam.split(",").map(s => s.trim()).filter(Boolean);
+    let addedCount = 0;
+
+    setCart(prev => {
+      const next = { ...prev };
+      ids.forEach(id => {
+        const isQA = id.startsWith("qa-");
+        const canonical = isQA ? QA[id] : ITEM_MAP[id];
+        if (!canonical) return;
+        const key = isQA ? id : id + "_1";
+        const existing = next[key];
+        next[key] = {
+          name: canonical.name, price: canonical.price,
+          qty: (existing?.qty ?? 0) + 1,
+          spice: existing?.spice ?? null, note: existing?.note ?? "",
+          baseId: id,
+        };
+        addedCount++;
+      });
+      return next;
+    });
+
+    if (addedCount > 0) {
+      setDrawerOpen(true);
+      showNotice(addedCount === 1 ? "Added to your cart — ready when you are." : `${addedCount} items added to your cart — ready when you are.`);
+    }
+
+    // Drop ?add= from the URL so a refresh or back-navigation can't re-add it
+    params.delete("add");
+    const rest = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);
 
   // Persist cart on every change so a refresh doesn't wipe the order
