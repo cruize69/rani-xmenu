@@ -1,6 +1,6 @@
 .vercel
 node_modules
-.preview-app
+dist
 .claude
 .agents
 skills-lock.json
