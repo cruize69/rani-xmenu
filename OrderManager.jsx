@@ -56,7 +56,7 @@ function RefundModal({ order, onClose, onSuccess }) {
   const submit = async (type) => {
     setLoading(true); setError(null);
     try {
-      // In production: await apiFetch("/api/refund", { method:"POST", body:JSON.stringify({...}) })
+      // In production: await apiFetch("/api/orders", { method:"POST", body:JSON.stringify({ action:"refund", ... }) })
       // For preview — simulate API response
       await new Promise(r => setTimeout(r, 900));
       const amountRefunded = type === "full" ? remaining
@@ -524,12 +524,12 @@ export default function OrderManager() {
 
   const handleStatusChange = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    // Production: await apiFetch("/api/update-order", { method:"PATCH", body:JSON.stringify({id,status}) });
+    // Production: await apiFetch("/api/orders", { method:"PATCH", body:JSON.stringify({id,status}) });
   };
 
   const handlePrint = async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, printed:true } : o));
-    // Production: await apiFetch("/api/reprint", { method:"POST", body:JSON.stringify({id}) });
+    // Production: await apiFetch("/api/orders", { method:"POST", body:JSON.stringify({ action:"reprint", id }) });
   };
 
   const filtered = orders.filter(o => {

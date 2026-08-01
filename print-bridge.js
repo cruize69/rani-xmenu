@@ -47,12 +47,13 @@ async function poll() {
 
   try {
     // Pop an order ID from the print queue (RPOP = right pop)
-    const res = await fetch(`${CONFIG.apiBase}/api/print-queue`, {
+    const res = await fetch(`${CONFIG.apiBase}/api/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-manager-secret": CONFIG.managerSecret,
       },
+      body: JSON.stringify({ action: "dequeue" }),
     });
 
     if (!res.ok) {
@@ -66,7 +67,7 @@ async function poll() {
     console.log(`[${new Date().toLocaleTimeString()}] Printing order ${orderId}...`);
 
     // Fetch full order
-    const orderRes = await fetch(`${CONFIG.apiBase}/api/orders/${orderId}`, {
+    const orderRes = await fetch(`${CONFIG.apiBase}/api/orders?id=${orderId}`, {
       headers: { "x-manager-secret": CONFIG.managerSecret },
     });
 
@@ -85,7 +86,7 @@ async function poll() {
     await sendToPrinter(receiptBuffer);
 
     // Mark as printed
-    await fetch(`${CONFIG.apiBase}/api/update-order`, {
+    await fetch(`${CONFIG.apiBase}/api/orders`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -130,16 +131,9 @@ function sendToPrinter(buffer) {
   });
 }
 
-// ── API endpoint for the bridge: pops one ID from print queue ────
-// Add this to api/print-queue.js on Vercel:
-//
-// import { kv } from "@vercel/kv";
-// export default async function handler(req, res) {
-//   if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET)
-//     return res.status(401).json({ error: "Unauthorized" });
-//   const orderId = await kv.rpop("print_queue");
-//   return res.status(200).json({ orderId: orderId ?? null });
-// }
+// The bridge's print-queue pop, single-order fetch, and printed-marking
+// calls above are all handled by api/orders.js (action:"dequeue", ?id=,
+// and PATCH respectively) — see that file for the server-side logic.
 
 // ── Start polling ─────────────────────────────────────────────────
 console.log(`

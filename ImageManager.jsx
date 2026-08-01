@@ -139,7 +139,7 @@ async function uploadImage(itemId, file, onProgress) {
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/images/upload`);
+    xhr.open("POST", `${API_BASE}/api/images/manage`);
     xhr.setRequestHeader("x-manager-secret", MANAGER_SECRET);
     xhr.upload.onprogress = e => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
@@ -154,7 +154,7 @@ async function uploadImage(itemId, file, onProgress) {
 }
 
 async function deleteImage(itemId) {
-  const res = await fetch(`${API_BASE}/api/images/delete`, {
+  const res = await fetch(`${API_BASE}/api/images/manage`, {
     method:  "DELETE",
     headers: { "Content-Type":"application/json", "x-manager-secret": MANAGER_SECRET },
     body:    JSON.stringify({ itemId }),
