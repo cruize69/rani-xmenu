@@ -1,12 +1,11 @@
 // SalesDashboard.jsx
 // Owner-only sales analytics + customer CRM + Mailchimp export
-// Access at: www.rani-mahal.com/dashboard
-// Protected by MANAGER_SECRET
+// Routed at /dashboard (see main.jsx) — protected by StaffGate
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { getManagerSecret } from "./lib/managerAuth.js";
 
-const MANAGER_SECRET = process.env.REACT_APP_MANAGER_SECRET ?? process.env.NEXT_PUBLIC_MANAGER_SECRET ?? "";
-const API_BASE       = process.env.REACT_APP_API_BASE       ?? process.env.NEXT_PUBLIC_API_BASE       ?? "";
+const API_BASE = ""; // same-origin — /api/* is served by this deployment
 
 const GOLD   = "#C8853A";
 const INK    = "#0F0800";
@@ -603,7 +602,7 @@ export default function SalesDashboard() {
     setLoading(true); setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/analytics?range=${range}`, {
-        headers: { "x-manager-secret": MANAGER_SECRET },
+        headers: { "x-manager-secret": getManagerSecret() },
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       setData(await res.json());

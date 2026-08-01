@@ -1,132 +1,32 @@
 // ImageManager.jsx
 // Admin portal for managing menu item photos
-// Deploy alongside OrderManager — access at /image-manager
-// Protected by MANAGER_SECRET
+// Routed at /images (see main.jsx) — protected by StaffGate
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { getManagerSecret } from "./lib/managerAuth.js";
+import { MENU_ITEMS as CANONICAL_ITEMS, SECTIONS as CANONICAL_SECTIONS } from "./lib/menu.js";
 
-const MANAGER_SECRET = process.env.REACT_APP_MANAGER_SECRET ?? process.env.NEXT_PUBLIC_MANAGER_SECRET ?? "";
-const API_BASE       = process.env.REACT_APP_API_BASE       ?? process.env.NEXT_PUBLIC_API_BASE       ?? "";
+const API_BASE = ""; // same-origin — /api/* is served by this deployment
 
-// ── Full menu catalogue — name + section for display ─────────────
-const MENU_ITEMS = [
-  // Appetizers
-  { id:"item-samosa",              name:"Samosa",                   section:"Appetizers" },
-  { id:"item-pakora",              name:"Pakora",                   section:"Appetizers" },
-  { id:"item-mixed-app",           name:"Mixed Appetizers",         section:"Appetizers" },
-  { id:"item-papad",               name:"Papad",                    section:"Appetizers" },
-  { id:"item-masala-dosa",         name:"Masala Dosa",              section:"Appetizers" },
-  { id:"item-gobi-manchurian",     name:"Gobi Manchurian",          section:"Appetizers" },
-  { id:"item-ragada",              name:"Ragada Patties",           section:"Appetizers" },
-  { id:"item-meat-samosa",         name:"Meat Samosa",              section:"Appetizers" },
-  { id:"item-seek-kabab",          name:"Seek Kabab",               section:"Appetizers" },
-  { id:"item-chicken-malai",       name:"Chicken Malai Kabab",      section:"Appetizers" },
-  { id:"item-shrimp-bagari",       name:"Shrimp Bagari",            section:"Appetizers" },
-  { id:"item-rani-offering",       name:"Rani Ki Offering",         section:"Appetizers" },
-  { id:"item-keema-dosa",          name:"Keema Dosa",               section:"Appetizers" },
-  // Soups & Salads
-  { id:"item-mulligatawny",        name:"Mulligatawny Soup",        section:"Soups & Salads" },
-  { id:"item-tomato-soup",         name:"Tomato Soup",              section:"Soups & Salads" },
-  { id:"item-chicken-soup",        name:"Chicken Soup",             section:"Soups & Salads" },
-  { id:"item-salad",               name:"Chef's Special Salad",     section:"Soups & Salads" },
-  // Chicken
-  { id:"item-ctm",                 name:"Chicken Tikka Masala",     section:"Chicken" },
-  { id:"item-makhni",              name:"Chicken Makhni",           section:"Chicken" },
-  { id:"item-korma-c",             name:"Chicken Korma",            section:"Chicken" },
-  { id:"item-sagwala",             name:"Chicken Tikka Sagwala",    section:"Chicken" },
-  { id:"item-vindaloo-c",          name:"Chicken Vindaloo",         section:"Chicken" },
-  { id:"item-madras-c",            name:"Chicken Madras",           section:"Chicken" },
-  { id:"item-jalfreazy-c",         name:"Chicken Jalfreazy",        section:"Chicken" },
-  { id:"item-do-paiza-c",          name:"Chicken Do Paiza",         section:"Chicken" },
-  { id:"item-biriyani-c",          name:"Chicken Biriyani",         section:"Chicken" },
-  { id:"item-bhuna-c",             name:"Chicken Bhuna",            section:"Chicken" },
-  { id:"item-curry-c",             name:"Chicken Curry",            section:"Chicken" },
-  // Lamb
-  { id:"item-rogan",               name:"Lamb Rogan Josh",          section:"Lamb" },
-  { id:"item-sag-l",               name:"Lamb Sag",                 section:"Lamb" },
-  { id:"item-korma-l",             name:"Lamb Korma",               section:"Lamb" },
-  { id:"item-do-paiza-l",          name:"Lamb Do Paiza",            section:"Lamb" },
-  { id:"item-kadai",               name:"Kadai Lamb",               section:"Lamb" },
-  { id:"item-vindaloo-l",          name:"Lamb Vindaloo",            section:"Lamb" },
-  { id:"item-boti",                name:"Boti Kabab Masala",        section:"Lamb" },
-  { id:"item-phaal",               name:"Lamb Phaal",               section:"Lamb" },
-  { id:"item-biriyani-l",          name:"Lamb Biriyani",            section:"Lamb" },
-  { id:"item-lamb-chops",          name:"Lamb Chops",               section:"Lamb" },
-  // Tandoori
-  { id:"item-tandoori-chicken",    name:"Tandoori Chicken",         section:"Tandoori" },
-  { id:"item-chicken-tikka",       name:"Chicken Tikka",            section:"Tandoori" },
-  { id:"item-lamb-tikka",          name:"Lamb Tikka",               section:"Tandoori" },
-  { id:"item-tandoori-fish",       name:"Tandoori Fish",            section:"Tandoori" },
-  { id:"item-shrimp-tandoori",     name:"Shrimp Tandoori",          section:"Tandoori" },
-  { id:"item-tandoori-medley",     name:"Tandoori Medley",          section:"Tandoori" },
-  { id:"item-lobster",             name:"Tandoori Lobster",         section:"Tandoori" },
-  { id:"item-paneer-tikka",        name:"Paneer Tikka",             section:"Tandoori" },
-  // Seafood
-  { id:"item-shrimp-korma",        name:"Shrimp Korma",             section:"Seafood" },
-  { id:"item-tandoori-shrimp-masala",name:"Tandoori Shrimp Masala", section:"Seafood" },
-  { id:"item-shrimp-bhuna",        name:"Shrimp Bhuna",             section:"Seafood" },
-  { id:"item-shrimp-manglorian",   name:"Shrimp Manglorian",        section:"Seafood" },
-  { id:"item-fish-curry",          name:"Manglorian Fish Curry",    section:"Seafood" },
-  { id:"item-shrimp-sag",          name:"Shrimp Sag",               section:"Seafood" },
-  { id:"item-shrimp-vindaloo",     name:"Shrimp Vindaloo",          section:"Seafood" },
-  { id:"item-shrimp-malai",        name:"Shrimp Malai",             section:"Seafood" },
-  { id:"item-shrimp-biriyani",     name:"Shrimp Biriyani",          section:"Seafood" },
-  // Medley
-  { id:"item-dhaba",               name:"Dhaba Medley",             section:"Medley" },
-  { id:"item-sag-medley",          name:"Sag Medley",               section:"Medley" },
-  { id:"item-masala-medley",       name:"Masala Medley",            section:"Medley" },
-  { id:"item-vindaloo-medley",     name:"Vindaloo Medley",          section:"Medley" },
-  { id:"item-biriyani-medley",     name:"Biriyani Medley",          section:"Medley" },
-  { id:"item-korma-medley",        name:"Korma Medley",             section:"Medley" },
-  { id:"item-bhuna-medley",        name:"Bhuna Medley",             section:"Medley" },
-  { id:"item-madras-medley",       name:"Madras Medley",            section:"Medley" },
-  // Vegetarian
-  { id:"item-aloo-gobi",           name:"Aloo Gobi",                section:"Vegetarian" },
-  { id:"item-baingan",             name:"Baingan Bhurtha",          section:"Vegetarian" },
-  { id:"item-chana-masala",        name:"Chana Masala",             section:"Vegetarian" },
-  { id:"item-palak-paneer",        name:"Palak Paneer",             section:"Vegetarian" },
-  { id:"item-malai-kofta",         name:"Malai Kofta",              section:"Vegetarian" },
-  { id:"item-shahi-paneer",        name:"Shahi Paneer Tikka Masala",section:"Vegetarian" },
-  { id:"item-navaratan",           name:"Navaratan Korma",          section:"Vegetarian" },
-  { id:"item-dal-maharani",        name:"Dal Maharani Makhni",      section:"Vegetarian" },
-  { id:"item-dal-tarka",           name:"Dal Tarka",                section:"Vegetarian" },
-  { id:"item-veg-biriyani",        name:"Vegetable Biriyani",       section:"Vegetarian" },
-  { id:"item-chana-sag",           name:"Chana Sag",                section:"Vegetarian" },
-  // Breads
-  { id:"item-naan",                name:"Naan",                     section:"Breads" },
-  { id:"item-onion-naan",          name:"Onion Naan",               section:"Breads" },
-  { id:"item-garlic-naan",         name:"Garlic Naan",              section:"Breads" },
-  { id:"item-rani-naan",           name:"Rani Ki Special Naan",     section:"Breads" },
-  { id:"item-peshwari",            name:"Peshwari Naan",            section:"Breads" },
-  { id:"item-poori",               name:"Poori",                    section:"Breads" },
-  { id:"item-chapathi",            name:"Chapathi",                 section:"Breads" },
-  { id:"item-aloo-paratha",        name:"Aloo Paratha",             section:"Breads" },
-  { id:"item-keema-paratha",       name:"Keema Paratha",            section:"Breads" },
-  // Sides
-  { id:"item-mango-chutney",       name:"Mango Chutney",            section:"Sides" },
-  { id:"item-mixed-pickles",       name:"Mixed Pickles",            section:"Sides" },
-  { id:"item-raita",               name:"Raita",                    section:"Sides" },
-  { id:"item-rice",                name:"Basmati Rice",             section:"Sides" },
-  { id:"item-masala-sauce",        name:"Masala Sauce",             section:"Sides" },
-  // Drinks
-  { id:"item-mango-lassi",         name:"Mango Lassi",              section:"Drinks" },
-  { id:"item-sweet-lassi",         name:"Sweet Lassi",              section:"Drinks" },
-  { id:"item-nemkin-lassi",        name:"Nemkin Lassi",             section:"Drinks" },
-  { id:"item-nimbu-pani",          name:"Nimbu Pani",               section:"Drinks" },
-  { id:"item-root-beer",           name:"Root Beer",                section:"Drinks" },
-  { id:"item-san-pellegrino",      name:"San Pellegrino",           section:"Drinks" },
-  { id:"item-poland-spring",       name:"Poland Spring",            section:"Drinks" },
-  { id:"item-juices",              name:"Fresh Juice",              section:"Drinks" },
-  { id:"item-soda",                name:"Soda",                     section:"Drinks" },
-  { id:"item-tea-coffee",          name:"Tea or Coffee",            section:"Drinks" },
-];
+// Derived from the canonical menu (lib/menu.js) — never hand-maintained, so
+// this can't drift the way a duplicated item list would.
+const SECTION_BY_ITEM_ID = Object.fromEntries(
+  CANONICAL_SECTIONS.flatMap(section =>
+    section.subsections.flatMap(sub => sub.ids.map(id => [id, section.title]))
+  )
+);
+const MENU_ITEMS = CANONICAL_ITEMS.map(item => ({
+  id: item.id,
+  name: item.name,
+  section: SECTION_BY_ITEM_ID[item.id] ?? "Other",
+}));
 
 const SECTIONS = [...new Set(MENU_ITEMS.map(i => i.section))];
 
 // ── API helpers ──────────────────────────────────────────────────
 async function fetchImages() {
   const res = await fetch(`${API_BASE}/api/images/list`, {
-    headers: { "x-manager-secret": MANAGER_SECRET },
+    headers: { "x-manager-secret": getManagerSecret() },
   });
   if (!res.ok) throw new Error("Failed to load images");
   return res.json();
@@ -140,7 +40,7 @@ async function uploadImage(itemId, file, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE}/api/images/manage`);
-    xhr.setRequestHeader("x-manager-secret", MANAGER_SECRET);
+    xhr.setRequestHeader("x-manager-secret", getManagerSecret());
     xhr.upload.onprogress = e => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -156,7 +56,7 @@ async function uploadImage(itemId, file, onProgress) {
 async function deleteImage(itemId) {
   const res = await fetch(`${API_BASE}/api/images/manage`, {
     method:  "DELETE",
-    headers: { "Content-Type":"application/json", "x-manager-secret": MANAGER_SECRET },
+    headers: { "Content-Type":"application/json", "x-manager-secret": getManagerSecret() },
     body:    JSON.stringify({ itemId }),
   });
   if (!res.ok) throw new Error("Failed to delete image");

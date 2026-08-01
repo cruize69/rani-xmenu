@@ -123,8 +123,12 @@ function LiveTracker({ orderId, initialStatus }) {
   const [readyBurst, setReadyBurst] = useState(false);
   const intervalRef = useRef(null);
 
-  // DEMO: auto-advance through stages for preview
+  // DEMO: auto-advance through stages — only when there's no real order to
+  // poll (e.g. visiting this page directly without a Stripe session_id).
+  // Real orders rely solely on the polling effect below.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("session_id")) return;
     const t1 = setTimeout(() => {
       setPrevStage(0); setStage(1); setLastUpdate(new Date());
     }, 5000);

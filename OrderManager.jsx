@@ -1,9 +1,9 @@
 // OrderManager.jsx — Rani Mahal order + charge management dashboard
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { getManagerSecret } from "./lib/managerAuth.js";
 
-const MANAGER_SECRET = process.env.REACT_APP_MANAGER_SECRET ?? process.env.NEXT_PUBLIC_MANAGER_SECRET ?? "";
-const API_BASE       = process.env.REACT_APP_API_BASE       ?? process.env.NEXT_PUBLIC_API_BASE       ?? "";
+const API_BASE       = ""; // same-origin — /api/* is served by this deployment
 const POLL_INTERVAL  = 10_000;
 
 const STATUS = {
@@ -32,7 +32,7 @@ const fmtFull = iso => new Date(iso).toLocaleString("en-US",      { month:"short
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { "Content-Type":"application/json", "x-manager-secret":MANAGER_SECRET, ...(options.headers??{}) },
+    headers: { "Content-Type":"application/json", "x-manager-secret":getManagerSecret(), ...(options.headers??{}) },
   });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json();
