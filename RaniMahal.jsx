@@ -159,34 +159,40 @@ function Badge({ type, label }) {
   );
 }
 
-const ITEM_CARD_FILTER = "saturate(1.12) contrast(1.05)";
-
 function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
   const qty = cartEntry?.qty ?? 0;
   return (
     <div
       onClick={() => onOpen(item)}
-      onMouseEnter={e => e.currentTarget.style.filter = `${ITEM_CARD_FILTER} brightness(0.92)`}
-      onMouseLeave={e => e.currentTarget.style.filter = ITEM_CARD_FILTER}
-      style={{ position:"relative", minHeight:150, backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", filter: ITEM_CARD_FILTER, cursor:"pointer", borderBottom:"0.5px solid rgba(250,246,239,0.07)", display:"flex", alignItems:"flex-end", transition:"filter 0.15s" }}>
-      {!imageUrl && (
-        <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
-      )}
-      {/* Scrim — heavy only right behind the text at the bottom, fading to
-          nearly nothing by three-quarters up, so most of the photo stays
-          vivid instead of being uniformly darkened. Kept moderate (not a
-          near-opaque wash) so the image still reads clearly through it. */}
-      <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(8,7,6,0.8) 0%, rgba(8,7,6,0.48) 38%, rgba(8,7,6,0.1) 70%, rgba(8,7,6,0) 100%)" }} />
-      {qty > 0 && (
-        <div style={{ position:"absolute", top:10, right:10, zIndex:2, width:24, height:24, borderRadius:"50%", background:"#E8A82E", color:"#080706", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 1px 4px rgba(0,0,0,0.4)" }}>{qty}</div>
-      )}
-      <div style={{ position:"relative", zIndex:1, width:"100%", padding:16 }}>
+      onMouseEnter={e => e.currentTarget.style.background="#1c1814"}
+      onMouseLeave={e => e.currentTarget.style.background="#12100e"}
+      style={{ background:"#12100e", display:"flex", alignItems:"stretch", cursor:"pointer", position:"relative", borderBottom:"0.5px solid rgba(250,246,239,0.07)", transition:"background 0.1s" }}>
+      {/* Info — kept as plain text next to the photo, not overlaid on it.
+          Every item in a section gets a full-bleed photo now, so stacking
+          text on top of each one too would turn a long list into a wall of
+          heavy image-and-scrim blocks; side-by-side stays scannable. */}
+      <div style={{ flex:1, minWidth:0, padding:"16px 12px 16px 16px" }}>
         <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:8, marginBottom:4 }}>
-          <p style={{ fontFamily:"'Fraunces',serif", fontSize:17, fontWeight:600, color:"#FAF6EF", lineHeight:1.25, flex:1, minWidth:0, textShadow:"0 1px 6px rgba(0,0,0,0.6)" }}>{item.name}</p>
-          <p style={{ fontSize:15, fontWeight:700, color:"#FAF6EF", whiteSpace:"nowrap", flexShrink:0, textShadow:"0 1px 6px rgba(0,0,0,0.6)" }}>{fmt(item.price)}</p>
+          <p style={{ fontFamily:"'Fraunces',serif", fontSize:16, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, flex:1, minWidth:0 }}>{item.name}</p>
+          <p style={{ fontSize:15, fontWeight:600, color:"#FAF6EF", whiteSpace:"nowrap", flexShrink:0 }}>{fmt(item.price)}</p>
         </div>
-        <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:14, color:"#EDE6DC", lineHeight:1.55, marginBottom:item.badge ? 6 : 0, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", textShadow:"0 1px 5px rgba(0,0,0,0.65)" }}>{item.desc}</p>
+        <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:14.5, color:"#B8A995", lineHeight:1.6, marginBottom:item.badge ? 4 : 0, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</p>
         {item.badge && <Badge type={item.badge} label={item.badge==="bestseller"?"Most Loved":item.badge==="chef"?"Chef's selection":"Spicy"} />}
+      </div>
+      {/* Photo — full bleed to the row's own top/right/bottom edges: no
+          padding gap, no border-radius of its own (the list wrapper's own
+          overflow:hidden + rounded corners clip the first/last row's photo
+          into shape automatically). The qty badge sits inset in the corner
+          rather than overhanging it — an overhang here would spill past
+          that same outer clip and get cut off, unlike the old inset photo
+          which had a padding gap to overhang into. */}
+      <div style={{ width:136, flexShrink:0, position:"relative", backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
+        {!imageUrl && (
+          <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+        )}
+        {qty > 0 && (
+          <div style={{ position:"absolute", top:8, right:8, width:22, height:22, borderRadius:"50%", background:"#E8A82E", color:"#080706", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", zIndex:2, boxShadow:"0 1px 4px rgba(0,0,0,0.4)" }}>{qty}</div>
+        )}
       </div>
     </div>
   );
