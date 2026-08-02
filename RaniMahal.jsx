@@ -158,13 +158,17 @@ function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
         <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:14.5, color:"#B8A995", lineHeight:1.6, marginBottom:item.badge ? 4 : 0, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</p>
         {item.badge && <Badge type={item.badge} label={item.badge==="bestseller"?"Most Loved":item.badge==="chef"?"Chef's selection":"Spicy"} />}
       </div>
-      {/* Photo */}
-      <div style={{ width:96, height:96, borderRadius:10, flexShrink:0, order:2, backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", overflow:"hidden", position:"relative", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
-        {!imageUrl && (
-          <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
-        )}
+      {/* Photo — the crop box clips overflow for its rounded corners, so the
+          qty badge lives in an unclipped wrapper around it, not inside it,
+          otherwise its corner overhang gets cut off by that same clip. */}
+      <div style={{ width:96, height:96, flexShrink:0, order:2, position:"relative" }}>
+        <div style={{ width:"100%", height:"100%", borderRadius:10, backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", overflow:"hidden", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
+          {!imageUrl && (
+            <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+          )}
+        </div>
         {qty > 0 && (
-          <div style={{ position:"absolute", top:-6, right:-6, width:22, height:22, borderRadius:"50%", background:"#E8A82E", color:"#080706", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", zIndex:2 }}>{qty}</div>
+          <div style={{ position:"absolute", top:-7, right:-7, width:22, height:22, borderRadius:"50%", background:"#E8A82E", color:"#080706", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", zIndex:2, boxShadow:"0 0 0 2px #12100e" }}>{qty}</div>
         )}
       </div>
     </div>
@@ -658,7 +662,7 @@ export default function RaniMahal() {
     if (!addParam) return;
 
     const ids = addParam.split(",").map(s => s.trim()).filter(Boolean);
-    let addedCount = 0;
+    const addedNames = [];
 
     setCart(prev => {
       const next = { ...prev };
@@ -674,14 +678,20 @@ export default function RaniMahal() {
           spice: existing?.spice ?? null, note: existing?.note ?? "",
           baseId: id,
         };
-        addedCount++;
+        addedNames.push(canonical.name);
       });
       return next;
     });
 
-    if (addedCount > 0) {
-      setDrawerOpen(true);
-      showNotice(addedCount === 1 ? "Added to your cart — ready when you are." : `${addedCount} items added to your cart — ready when you are.`);
+    // Deliberately don't open the cart drawer here — a visitor arriving
+    // from the marketing site's "Order this" links wants to keep browsing,
+    // not have their view blocked by an interruption they didn't ask for.
+    // The toast plus the persistent mobile cart bar (itemCount>0, already
+    // rendered below) are enough confirmation without breaking that flow.
+    if (addedNames.length === 1) {
+      showNotice(`${addedNames[0]} added to your cart — ready when you are.`);
+    } else if (addedNames.length > 1) {
+      showNotice(`${addedNames.length} items added to your cart — ready when you are.`);
     }
 
     // Drop ?add= from the URL so a refresh or back-navigation can't re-add it
@@ -798,7 +808,7 @@ export default function RaniMahal() {
         <div style={{ padding:"12px 20px 10px", display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:16, borderBottom:"1.5px solid #E8A82E" }}>
           {/* Left — name + tagline stacked */}
           <div>
-            <h1 style={{ fontFamily:"'Great Vibes',cursive", fontSize:34, fontWeight:400, color:"#FAF6EF", lineHeight:1, marginBottom:2 }}>Rani Mahal</h1>
+            <h1 style={{ fontFamily:"'Great Vibes',cursive", fontSize:"clamp(22px, 8vw, 34px)", fontWeight:400, color:"#FAF6EF", lineHeight:1, marginBottom:2, whiteSpace:"nowrap" }}>Rani Mahal</h1>
             <p style={{ fontFamily:"'Inter',sans-serif", fontSize:10, fontWeight:500, letterSpacing:"0.16em", textTransform:"uppercase", color:"#E8A82E" }}>Fine Indian Cuisine</p>
           </div>
           {/* Right — location + phone stacked, account entry point */}
