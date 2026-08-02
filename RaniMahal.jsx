@@ -35,6 +35,24 @@ const QA_BREADS  = ["qa-garlic-naan","qa-peshwari","qa-onion-naan","qa-rani-naan
 const QA_DRINKS  = ["qa-mango-lassi","qa-sweet-lassi","qa-nimbu-pani"];
 const QA_COOLING = ["qa-raita","qa-mango-chutney"];
 
+// Quick-add ids have no photo of their own — each maps to the real menu
+// item it represents, so the rail reuses the same shared photo library
+// (ImageManager -> /api/images/list) rather than needing separate images.
+const QA_ITEM_ID = {
+  "qa-garlic-naan":   "item-garlic-naan",
+  "qa-peshwari":      "item-peshwari",
+  "qa-onion-naan":    "item-onion-naan",
+  "qa-rani-naan":     "item-rani-naan",
+  "qa-aloo-paratha":  "item-aloo-paratha",
+  "qa-plain-naan":    "item-naan",
+  "qa-keema-paratha": "item-keema-paratha",
+  "qa-raita":         "item-raita",
+  "qa-mango-chutney": "item-mango-chutney",
+  "qa-mango-lassi":   "item-mango-lassi",
+  "qa-sweet-lassi":   "item-sweet-lassi",
+  "qa-nimbu-pani":    "item-nimbu-pani",
+};
+
 function cartHasType(cart, set) { return Object.values(cart).some(v => set.has(v.baseId)); }
 function cartHasBread(cart)     { return cartHasType(cart, S.BREAD) || QA_BREADS.some(k => cart[k]); }
 function cartHasDrink(cart)     { return cartHasType(cart, S.DRINK) || QA_DRINKS.some(k => cart[k]); }
@@ -321,7 +339,7 @@ function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
   );
 }
 
-function CartRow({ entry, onQty }) {
+function CartRow({ entry, onQty, onRemove }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 1.25rem", borderBottom:"0.5px solid rgba(250,246,239,0.05)" }}>
       <div style={{ display:"flex", alignItems:"center", border:"1px solid rgba(250,246,239,0.12)", borderRadius:20, flexShrink:0 }}>
@@ -334,7 +352,23 @@ function CartRow({ entry, onQty }) {
         {entry.spice && <p style={{ fontSize:12, color:"#B8A995", marginTop:1 }}>{entry.spice}</p>}
         {entry.note  && <p style={{ fontSize:12, color:"#B8A995", marginTop:1 }}>{entry.note}</p>}
       </div>
-      <span style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", whiteSpace:"nowrap", flexShrink:0 }}>{fmt(entry.price*entry.qty)}</span>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4, flexShrink:0 }}>
+        <span style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", whiteSpace:"nowrap" }}>{fmt(entry.price*entry.qty)}</span>
+        <button
+          onClick={() => onRemove(entry.baseId)}
+          aria-label={`Remove ${entry.name} from cart`}
+          style={{ width:24, height:24, background:"transparent", border:"none", color:"#B8A995", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}
+          onMouseEnter={e => e.currentTarget.style.color="#D9482C"}
+          onMouseLeave={e => e.currentTarget.style.color="#B8A995"}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 7h16" />
+            <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+            <path d="M10 11v6M14 11v6" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -358,7 +392,7 @@ function rankedQuickAdds(cart) {
     .sort((a, b) => priority(a.id) - priority(b.id));
 }
 
-function CompleteMealRail({ cart, onQty }) {
+function CompleteMealRail({ cart, onQty, images }) {
   if (cartCount(cart) === 0) return null;
   const items = rankedQuickAdds(cart);
 
@@ -368,21 +402,36 @@ function CompleteMealRail({ cart, onQty }) {
       <div style={{ display:"flex", gap:8, overflowX:"auto", padding:"0 1.25rem 4px", scrollbarWidth:"none" }}>
         {items.map(item => {
           const qty = cart[item.id]?.qty ?? 0;
+          // Quick-adds share the same photo library as the full menu (see
+          // QA_ITEM_ID) rather than needing separate photography.
+          const imageUrl = images?.[QA_ITEM_ID[item.id]] ?? null;
           return (
-            <div key={item.id} style={{ flexShrink:0, width:126, background:"#1c1814", border:"0.5px solid rgba(250,246,239,0.1)", borderRadius:12, padding:10 }}>
-              {item.star && <span style={{ display:"inline-block", fontSize:8.5, fontWeight:600, letterSpacing:"0.06em", color:"#E8A82E", marginBottom:4 }}>MOST LOVED</span>}
-              <p style={{ fontSize:12.5, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, minHeight:32, marginBottom:6 }}>{item.name}</p>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <span style={{ fontSize:12, color:"#B8A995" }}>{fmt(item.price)}</span>
-                {qty > 0 ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                    <button aria-label={`Remove one ${item.name}`} onClick={() => onQty(item.id,-1)} style={{ width:20, height:20, borderRadius:"50%", background:"transparent", border:"1px solid #E8A82E", color:"#E8A82E", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
-                    <span style={{ fontSize:12, color:"#FAF6EF", minWidth:12, textAlign:"center" }}>{qty}</span>
-                    <button aria-label={`Add another ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:20, height:20, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-                  </div>
-                ) : (
-                  <button aria-label={`Add ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:22, height:22, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:14, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-                )}
+            // Full-bleed photo — the whole card is the image, text sits on
+            // a gradient scrim over the bottom of it, so the photo gets the
+            // maximum area this fixed-width rail card can offer instead of
+            // splitting space between a photo strip and a separate text panel.
+            <div key={item.id} style={{ flexShrink:0, width:126, height:150, position:"relative", borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
+              {!imageUrl && (
+                <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+              )}
+              {item.star && (
+                <span style={{ position:"absolute", top:6, left:6, zIndex:2, fontSize:8, fontWeight:600, letterSpacing:"0.05em", color:"#080706", background:"#E8A82E", padding:"2px 6px", borderRadius:10 }}>MOST LOVED</span>
+              )}
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(8,7,6,0.95) 0%, rgba(8,7,6,0.8) 34%, rgba(8,7,6,0.05) 68%, rgba(8,7,6,0) 100%)" }} />
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:10 }}>
+                <p style={{ fontSize:12.5, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, marginBottom:6 }}>{item.name}</p>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <span style={{ fontSize:12, color:"#FAF6EF" }}>{fmt(item.price)}</span>
+                  {qty > 0 ? (
+                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <button aria-label={`Remove one ${item.name}`} onClick={() => onQty(item.id,-1)} style={{ width:20, height:20, borderRadius:"50%", background:"transparent", border:"1px solid #E8A82E", color:"#E8A82E", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                      <span style={{ fontSize:12, color:"#FAF6EF", minWidth:12, textAlign:"center" }}>{qty}</span>
+                      <button aria-label={`Add another ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:20, height:20, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                    </div>
+                  ) : (
+                    <button aria-label={`Add ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:22, height:22, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:14, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -718,28 +767,38 @@ export default function RaniMahal() {
     });
   }, []);
 
+  // Single source of truth for cart-key derivation: quick-add items are
+  // stored under their bare id ("qa-garlic-naan"), regular menu items under
+  // id+"_1". Every qty-changing path (main cart rows, quick-add chips, the
+  // "Complete your meal" rail) must agree on this or an id ends up editing
+  // a different key than the one actually holding that item's line — which
+  // is exactly what happened before this was unified: adjusting a quick-add
+  // item's qty from the main cart list silently created a second, broken
+  // $0 entry instead of touching the real one.
+  const cartKeyFor = (baseId) => (baseId.startsWith("qa-") ? baseId : baseId + "_1");
+
   const adjustQty = useCallback((baseId, delta) => {
     updateCart(prev => {
-      const key = baseId+"_1";
+      const key = cartKeyFor(baseId);
       if (!prev[key] && delta<0) return prev;
-      const entry = prev[key] || { name:ITEM_MAP[baseId]?.name??baseId, price:ITEM_MAP[baseId]?.price??0, qty:0, spice:null, note:"", baseId };
+      const isQA = baseId.startsWith("qa-");
+      const source = isQA ? QA[baseId] : ITEM_MAP[baseId];
+      const entry = prev[key] || { name:source?.name??baseId, price:source?.price??0, qty:0, spice:null, note:"", baseId };
       const qty = Math.max(0, entry.qty+delta);
       if (qty===0) { const n={...prev}; delete n[key]; return n; }
       return { ...prev, [key]:{ ...entry, qty } };
     });
   }, []);
 
-  const upsellQty = useCallback((id, delta) => {
-    const item = QA[id]; if (!item) return;
+  // One-click full removal, regardless of current quantity — used by the
+  // cart drawer's remove button so removing a qty-5 item doesn't take 5 taps.
+  const removeItem = useCallback((baseId) => {
     updateCart(prev => {
-      const entry = prev[id] || { name:item.name, price:item.price, qty:0, spice:null, note:"", baseId:id };
-      const qty = Math.max(0, entry.qty+delta);
-      if (qty===0) { const n={...prev}; delete n[id]; return n; }
-      return { ...prev, [id]:{ ...entry, qty } };
+      const key = cartKeyFor(baseId);
+      if (!prev[key]) return prev;
+      const n = { ...prev }; delete n[key]; return n;
     });
   }, []);
-
-  const stripQty = useCallback((id, delta) => upsellQty(id, delta), [upsellQty]);
 
   // Rebuilds the cart from a past order. Re-prices every line against the
   // *current* menu/quick-add catalog rather than trusting the old order's
@@ -888,7 +947,7 @@ export default function RaniMahal() {
       )}
 
       {/* Modal */}
-      {modalItem && <ItemModal item={modalItem} cart={cart} onClose={()=>setModalItem(null)} onCommit={commitItem} onUpsellQty={upsellQty} imageUrl={cloudImages[modalItem.id] ?? localStorage.getItem("img_"+modalItem.id) ?? null} />}
+      {modalItem && <ItemModal item={modalItem} cart={cart} onClose={()=>setModalItem(null)} onCommit={commitItem} onUpsellQty={adjustQty} imageUrl={cloudImages[modalItem.id] ?? localStorage.getItem("img_"+modalItem.id) ?? null} />}
 
       {/* System notice (e.g. reorder skipped some items) */}
       <Notice message={notice} onDismiss={dismissNotice} />
@@ -921,8 +980,8 @@ export default function RaniMahal() {
               <p style={{ padding:"2.5rem 1.25rem", textAlign:"center", color:"#B8A995", fontSize:14 }}>Your cart is empty.</p>
             ) : (
               <>
-                {entries.map((entry,i)=><CartRow key={i} entry={entry} onQty={adjustQty} />)}
-                <CompleteMealRail cart={cart} onQty={stripQty} />
+                {entries.map((entry,i)=><CartRow key={i} entry={entry} onQty={adjustQty} onRemove={removeItem} />)}
+                <CompleteMealRail cart={cart} onQty={adjustQty} images={cloudImages} />
                 <TipSelector tipPct={tipPct} setTipPct={setTipPct} tipCustom={tipCustom} setTipCustom={setTipCustom} subtotal={subtotal} />
                 <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
                   {[
