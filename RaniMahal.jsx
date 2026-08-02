@@ -914,7 +914,6 @@ export default function RaniMahal() {
           {/* Section header */}
           <div style={{ marginBottom:"1.5rem", textAlign:"center" }}>
             <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
-            <h2 style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:500, color:"#FAF6EF", lineHeight:1.1 }}>{section?.title}</h2>
             {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
           </div>
           {/* Items — no wrapper background, cards are self-contained */}
