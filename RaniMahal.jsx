@@ -141,9 +141,109 @@ body{font-family:'Inter',sans-serif;color:#FAF6EF;-webkit-font-smoothing:antiali
 button{cursor:pointer;font-family:'Inter',sans-serif}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-thumb{background:rgba(232,168,46,0.3);border-radius:2px}
+@keyframes navArrowAttract {
+  0%   { opacity:0; transform:translateX(-6px); }
+  15%  { opacity:1; transform:translateX(0); }
+  30%  { transform:translateX(6px); }
+  45%  { transform:translateX(0); }
+  60%  { transform:translateX(6px); }
+  75%  { transform:translateX(0); }
+  90%  { opacity:1; }
+  100% { opacity:0; transform:translateX(-6px); }
+}
 `;
 
 // ── Components ───────────────────────────────────────────────────
+
+// Horizontally-scrolling section tabs (Appetizers, Soups & Salads, ...).
+// Left/right edge arrows are hidden by default and only appear on hover —
+// they're a discoverability hint, not a primary control, since the row
+// itself is directly touch-scrollable. On a first visit, if the visitor
+// hasn't scrolled the row within a couple seconds and there's more to see,
+// the right arrow gives itself one brief attention-grabbing wiggle so
+// touch users (who never get a hover state) still learn it's scrollable.
+function SectionNav({ sections, activeSection, onSelect }) {
+  const scrollerRef = useRef(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  const [attract, setAttract] = useState(false);
+  const hasInteracted = useRef(false);
+
+  const updateArrows = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateArrows();
+    const el = scrollerRef.current;
+    if (!el) return;
+    const onScroll = () => { hasInteracted.current = true; updateArrows(); };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", updateArrows);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", updateArrows);
+    };
+  }, [updateArrows]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!hasInteracted.current && canRight) {
+        setAttract(true);
+        window.setTimeout(() => setAttract(false), 2600);
+      }
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [canRight]);
+
+  const scrollBy = (dir) => {
+    hasInteracted.current = true;
+    setAttract(false);
+    scrollerRef.current?.scrollBy({ left: dir * scrollerRef.current.clientWidth * 0.7, behavior: "smooth" });
+  };
+
+  return (
+    <div style={{ position:"relative" }} onMouseEnter={() => setHovering(true)} onMouseLeave={() => setHovering(false)}>
+      <div ref={scrollerRef} style={{ overflowX:"auto", scrollbarWidth:"none" }}>
+        <div style={{ display:"flex", minWidth:"max-content", padding:"10px 14px", gap:7 }}>
+          {sections.map(s => {
+            const active = activeSection === s.id;
+            return (
+              <button key={s.id} onClick={() => onSelect(s.id)}
+                style={{ background: active ? "#E8A82E" : "transparent", border: active ? "none" : "0.5px solid rgba(250,246,239,0.15)", color: active ? "#080706" : "#B8A995", fontSize:12, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", padding:"9px 18px", borderRadius:24, transition:"all 0.15s", whiteSpace:"nowrap", cursor:"pointer", fontFamily:"'Inter',sans-serif", minHeight:40 }}>
+                {s.title}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {canLeft && (
+        <button
+          aria-label="Scroll sections left"
+          onClick={() => scrollBy(-1)}
+          style={{ position:"absolute", left:0, top:0, bottom:0, width:44, display:"flex", alignItems:"center", justifyContent:"flex-start", background:"linear-gradient(to right, #080706 30%, rgba(8,7,6,0))", border:"none", padding:0, cursor:"pointer", opacity: hovering ? 1 : 0, transition:"opacity 0.2s", zIndex:2 }}>
+          <span style={{ width:28, height:28, marginLeft:6, borderRadius:"50%", background:"rgba(232,168,46,0.14)", border:"0.5px solid rgba(232,168,46,0.35)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </span>
+        </button>
+      )}
+      {canRight && (
+        <button
+          aria-label="Scroll sections right"
+          onClick={() => scrollBy(1)}
+          style={{ position:"absolute", right:0, top:0, bottom:0, width:44, display:"flex", alignItems:"center", justifyContent:"flex-end", background:"linear-gradient(to left, #080706 30%, rgba(8,7,6,0))", border:"none", padding:0, cursor:"pointer", opacity: (hovering || attract) ? 1 : 0, transition: attract ? "none" : "opacity 0.2s", zIndex:2 }}>
+          <span style={{ width:28, height:28, marginRight:6, borderRadius:"50%", background: attract ? "#E8A82E" : "rgba(232,168,46,0.14)", border: attract ? "none" : "0.5px solid rgba(232,168,46,0.35)", display:"flex", alignItems:"center", justifyContent:"center", animation: attract ? "navArrowAttract 2.6s ease-in-out 1" : "none" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={attract ? "#080706" : "#E8A82E"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Badge({ type, label }) {
   if (!type || !label) return null;
@@ -166,20 +266,24 @@ function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
       onClick={() => onOpen(item)}
       onMouseEnter={e => e.currentTarget.style.background="#1c1814"}
       onMouseLeave={e => e.currentTarget.style.background="#12100e"}
-      style={{ background:"#12100e", padding:16, display:"flex", gap:12, alignItems:"flex-start", cursor:"pointer", position:"relative", borderBottom:"0.5px solid rgba(250,246,239,0.07)", transition:"background 0.1s" }}>
+      style={{ background:"#12100e", padding:"16px 12px", display:"flex", gap:6, alignItems:"flex-start", cursor:"pointer", position:"relative", borderBottom:"0.5px solid rgba(250,246,239,0.07)", transition:"background 0.1s" }}>
       {/* Info */}
       <div style={{ flex:1, minWidth:0, order:1 }}>
         <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:8, marginBottom:4 }}>
           <p style={{ fontFamily:"'Fraunces',serif", fontSize:16, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, flex:1, minWidth:0 }}>{item.name}</p>
           <p style={{ fontSize:15, fontWeight:600, color:"#FAF6EF", whiteSpace:"nowrap", flexShrink:0 }}>{fmt(item.price)}</p>
         </div>
-        <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:14.5, color:"#B8A995", lineHeight:1.6, marginBottom:item.badge ? 4 : 0, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</p>
+        <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:15, color:"#B8A995", lineHeight:1.6, marginBottom:item.badge ? 4 : 0, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</p>
         {item.badge && <Badge type={item.badge} label={item.badge==="bestseller"?"Most Loved":item.badge==="chef"?"Chef's selection":"Spicy"} />}
       </div>
       {/* Photo — the crop box clips overflow for its rounded corners, so the
           qty badge lives in an unclipped wrapper around it, not inside it,
-          otherwise its corner overhang gets cut off by that same clip. */}
-      <div style={{ width:96, height:96, flexShrink:0, order:2, position:"relative" }}>
+          otherwise its corner overhang gets cut off by that same clip. This
+          size (110) is funded by trimming the row's gap (12→6) and its
+          *horizontal* padding only (16→12; vertical padding stays 16, so
+          row rhythm is untouched) — not by taking width from the text
+          column, which keeps every item name's wrap state unchanged. */}
+      <div style={{ width:110, height:110, flexShrink:0, order:2, position:"relative" }}>
         <div style={{ width:"100%", height:"100%", borderRadius:10, backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", overflow:"hidden", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
           {!imageUrl && (
             <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
@@ -893,27 +997,21 @@ export default function RaniMahal() {
           <span style={{ fontSize:11, color:"#B8A995" }}>327 Mamaroneck Ave, Mamaroneck NY</span>
         </div>
         {/* Nav row */}
-        <div style={{ overflowX:"auto", scrollbarWidth:"none" }}>
-          <div style={{ display:"flex", minWidth:"max-content", padding:"10px 14px", gap:7 }}>
-            {SECTIONS.map(s => {
-              const active = activeSection === s.id;
-              return (
-                <button key={s.id} onClick={() => setActiveSection(s.id)}
-                  style={{ background: active ? "#E8A82E" : "transparent", border: active ? "none" : "0.5px solid rgba(250,246,239,0.15)", color: active ? "#080706" : "#B8A995", fontSize:12, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", padding:"9px 18px", borderRadius:24, transition:"all 0.15s", whiteSpace:"nowrap", cursor:"pointer", fontFamily:"'Inter',sans-serif", minHeight:40 }}>
-                  {s.title}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <SectionNav sections={SECTIONS} activeSection={activeSection} onSelect={setActiveSection} />
       </header>
 
       {/* ── Menu (dark) ── */}
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"0 1rem 140px" }}>
         <div style={{ paddingTop:"2rem" }}>
-          {/* Section header */}
-          <div style={{ marginBottom:"1.5rem", textAlign:"center" }}>
-            <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
+          {/* Section header — Appetizers has no eyebrow shown and no note,
+              so this would otherwise be an empty div still claiming its
+              full marginBottom for nothing, leaving a large blank gap
+              above "Vegetarian". Collapse the margin when there's nothing
+              to show. */}
+          <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
+            {section?.id !== "appetizers" && (
+              <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
+            )}
             {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
           </div>
           {/* Items — no wrapper background, cards are self-contained */}
