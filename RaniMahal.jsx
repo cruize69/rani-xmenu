@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import AccountPortal from "./AccountPortal.jsx";
+
+// Clerk's hooks throw if called outside <ClerkProvider>, and main.jsx only
+// mounts that provider when a publishable key is actually configured — so
+// every real Clerk-hook call in this file is isolated inside components
+// that only ever mount when this is true, never called unconditionally.
+const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 // ── Fonts — matches the Rani Mahal marketing site (Fraunces / Inter / Great Vibes) ──
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
@@ -597,10 +604,37 @@ function Notice({ message, onDismiss }) {
   );
 }
 
+// Only ever mounted when CLERK_ENABLED (see that constant's comment) — opens
+// Clerk's own hosted sign-in modal, which shows whichever methods are
+// enabled in the Clerk dashboard (Google + email, currently). Once the
+// visitor is signed in, hands the real Clerk user id back up so checkout
+// can attribute the order to their account instead of treating it as a guest.
+function ClerkSignInButton({ style, disabled, onSignedIn }) {
+  const { isSignedIn, user } = useUser();
+  const clerk = useClerk();
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (isSignedIn && user && !firedRef.current) {
+      firedRef.current = true;
+      onSignedIn(user.id);
+    }
+  }, [isSignedIn, user]);
+
+  return (
+    <button style={style} disabled={disabled} onClick={() => clerk.openSignIn({ afterSignInUrl: window.location.href })}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+      </svg>
+      Sign in to save your order history
+    </button>
+  );
+}
+
 // ── Checkout gate (inline — no separate import needed) ───────────
 function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAccount }) {
   const [step,       setStep]       = useState("choice");
-  const [email,      setEmail]      = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
@@ -637,24 +671,6 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
     }
   };
 
-  const handleGoogleSignIn = () => {
-    // Production: clerk.openSignIn({ afterSignInUrl: ... })
-    setLoading(true);
-    setTimeout(() => goToStripe({ clerkUserId:"user_google_preview" }), 600);
-  };
-
-  const handleAppleSignIn = () => {
-    setLoading(true);
-    setTimeout(() => goToStripe({ clerkUserId:"user_apple_preview" }), 600);
-  };
-
-  const handleMagicLink = async e => {
-    e.preventDefault();
-    if (!email.includes("@")) { setError("Please enter a valid email"); return; }
-    setLoading(true); setError(null);
-    setTimeout(() => { setLoading(false); setStep("magic-sent"); }, 700);
-  };
-
   const handleGuestContinue = async e => {
     e.preventDefault();
     if (!guestEmail.includes("@")) { setError("Please enter a valid email for your receipt"); return; }
@@ -688,29 +704,17 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
                   Continue as guest
                 </button>
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-                <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
-                <p style={{ fontSize:11, color:"#B8A995", margin:0, whiteSpace:"nowrap" }}>or sign in to save your order history</p>
-                <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
-              </div>
-              <button style={socialBtn} onClick={handleGoogleSignIn} disabled={loading}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-                Continue with Google
-              </button>
-              <button style={socialBtn} onClick={handleAppleSignIn} disabled={loading}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.15-2.19 1.3-2.17 3.87.03 3.06 2.68 4.08 2.71 4.09-.03.07-.42 1.44-1.39 2.61M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="#FAF6EF"/></svg>
-                Continue with Apple
-              </button>
-              <hr style={{ border:"none", borderTop:"0.5px solid rgba(250,246,239,0.08)", margin:"14px 0" }} />
-              <p style={{ fontSize:11, color:"#B8A995", textAlign:"center", marginBottom:10 }}>or sign in with email</p>
-              <form onSubmit={handleMagicLink}>
-                <input type="email" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value)} style={iStyle} required />
-                {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:8 }}>{error}</p>}
-                <button type="submit" style={{ width:"100%", padding:"12px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
-                  {loading ? "Sending…" : "Send sign-in link"}
-                </button>
-                <p style={{ fontSize:11, color:"#B8A995", textAlign:"center", marginTop:8 }}>No password — we email you a one-tap link.</p>
-              </form>
+              {CLERK_ENABLED && (
+                <>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+                    <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
+                    <p style={{ fontSize:11, color:"#B8A995", margin:0, whiteSpace:"nowrap" }}>or sign in to save your order history</p>
+                    <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
+                  </div>
+                  {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:8 }}>{error}</p>}
+                  <ClerkSignInButton style={socialBtn} disabled={loading} onSignedIn={clerkUserId => goToStripe({ clerkUserId })} />
+                </>
+              )}
             </>
           )}
 
@@ -741,17 +745,6 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
                 </button>
               </form>
             </>
-          )}
-
-          {step === "magic-sent" && (
-            <div style={{ textAlign:"center", padding:"24px 0" }}>
-              <div style={{ fontSize:48, marginBottom:16 }}>✉</div>
-              <p style={{ fontSize:18, fontWeight:500, color:"#FAF6EF", marginBottom:8, fontFamily:"'Fraunces',serif" }}>Check your email</p>
-              <p style={{ fontSize:14, color:"#B8A995", lineHeight:1.6, marginBottom:20 }}>We sent a sign-in link to <strong style={{ color:"#FAF6EF" }}>{email}</strong>. Tap it and you'll go straight to checkout.</p>
-              <button style={{ background:"transparent", border:"1px solid rgba(250,246,239,0.15)", color:"#FAF6EF", padding:"9px 20px", borderRadius:10, fontSize:13, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} onClick={() => { setStep("choice"); setError(null); }}>
-                Try a different method
-              </button>
-            </div>
           )}
         </div>
       </div>

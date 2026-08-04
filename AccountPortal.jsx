@@ -2,21 +2,20 @@
 // Standalone account page — order history + favourites + one-tap reorder.
 // Rendered by RaniMahal.jsx in place of the menu when the customer taps "Account".
 //
-// Auth: Clerk (https://clerk.com)
-//   npm install @clerk/clerk-react
-//   Wrap your app root with <ClerkProvider publishableKey={NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
-//   Add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY to Vercel env vars
+// Auth: Clerk (https://clerk.com) — main.jsx mounts <ClerkProvider> only
+// when VITE_CLERK_PUBLISHABLE_KEY is set, so this file never calls Clerk's
+// hooks unconditionally (they throw outside a provider): AccountPortalPage
+// below takes auth as plain props, and the two thin wrapper components at
+// the bottom decide which auth source to pass in — only one of them ever
+// mounts, and only the enabled one touches real Clerk hooks.
 //
 // Guests (no Clerk session) are looked up by the email they used at checkout —
 // RaniMahal.jsx passes that in as `guestEmail`, sourced from localStorage.
 
 import { useState, useEffect } from "react";
+import { useUser, useAuth, useClerk } from "@clerk/clerk-react";
 
-// In production import from @clerk/clerk-react:
-// import { useUser, useClerk } from "@clerk/clerk-react";
-// For preview we mock the Clerk hooks:
-const useUser  = () => ({ isSignedIn: false, user: null, isLoaded: true });
-const useClerk = () => ({ signOut: async () => {} });
+const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
@@ -103,30 +102,40 @@ function OrderCard({ order, onReorder }) {
 }
 
 // ── Account portal ────────────────────────────────────────────────
-function AccountPortalPage({ guestEmail, onStartOrder, onReorder }) {
+// isSignedIn / getToken / signOut arrive as props — see the file header for
+// why this component has no direct Clerk dependency of its own.
+function AccountPortalPage({ guestEmail, onStartOrder, onReorder, isSignedIn, getToken, signOut }) {
   const [tab,     setTab]     = useState("history");
   const [profile, setProfile] = useState(null);
   const [status,  setStatus]  = useState("loading"); // loading | ready | signed-out | error
-  const { isSignedIn }        = useUser();
-  const { signOut }           = useClerk();
 
   useEffect(() => {
-    const token = window.__clerkToken ?? null;
+    let cancelled = false;
 
-    if (!token && !guestEmail) {
-      setStatus("signed-out");
-      return;
-    }
+    (async () => {
+      const token = isSignedIn ? await getToken() : null;
 
-    const headers = { "Content-Type":"application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const url = token ? "/api/account/profile" : `/api/account/profile?email=${encodeURIComponent(guestEmail)}`;
+      if (!token && !guestEmail) {
+        if (!cancelled) setStatus("signed-out");
+        return;
+      }
 
-    fetch(url, { headers })
-      .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
-      .then(data => { setProfile(data); setStatus("ready"); })
-      .catch(() => setStatus("error"));
-  }, [guestEmail]);
+      const headers = { "Content-Type":"application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const url = token ? "/api/account/profile" : `/api/account/profile?email=${encodeURIComponent(guestEmail)}`;
+
+      try {
+        const r = await fetch(url, { headers });
+        if (!r.ok) throw new Error("Not found");
+        const data = await r.json();
+        if (!cancelled) { setProfile(data); setStatus("ready"); }
+      } catch {
+        if (!cancelled) setStatus("error");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [guestEmail, isSignedIn]);
 
   if (status === "loading") return (
     <div style={{ minHeight:"100vh", background:"#080706", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -268,6 +277,20 @@ function AccountPortalPage({ guestEmail, onStartOrder, onReorder }) {
 }
 
 // ── Root export ────────────────────────────────────────────────────
+// Only one of these two ever mounts, chosen by a plain constant check
+// (not a hook), so calling real Clerk hooks stays safe either way.
+function ClerkAwareAccountPortal(props) {
+  const { isSignedIn } = useUser();
+  const { getToken }   = useAuth();
+  const { signOut }    = useClerk();
+  return <AccountPortalPage {...props} isSignedIn={isSignedIn} getToken={getToken} signOut={signOut} />;
+}
+
+function GuestOnlyAccountPortal(props) {
+  return <AccountPortalPage {...props} isSignedIn={false} getToken={async () => null} signOut={async () => {}} />;
+}
+
 export default function AccountPortal({ guestEmail = null, onStartOrder = () => {}, onReorder = () => {} }) {
-  return <AccountPortalPage guestEmail={guestEmail} onStartOrder={onStartOrder} onReorder={onReorder} />;
+  const props = { guestEmail, onStartOrder, onReorder };
+  return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }
