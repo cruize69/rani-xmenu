@@ -434,17 +434,24 @@ function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
   return (
     <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
       <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto" }}>
-        {/* Photo hero */}
-        <div style={{ width:"100%", height:220, background: photo?`url(${photo}) center/cover`:"#1c1814", position:"relative", flexShrink:0 }}>
-          {!photo && <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 12px)" }}><span style={{ fontSize:40, opacity:0.3, color:"#E8A82E" }}>⬡</span></div>}
-          <button onClick={onClose} style={{ position:"absolute", top:12, right:12, width:32, height:32, borderRadius:"50%", background:"rgba(8,7,6,0.75)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+        {/* Photo hero — full-bleed down through the name/desc/price zone.
+            Photos are shot on dark backgrounds, so instead of a hard cut or
+            overlaying text straight on the image (image fatigue), a bottom
+            fade blends the photo into the modal's own solid background —
+            by the time the text starts it's sitting on flat #12100e, not
+            on the photo itself. */}
+        <div style={{ width:"100%", height:340, background: photo?`url(${photo}) center/cover`:"#1c1814", position:"relative", flexShrink:0 }}>
+          {!photo && <span style={{ position:"absolute", top:"38%", left:"50%", transform:"translate(-50%,-50%)", fontSize:40, opacity:0.3, color:"#E8A82E" }}>⬡</span>}
+          <div style={{ position:"absolute", left:0, right:0, bottom:0, height:230, background:"linear-gradient(to top, #12100e 0%, #12100e 38%, rgba(18,16,14,0) 100%)" }} />
+          <button onClick={onClose} style={{ position:"absolute", top:12, right:12, width:32, height:32, borderRadius:"50%", background:"rgba(8,7,6,0.75)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>×</button>
+          <div style={{ position:"absolute", left:"1.25rem", right:"1.25rem", bottom:18 }}>
+            <h2 style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:500, color:"#FAF6EF", marginBottom:6 }}>{item.name}</h2>
+            <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:15, color:"#B8A995", lineHeight:1.6, marginBottom:12 }}>{item.desc}</p>
+            <p style={{ fontSize:17, fontWeight:500, color:"#FAF6EF" }}>{fmt(item.price)}</p>
+          </div>
         </div>
         {/* Body */}
         <div style={{ padding:"1.25rem" }}>
-          <h2 style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:500, color:"#FAF6EF", marginBottom:6 }}>{item.name}</h2>
-          <p style={{ fontFamily:"'Fraunces',serif", fontStyle:"italic", fontSize:15, color:"#B8A995", lineHeight:1.6, marginBottom:12 }}>{item.desc}</p>
-          <p style={{ fontSize:17, fontWeight:500, color:"#FAF6EF", marginBottom:"1.25rem" }}>{fmt(item.price)}</p>
-
           {item.spiceProfile !== "none" && (
             <div style={{ marginBottom:"1.25rem" }}>
               <p style={{ fontSize:12, fontWeight:500, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", marginBottom:8 }}>Spice level</p>
