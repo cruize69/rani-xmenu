@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import AccountPortal from "./AccountPortal.jsx";
@@ -248,6 +248,77 @@ function SectionNav({ sections, activeSection, onSelect }) {
           </span>
         </button>
       )}
+    </div>
+  );
+}
+
+// Icon shared by both the inline and floating "jump to section" triggers —
+// three descending-width lines read as "list of sections" without being
+// confused for the account (person) or cart icons already in the header.
+function JumpIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+// Bottom sheet — every section listed vertically with its item count, so
+// jumping to Drinks or Sides doesn't mean swiping through the whole
+// horizontal pill bar first. Selecting a section closes the sheet and
+// scrolls back to top, since sections swap content in place rather than
+// scrolling to an anchor.
+function SectionJumpSheet({ sections, activeSection, onSelect, onClose, cloudImages }) {
+  // One random photo per section, picked once when the sheet mounts (not on
+  // every render) — so reopening the sheet shows fresh variety across a
+  // section's uploaded photos instead of always the same first one, with no
+  // extra state or timers needed beyond this single one-time computation.
+  const sectionPhotos = useMemo(() => {
+    const map = {};
+    sections.forEach(s => {
+      const candidates = s.subsections.flatMap(sub => sub.ids).filter(id => cloudImages[id]);
+      map[s.id] = candidates.length ? cloudImages[candidates[Math.floor(Math.random() * candidates.length)]] : null;
+    });
+    return map;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+      <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.1rem 1.25rem 0.75rem", flexShrink:0 }}>
+          <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
+          <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>×</button>
+        </div>
+        {/* 3-column thumbnail grid — sized so all 11 sections land in a
+            single screen (no internal scroll on typical phone heights);
+            overflowY:auto stays only as a safety net on very short
+            viewports rather than something the layout is meant to lean on. */}
+        <div style={{ padding:"0.25rem 0.875rem 1.25rem", overflowY:"auto", display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8 }}>
+          {sections.map(s => {
+            const count = s.subsections.reduce((a, sub) => a + sub.ids.length, 0);
+            const photo = sectionPhotos[s.id];
+            const active = s.id === activeSection;
+            return (
+              <button key={s.id} onClick={() => onSelect(s.id)}
+                style={{ position:"relative", aspectRatio:"1/1", borderRadius:12, overflow:"hidden", border: active ? "2px solid #E8A82E" : "0.5px solid rgba(250,246,239,0.1)", padding:0, cursor:"pointer", background:"#1c1814" }}>
+                {photo ? (
+                  <div style={{ position:"absolute", inset:0, backgroundImage:`url(${photo})`, backgroundSize:"cover", backgroundPosition:"center" }} />
+                ) : (
+                  <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+                )}
+                <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(8,7,6,0.92) 0%, rgba(8,7,6,0.55) 42%, rgba(8,7,6,0.05) 75%)" }} />
+                {active && <div style={{ position:"absolute", top:6, right:6, width:8, height:8, borderRadius:"50%", background:"#E8A82E" }} />}
+                <div style={{ position:"absolute", left:0, right:0, bottom:0, padding:"6px 8px" }}>
+                  <p style={{ fontFamily:"'Fraunces',serif", fontSize:12.5, fontWeight:500, lineHeight:1.2, color: active ? "#E8A82E" : "#FAF6EF" }}>{s.title}</p>
+                  <p style={{ fontSize:9.5, color:"#B8A995", marginTop:1 }}>{count} items</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -793,6 +864,33 @@ export default function RaniMahal() {
   const [guestEmail, setGuestEmail] = useState(loadGuestEmail);
   const noticeTimer = useRef(null);
   const [cloudImages, setCloudImages] = useState({});
+  const [showSectionSheet, setShowSectionSheet] = useState(false);
+
+  // Floating "jump to section" duplicate — the header row it normally lives
+  // in is sticky and never actually scrolls away, but once you're deep in a
+  // long section's items, a thumb-reachable floating trigger near the
+  // bottom of the screen is friction-free in a way reaching back up to the
+  // top isn't. rAF-throttled so this doesn't run a state update per pixel.
+  const [showFloatingJump, setShowFloatingJump] = useState(false);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setShowFloatingJump(window.scrollY > 200);
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const jumpToSection = (id) => {
+    setActiveSection(id);
+    setShowSectionSheet(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Load images from cloud on mount — falls back to localStorage in dev.
   // Must be state, not a ref: a ref write doesn't trigger a re-render, so
@@ -996,8 +1094,16 @@ export default function RaniMahal() {
           <span style={{ width:3, height:3, borderRadius:"50%", background:"#B8A995", flexShrink:0 }} />
           <span style={{ fontSize:11, color:"#B8A995" }}>327 Mamaroneck Ave, Mamaroneck NY</span>
         </div>
-        {/* Nav row */}
-        <SectionNav sections={SECTIONS} activeSection={activeSection} onSelect={setActiveSection} />
+        {/* Nav row — jump-to-section trigger first, then the scrolling pills */}
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <button onClick={() => setShowSectionSheet(true)} aria-label="Jump to section"
+            style={{ width:36, height:36, marginLeft:10, flexShrink:0, borderRadius:"50%", background:"rgba(232,168,46,0.14)", border:"0.5px solid rgba(232,168,46,0.35)", color:"#E8A82E", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+            <JumpIcon />
+          </button>
+          <div style={{ flex:1, minWidth:0 }}>
+            <SectionNav sections={SECTIONS} activeSection={activeSection} onSelect={setActiveSection} />
+          </div>
+        </div>
       </header>
 
       {/* ── Menu (dark) ── */}
@@ -1045,6 +1151,21 @@ export default function RaniMahal() {
 
       {/* Modal */}
       {modalItem && <ItemModal item={modalItem} cart={cart} onClose={()=>setModalItem(null)} onCommit={commitItem} onUpsellQty={adjustQty} imageUrl={cloudImages[modalItem.id] ?? localStorage.getItem("img_"+modalItem.id) ?? null} />}
+
+      {/* Jump-to-section sheet */}
+      {showSectionSheet && (
+        <SectionJumpSheet sections={SECTIONS} activeSection={activeSection} onSelect={jumpToSection} onClose={() => setShowSectionSheet(false)} cloudImages={cloudImages} />
+      )}
+
+      {/* Floating jump-to-section trigger — appears once scrolled past the
+          header, sits above the mobile cart bar when one is showing so the
+          two never overlap. */}
+      {showFloatingJump && (
+        <button onClick={() => setShowSectionSheet(true)} aria-label="Jump to section"
+          style={{ position:"fixed", left:16, bottom: itemCount>0 ? 92 : 20, width:52, height:52, borderRadius:"50%", background:"#12100e", border:"1.5px solid #E8A82E", color:"#E8A82E", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", zIndex:190, boxShadow:"0 6px 20px rgba(0,0,0,0.4)" }}>
+          <JumpIcon size={20} />
+        </button>
+      )}
 
       {/* System notice (e.g. reorder skipped some items) */}
       <Notice message={notice} onDismiss={dismissNotice} />
