@@ -67,10 +67,12 @@ async function handleUpload(req, res) {
     const pathname = `menu-images/${itemId}.${ext}`;
     const buf      = fs.readFileSync(file.filepath);
 
+    // A unique URL per upload (Blob's default) — reusing the same URL on
+    // replace meant the browser and Blob's own CDN cache would keep serving
+    // the old cached bytes at that URL even after the content changed.
     const blob = await put(pathname, buf, {
-      access:          "public",
-      contentType:     file.mimetype,
-      addRandomSuffix: false,
+      access:      "public",
+      contentType: file.mimetype,
     });
 
     await kv.set(`image:${itemId}`, blob.url);
