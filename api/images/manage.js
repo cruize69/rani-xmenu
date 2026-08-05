@@ -16,7 +16,11 @@ import fs from "fs";
 // parsed manually below since this config applies to the whole handler.
 export const config = { api: { bodyParser: false } };
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Vercel serverless functions hard-cap the whole request body at 4.5MB —
+// a platform limit below our own file-size check, so anything close to 5MB
+// was getting rejected before this handler even ran. Staying at 4MB leaves
+// headroom for multipart form overhead.
+const MAX_BYTES = 4 * 1024 * 1024;
 const ACCEPTED  = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export default async function handler(req, res) {
@@ -49,7 +53,7 @@ async function handleUpload(req, res) {
     return res.status(400).json({ error: `Invalid file type: ${file.mimetype}. Use JPEG, PNG, WebP or AVIF.` });
   }
   if (file.size > MAX_BYTES) {
-    return res.status(400).json({ error: `File too large (${(file.size/1024/1024).toFixed(1)}MB). Max 5MB.` });
+    return res.status(400).json({ error: `File too large (${(file.size/1024/1024).toFixed(1)}MB). Max 4MB.` });
   }
 
   try {

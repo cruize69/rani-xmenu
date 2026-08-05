@@ -66,8 +66,14 @@ async function uploadImage(itemId, file, onProgress) {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => {
-      if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
-      else reject(new Error(JSON.parse(xhr.responseText).error ?? "Upload failed"));
+      if (xhr.status === 200) { resolve(JSON.parse(xhr.responseText)); return; }
+      // Platform-level rejections (e.g. Vercel's request size limit) come
+      // back as HTML/plain text, not JSON — parsing that would throw inside
+      // this callback and silently hang the upload forever, since a throw
+      // here never reaches the promise's reject.
+      let message = `Upload failed (${xhr.status})`;
+      try { message = JSON.parse(xhr.responseText).error ?? message; } catch {}
+      reject(new Error(message));
     };
     xhr.onerror = () => reject(new Error("Network error"));
     xhr.send(form);
@@ -149,7 +155,7 @@ function PhotoCard({ item, imageUrl, onUploaded, onDeleted }) {
   const handleFile = (file) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) { setError("Please choose an image file"); return; }
-    if (file.size > 5 * 1024 * 1024)    { setError("Image must be under 5MB"); return; }
+    if (file.size > 4 * 1024 * 1024)    { setError("Image must be under 4MB"); return; }
     setError(null);
 
     if (hasImage) { setPendingFile(file); return; }
@@ -328,7 +334,7 @@ function BulkUploadHint() {
     <div style={{ background: "rgba(232,168,46,0.08)", border: `1.5px dashed rgba(232,168,46,0.35)`, borderRadius: 12, padding: "16px 20px", marginBottom: 20, fontSize: 13, color: T.bone, lineHeight: 1.7 }}>
       <strong style={{ color: T.saffron }}>Tips for best results:</strong><br />
       • Square or landscape photos work best (4:3 ratio ideal)<br />
-      • Minimum {MIN_WIDTH}×{MIN_HEIGHT}px recommended — max 5MB per image<br />
+      • Minimum {MIN_WIDTH}×{MIN_HEIGHT}px recommended — max 4MB per image<br />
       • JPEG, PNG, WebP or AVIF accepted<br />
       • Drag and drop photos directly onto each dish card<br />
       • Replacing a photo asks for confirmation first — it can't be undone once confirmed<br />
