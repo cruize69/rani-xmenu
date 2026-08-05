@@ -270,20 +270,7 @@ function JumpIcon({ size = 16 }) {
 // horizontal pill bar first. Selecting a section closes the sheet and
 // scrolls back to top, since sections swap content in place rather than
 // scrolling to an anchor.
-function SectionJumpSheet({ sections, activeSection, onSelect, onClose, cloudImages }) {
-  // One random photo per section, picked once when the sheet mounts (not on
-  // every render) — so reopening the sheet shows fresh variety across a
-  // section's uploaded photos instead of always the same first one, with no
-  // extra state or timers needed beyond this single one-time computation.
-  const sectionPhotos = useMemo(() => {
-    const map = {};
-    sections.forEach(s => {
-      const candidates = s.subsections.flatMap(sub => sub.ids).filter(id => cloudImages[id]);
-      map[s.id] = candidates.length ? cloudImages[candidates[Math.floor(Math.random() * candidates.length)]] : null;
-    });
-    return map;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+function SectionJumpSheet({ sections, activeSection, onSelect, onClose, sectionPhotos }) {
   return (
     <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
       <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
@@ -873,6 +860,23 @@ export default function RaniMahal() {
   const [cloudImages, setCloudImages] = useState({});
   const [showSectionSheet, setShowSectionSheet] = useState(false);
 
+  // One random photo per section for the jump-to-section sheet, picked once
+  // per visit and then frozen — reopening the sheet during the same session
+  // must keep showing the same set rather than reshuffling every time,
+  // which reads as flickery/inconsistent rather than intentional variety.
+  // Locks in on the first render where cloudImages has actually loaded, via
+  // a ref rather than state, so freezing doesn't itself trigger a re-render.
+  const sectionPhotosRef = useRef(null);
+  if (!sectionPhotosRef.current && Object.keys(cloudImages).length > 0) {
+    const map = {};
+    SECTIONS.forEach(s => {
+      const candidates = s.subsections.flatMap(sub => sub.ids).filter(id => cloudImages[id]);
+      map[s.id] = candidates.length ? cloudImages[candidates[Math.floor(Math.random() * candidates.length)]] : null;
+    });
+    sectionPhotosRef.current = map;
+  }
+  const sectionPhotos = sectionPhotosRef.current ?? {};
+
   // Floating "jump to section" duplicate — the header row it normally lives
   // in is sticky and never actually scrolls away, but once you're deep in a
   // long section's items, a thumb-reachable floating trigger near the
@@ -1161,7 +1165,7 @@ export default function RaniMahal() {
 
       {/* Jump-to-section sheet */}
       {showSectionSheet && (
-        <SectionJumpSheet sections={SECTIONS} activeSection={activeSection} onSelect={jumpToSection} onClose={() => setShowSectionSheet(false)} cloudImages={cloudImages} />
+        <SectionJumpSheet sections={SECTIONS} activeSection={activeSection} onSelect={jumpToSection} onClose={() => setShowSectionSheet(false)} sectionPhotos={sectionPhotos} />
       )}
 
       {/* Floating jump-to-section trigger — appears once scrolled past the
