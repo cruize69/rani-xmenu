@@ -308,9 +308,18 @@ function SectionJumpSheet({ sections, activeSection, onSelect, onClose, sectionP
         <div {...handleProps} style={{ flexShrink:0 }}>
           <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.6rem 1.25rem 0.75rem" }}>
-            <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {/* Small Mughal arch outline — same motif as the marketing
+                  site, here as a plain SVG stroke rather than a photo, so it
+                  carries the palace theme with zero image-fatigue risk. */}
+              <svg viewBox="0 0 100 130" width="14" height="18" fill="none" aria-hidden="true">
+                <path d="M2 128 L2 72 C2 47 11 29 30 17 C44 8 55 4 50 2 C45 4 56 8 70 17 C89 29 98 47 98 72 L98 128" stroke="#E8A82E" strokeWidth="7" />
+              </svg>
+              <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
+            </div>
             <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>×</button>
           </div>
+          <div style={{ height:1.5, background:"linear-gradient(to right, transparent, #E8A82E 15%, #E8A82E 85%, transparent)" }} />
         </div>
         {/* 3-column thumbnail grid — sized so all 11 sections land in a
             single screen (no internal scroll on typical phone heights);
@@ -1162,13 +1171,19 @@ export default function RaniMahal() {
             <p style={{ fontFamily:"'Inter',sans-serif", fontSize:10, fontWeight:500, letterSpacing:"0.16em", textTransform:"uppercase", color:"#E8A82E" }}>Fine Indian Cuisine</p>
           </div>
           {/* Right — location + phone stacked, account entry point */}
-          <div style={{ textAlign:"right", flexShrink:0, display:"flex", alignItems:"flex-end", gap:14 }}>
+          <div style={{ textAlign:"right", flexShrink:0, display:"flex", alignItems:"flex-end", gap:6 }}>
             <div>
               <p style={{ fontFamily:"'Inter',sans-serif", fontSize:10, fontWeight:500, letterSpacing:"0.12em", textTransform:"uppercase", color:"#B8A995", lineHeight:1.6 }}>Est. 2006 · Mamaroneck, NY</p>
               <a href="tel:9148359066" style={{ fontFamily:"'Inter',sans-serif", fontSize:11, fontWeight:500, color:"#E8A82E", letterSpacing:"0.04em", textDecoration:"none" }}>(914) 835-9066</a>
             </div>
-            <button onClick={() => setView("account")} aria-label="Your account" style={{ width:34, height:34, flexShrink:0, background:"transparent", border:"0.5px solid rgba(250,246,239,0.18)", color:"#FAF6EF", borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:2 }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {/* Sized up from 34px — funded entirely by trimming this row's
+                gap (14->6), so the button's right edge stays exactly where
+                it was and nothing else in the header shifts. */}
+            <button onClick={() => setView("account")} aria-label="Your account"
+              onMouseEnter={e => { e.currentTarget.style.color="#E8A82E"; e.currentTarget.style.borderColor="rgba(232,168,46,0.6)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color="#FAF6EF"; e.currentTarget.style.borderColor="rgba(250,246,239,0.18)"; }}
+              style={{ width:42, height:42, flexShrink:0, background:"transparent", border:"0.5px solid rgba(250,246,239,0.18)", color:"#FAF6EF", borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:2, transition:"color 0.15s, border-color 0.15s" }}>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
               </svg>
