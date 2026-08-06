@@ -71,15 +71,15 @@ export default async function handler(req, res) {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    // Build favourites from order history
-    const favourites = buildFavourites(orders);
+    // Build favorites from order history
+    const favorites = buildFavorites(orders);
 
     return res.status(200).json({
       accountId,
       type:      identity.type,
       profile:   profile ?? { name: null, email: identity.email ?? null },
       orders,
-      favourites,
+      favorites,
       stats: buildStats(orders),
     });
   }
@@ -110,17 +110,19 @@ export default async function handler(req, res) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-function buildFavourites(orders) {
+function buildFavorites(orders) {
   const counts = {};
   orders.forEach(order => {
     (order.items ?? []).forEach(item => {
-      counts[item.name] = (counts[item.name] ?? 0) + item.qty;
+      const entry = counts[item.name] ?? { count: 0, baseId: item.baseId ?? null };
+      entry.count += item.qty;
+      counts[item.name] = entry;
     });
   });
   return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 6)
-    .map(([name, count]) => ({ name, count }));
+    .map(([name, { count, baseId }]) => ({ name, count, baseId }));
 }
 
 function buildStats(orders) {

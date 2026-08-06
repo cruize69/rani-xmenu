@@ -1,5 +1,5 @@
 // AccountPortal.jsx
-// Standalone account page — order history + favourites + one-tap reorder.
+// Standalone account page — order history + favorites + one-tap reorder.
 // Rendered by RaniMahal.jsx in place of the menu when the customer taps "Account".
 //
 // Auth: Clerk (https://clerk.com) — main.jsx mounts <ClerkProvider> only
@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser, useAuth, useClerk } from "@clerk/clerk-react";
+import { ITEM_MAP } from "./lib/menu.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -33,8 +34,19 @@ const S = {
   pill:      (bg, color, border) => ({ display:"inline-flex", alignItems:"center", gap:4, fontSize:11, fontWeight:500, padding:"3px 10px", borderRadius:20, background:bg, color, border:`0.5px solid ${border}` }),
 };
 
+// Small round thumbnail, shared by the collapsed item-stack and the
+// expanded item rows — falls back to the same diagonal-stripe pattern used
+// everywhere else in the app when a photo hasn't been uploaded yet.
+function ItemThumb({ imageUrl, size, radius }) {
+  return (
+    <div style={{ width:size, height:size, borderRadius:radius, flexShrink:0, overflow:"hidden", background:"#1c1814", border:"1.5px solid #080706", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize:"cover", backgroundPosition:"center" }}>
+      {!imageUrl && <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 6px)" }} />}
+    </div>
+  );
+}
+
 // ── Order card ────────────────────────────────────────────────────
-function OrderCard({ order, onReorder }) {
+function OrderCard({ order, onReorder, cloudImages }) {
   const [expanded, setExpanded] = useState(false);
   const statusConfig = {
     new:         { label:"Received",    ...S.pill("rgba(232,168,46,0.14)","#E8A82E","rgba(232,168,46,0.3)") },
@@ -60,9 +72,23 @@ function OrderCard({ order, onReorder }) {
             {fmtDate(order.createdAt)} · #{order.id.slice(-6).toUpperCase()}
           </p>
           {!expanded && (
-            <p style={{ fontSize:13, color:"#FAF6EF", marginTop:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {order.items.map(i => i.name).join(", ")}
-            </p>
+            <>
+              <div style={{ display:"flex", marginTop:7 }}>
+                {order.items.slice(0, 5).map((item, i) => (
+                  <div key={i} style={{ marginLeft: i === 0 ? 0 : -8 }}>
+                    <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={37} radius={9} />
+                  </div>
+                ))}
+                {order.items.length > 5 && (
+                  <div style={{ marginLeft:-8, width:37, height:37, borderRadius:9, flexShrink:0, background:"#1c1814", border:"1.5px solid #080706", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:600, color:"#B8A995" }}>
+                    +{order.items.length - 5}
+                  </div>
+                )}
+              </div>
+              <p style={{ fontSize:13, color:"#FAF6EF", marginTop:6, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {order.items.map(i => i.name).join(", ")}
+              </p>
+            </>
           )}
         </div>
         <span style={{ fontSize:16, color:"#B8A995", transition:"transform 0.2s", transform: expanded ? "rotate(180deg)" : "none", flexShrink:0, marginTop:2 }}>⌄</span>
@@ -74,7 +100,8 @@ function OrderCard({ order, onReorder }) {
           <hr style={S.divider} />
           {order.items.map((item, i) => (
             <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 0", borderBottom: i < order.items.length-1 ? "0.5px solid rgba(250,246,239,0.06)" : "none", gap:10 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:9, flex:1, minWidth:0 }}>
+                <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={44} radius={10} />
                 <span style={{ fontSize:12, color:"#B8A995", flexShrink:0 }}>{item.qty}×</span>
                 <span style={{ fontSize:13, fontWeight:500, color: order.status === "refunded" ? "#B8A995" : "#FAF6EF", textDecoration: order.status === "refunded" ? "line-through" : "none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                   {item.name}
@@ -101,10 +128,40 @@ function OrderCard({ order, onReorder }) {
   );
 }
 
+// ── Favorite card — photo, name, price, one-tap add ────────────────
+function FavoriteCard({ fav, imageUrl, onQuickAdd }) {
+  const item = ITEM_MAP[fav.baseId];
+  const [added, setAdded] = useState(false);
+
+  const handleAdd = () => {
+    onQuickAdd?.(fav.baseId);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:12, background:"#12100e", border:"0.5px solid rgba(250,246,239,0.1)", borderRadius:14, padding:10 }}>
+      <div style={{ width:64, height:64, borderRadius:10, flexShrink:0, overflow:"hidden", background:"#1c1814", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize:"cover", backgroundPosition:"center" }}>
+        {!imageUrl && <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />}
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <p style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fav.name}</p>
+        <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>{item ? `${fmt(item.price)} · ` : ""}Ordered {fav.count}×</p>
+      </div>
+      {fav.baseId && (
+        <button onClick={handleAdd} aria-label={`Add ${fav.name} to cart`}
+          style={{ width:34, height:34, borderRadius:"50%", flexShrink:0, background: added ? "#E8A82E" : "rgba(232,168,46,0.14)", border:"1.5px solid #E8A82E", color: added ? "#080706" : "#E8A82E", fontSize:17, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"background 0.15s, color 0.15s" }}>
+          {added ? "✓" : "+"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Account portal ────────────────────────────────────────────────
 // isSignedIn / getToken / signOut arrive as props — see the file header for
 // why this component has no direct Clerk dependency of its own.
-function AccountPortalPage({ guestEmail, onStartOrder, onReorder, isSignedIn, getToken, signOut }) {
+function AccountPortalPage({ guestEmail, onStartOrder, onReorder, onQuickAdd, cloudImages, isSignedIn, getToken, signOut }) {
   const [tab,     setTab]     = useState("history");
   const [profile, setProfile] = useState(null);
   const [status,  setStatus]  = useState("loading"); // loading | ready | signed-out | error
@@ -151,14 +208,22 @@ function AccountPortalPage({ guestEmail, onStartOrder, onReorder, isSignedIn, ge
         <p style={{ fontSize:13, color:"#B8A995", marginBottom:18, lineHeight:1.55 }}>
           {status === "error"
             ? "We couldn't load your account right now."
-            : "Sign in, or check out as a guest once, and your orders and favourites will show up here."}
+            : "Sign in, or check out as a guest once, and your orders and favorites will show up here."}
         </p>
         <button onClick={onStartOrder} style={S.btnGold}>Start an order</button>
       </div>
     </div>
   );
 
-  const maxCount = profile.favourites[0]?.count ?? 1;
+  const activeOrder = profile.orders.find(o => o.status === "new" || o.status === "in_progress");
+  // Most recent order that isn't the active one — so "previous order" means
+  // the last thing they actually finished, not whatever's still cooking.
+  const previousOrder = profile.orders.find(o => o.id !== activeOrder?.id) ?? null;
+  const usualFav = profile.favorites[0];
+  const reorderUsual = () => {
+    if (!usualFav?.baseId) return;
+    onReorder({ items: [{ baseId: usualFav.baseId, qty: 1, spice: null, note: "" }] });
+  };
 
   return (
     <div style={{ background:"#080706", minHeight:"100vh", fontFamily:"'Inter',sans-serif", color:"#FAF6EF" }}>
@@ -197,24 +262,40 @@ function AccountPortalPage({ guestEmail, onStartOrder, onReorder, isSignedIn, ge
           </div>
         </div>
 
-        {/* Stats */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10, marginBottom:12 }}>
-          {[
-            { val: profile.stats?.totalOrders ?? 0, label:"Total orders" },
-            { val: `${profile.favourites[0]?.count ?? 0}×`, label: profile.favourites[0]?.name ?? "No orders yet" },
-            { val: profile.stats?.topSpice ?? "—", label:"Preferred heat" },
-            { val: fmtDate(profile.stats?.memberSince).split(",")[0] ?? "—", label:"First order" },
-          ].map(({ val, label }) => (
-            <div key={label} style={{ ...S.card, margin:0, textAlign:"center", padding:"14px 10px" }}>
-              <p style={{ fontSize:22, fontWeight:500, color:"#FAF6EF", margin:"0 0 4px", lineHeight:1 }}>{val}</p>
-              <p style={{ fontSize:11, color:"#B8A995", margin:0, letterSpacing:"0.03em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{label}</p>
+        {/* Active order — its own spotlight rather than mixed into history */}
+        {activeOrder && (
+          <div style={{ background:"rgba(232,168,46,0.08)", border:"1px solid rgba(232,168,46,0.3)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+              <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, background:"#E8A82E", color:"#080706" }}>
+                {activeOrder.status === "in_progress" ? "Being made" : "Received"}
+              </span>
+              <span style={{ fontSize:11, color:"#B8A995" }}>#{activeOrder.id.slice(-6).toUpperCase()}</span>
             </div>
-          ))}
-        </div>
+            <p style={{ fontSize:13, color:"#FAF6EF", margin:"0 0 6px" }}>{activeOrder.items.map(i => i.name).join(", ")}</p>
+            <p style={{ fontSize:11, color:"#E8A82E", margin:0 }}>We'll text you when it's ready →</p>
+          </div>
+        )}
+
+        {/* Reorder shortcuts — the two things a returning customer wants
+            most, one tap each, instead of buried behind the Favorites tab. */}
+        {(usualFav?.baseId || previousOrder) && (
+          <div style={{ display:"grid", gridTemplateColumns: (usualFav?.baseId && previousOrder) ? "repeat(2,minmax(0,1fr))" : "1fr", gap:8, marginBottom:16 }}>
+            {usualFav?.baseId && (
+              <button onClick={reorderUsual} style={{ ...S.btnGold, fontSize:13, lineHeight:1.3, padding:"12px 10px" }}>
+                Reorder your usual
+              </button>
+            )}
+            {previousOrder && (
+              <button onClick={() => onReorder(previousOrder)} style={{ ...S.btnOutline, fontSize:13, lineHeight:1.3, padding:"12px 10px", borderColor:"rgba(232,168,46,0.4)", color:"#E8A82E" }}>
+                Reorder your previous order
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-          {[["history","Orders"],["favourites","Favourites"]].map(([key, label]) => (
+          {[["history","Orders"],["favorites","Favorites"]].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)}
               style={{ padding:"8px 18px", borderRadius:20, border:"none", fontSize:12, fontWeight:600, cursor:"pointer", background: tab===key ? "#E8A82E" : "#1c1814", color: tab===key ? "#080706" : "#B8A995", fontFamily:"'Inter',sans-serif" }}>
               {label}
@@ -230,44 +311,22 @@ function AccountPortalPage({ guestEmail, onStartOrder, onReorder, isSignedIn, ge
             </div>
           ) : (
             profile.orders.map(order => (
-              <OrderCard key={order.id} order={order} onReorder={onReorder} />
+              <OrderCard key={order.id} order={order} onReorder={onReorder} cloudImages={cloudImages} />
             ))
           )
         )}
 
-        {/* Favourites */}
-        {tab === "favourites" && (
-          profile.favourites.length === 0 ? (
+        {/* Favorites */}
+        {tab === "favorites" && (
+          profile.favorites.length === 0 ? (
             <div style={{ ...S.card, textAlign:"center", padding:"2.5rem", color:"#B8A995", fontSize:14 }}>
-              Order a few times and your favourites will show up here.
+              Order a few times and your favorites will show up here.
             </div>
           ) : (
-            <div style={S.card}>
-              <p style={{ fontSize:11, fontWeight:600, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", marginBottom:14 }}>Your most ordered</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-                {profile.favourites.map(fav => (
-                  <div key={fav.name} style={{ display:"flex", alignItems:"center", gap:12 }}>
-                    <span style={{ fontSize:13, fontWeight:600, color:"#E8A82E", width:24, textAlign:"right", flexShrink:0 }}>{fav.count}×</span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <p style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", margin:"0 0 4px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fav.name}</p>
-                      <div style={{ height:4, borderRadius:2, background:"#1c1814" }}>
-                        <div style={{ height:"100%", borderRadius:2, background:"#E8A82E", width:`${(fav.count/maxCount)*100}%`, transition:"width 0.4s ease" }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {profile.orders[0] && (
-                <>
-                  <hr style={{ ...S.divider, margin:"16px 0 12px" }} />
-                  <div style={{ textAlign:"center" }}>
-                    <p style={{ fontSize:13, color:"#B8A995", marginBottom:10 }}>Order your usual in one tap</p>
-                    <button onClick={() => onReorder(profile.orders[0])} style={{ ...S.btnGold, width:"auto", padding:"10px 24px", borderRadius:24 }}>
-                      Reorder last order
-                    </button>
-                  </div>
-                </>
-              )}
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {profile.favorites.map(fav => (
+                <FavoriteCard key={fav.name} fav={fav} imageUrl={fav.baseId ? cloudImages?.[fav.baseId] : null} onQuickAdd={onQuickAdd} />
+              ))}
             </div>
           )
         )}
@@ -290,7 +349,7 @@ function GuestOnlyAccountPortal(props) {
   return <AccountPortalPage {...props} isSignedIn={false} getToken={async () => null} signOut={async () => {}} />;
 }
 
-export default function AccountPortal({ guestEmail = null, onStartOrder = () => {}, onReorder = () => {} }) {
-  const props = { guestEmail, onStartOrder, onReorder };
+export default function AccountPortal({ guestEmail = null, onStartOrder = () => {}, onReorder = () => {}, onQuickAdd = () => {}, cloudImages = {} }) {
+  const props = { guestEmail, onStartOrder, onReorder, onQuickAdd, cloudImages };
   return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }

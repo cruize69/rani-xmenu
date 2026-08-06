@@ -21,6 +21,36 @@ const T = {
 
 // ── Menu data (MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS) — imported from lib/menu.js, shared with the backend ──
 
+// Drag-to-dismiss for bottom sheets — attach handleProps to a non-scrolling
+// zone at the top of a sheet (a drag handle, header row, or photo hero),
+// never to a scrollable body, so it can't fight normal content scrolling.
+// Follows the finger in real time; past the threshold on release it closes,
+// otherwise it springs back — no visible pill needed for it to feel real,
+// the sheet just has to move with your thumb.
+function useSwipeToClose(onClose, threshold = 100) {
+  const [dragY, setDragY] = useState(0);
+  const startY = useRef(null);
+  const draggingRef = useRef(false);
+
+  const onTouchStart = e => { startY.current = e.touches[0].clientY; draggingRef.current = true; };
+  const onTouchMove = e => {
+    if (!draggingRef.current) return;
+    const delta = e.touches[0].clientY - startY.current;
+    if (delta > 0) setDragY(delta);
+  };
+  const onTouchEnd = () => {
+    draggingRef.current = false;
+    if (dragY > threshold) onClose();
+    else setDragY(0);
+  };
+
+  return {
+    dragY,
+    handleProps: { onTouchStart, onTouchMove, onTouchEnd },
+    sheetStyle: { transform: `translateY(${dragY}px)`, transition: draggingRef.current ? "none" : "transform 0.25s cubic-bezier(0.32,0.72,0,1)" },
+  };
+}
+
 // ── Classification sets ──────────────────────────────────────────
 const S = {
   CURRY:      new Set(["item-ctm","item-makhni","item-korma-c","item-sagwala","item-vindaloo-c","item-madras-c","item-jalfreazy-c","item-do-paiza-c","item-bhuna-c","item-curry-c","item-rogan","item-sag-l","item-korma-l","item-do-paiza-l","item-kadai","item-vindaloo-l","item-boti","item-phaal","item-shrimp-korma","item-tandoori-shrimp-masala","item-shrimp-bhuna","item-shrimp-manglorian","item-fish-curry","item-shrimp-sag","item-shrimp-vindaloo","item-shrimp-malai","item-dhaba","item-sag-medley","item-masala-medley","item-vindaloo-medley","item-korma-medley","item-bhuna-medley","item-madras-medley","item-aloo-gobi","item-baingan","item-chana-masala","item-palak-paneer","item-malai-kofta","item-shahi-paneer","item-navaratan","item-chana-sag","item-dal-maharani","item-dal-tarka"]),
@@ -112,7 +142,7 @@ function getModalUpsells(baseId, cart) {
     const [items, hint] = is("SPICY") ? [["qa-peshwari","qa-garlic-naan"],"Peshwari Naan's sweetness is a beautiful contrast to the heat. Garlic Naan is always the safe choice — ordered at nearly every table."]
       : is("LAMB")     ? [["qa-garlic-naan","qa-keema-paratha","qa-peshwari"],"Garlic Naan is our most-ordered bread. The Keema Paratha — stuffed with minced lamb — is a perfect match."]
       : is("TANDOORI") ? [["qa-garlic-naan","qa-rani-naan","qa-onion-naan"],"Garlic Naan is what we're known for — and the Rani Ki Special Naan was made for tandoori night."]
-      : is("VEG")      ? [["qa-garlic-naan","qa-aloo-paratha","qa-plain-naan"],"Garlic Naan pairs with every dish on the menu. Aloo Paratha is a hearty favourite with vegetarian plates."]
+      : is("VEG")      ? [["qa-garlic-naan","qa-aloo-paratha","qa-plain-naan"],"Garlic Naan pairs with every dish on the menu. Aloo Paratha is a hearty favorite with vegetarian plates."]
       :                   [["qa-garlic-naan","qa-onion-naan","qa-peshwari"],"Garlic Naan is what we're known for — guests order it with every entrée, sometimes as a starter on its own."];
     sections.push({ label:"Add a bread", hint, items });
   }
@@ -271,12 +301,16 @@ function JumpIcon({ size = 16 }) {
 // scrolls back to top, since sections swap content in place rather than
 // scrolling to an anchor.
 function SectionJumpSheet({ sections, activeSection, onSelect, onClose, sectionPhotos }) {
+  const { dragY, handleProps, sheetStyle } = useSwipeToClose(onClose);
   return (
     <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"88vh", display:"flex", flexDirection:"column" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.1rem 1.25rem 0.75rem", flexShrink:0 }}>
-          <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
-          <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>×</button>
+      <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"88vh", display:"flex", flexDirection:"column", ...sheetStyle }}>
+        <div {...handleProps} style={{ flexShrink:0 }}>
+          <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.6rem 1.25rem 0.75rem" }}>
+            <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
+            <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>×</button>
+          </div>
         </div>
         {/* 3-column thumbnail grid — sized so all 11 sections land in a
             single screen (no internal scroll on typical phone heights);
@@ -391,6 +425,8 @@ function UpsellChip({ id, cart, onQtyChange }) {
 }
 
 function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
+  // Called unconditionally before the item-null early return below (rules of hooks).
+  const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [qty, setQty] = useState(1);
   const [spice, setSpice] = useState(null);
   const [note, setNote] = useState("");
@@ -420,14 +456,16 @@ function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
 
   return (
     <div onClick={e => e.target===e.currentTarget && onClose()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:600, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto" }}>
+      <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto", ...sheetStyle }}>
         {/* Photo hero — full-bleed down through the name/desc/price zone.
             Photos are shot on dark backgrounds, so instead of a hard cut or
             overlaying text straight on the image (image fatigue), a bottom
             fade blends the photo into the modal's own solid background —
             by the time the text starts it's sitting on flat #12100e, not
-            on the photo itself. */}
-        <div style={{ width:"100%", height:340, background: photo?`url(${photo}) center/cover`:"#1c1814", position:"relative", flexShrink:0 }}>
+            on the photo itself. Also doubles as the swipe-down-to-close
+            zone — it doesn't scroll, so dragging it can't conflict with the
+            body's internal scroll below. */}
+        <div {...handleProps} style={{ width:"100%", height:340, background: photo?`url(${photo}) center/cover`:"#1c1814", position:"relative", flexShrink:0 }}>
           {!photo && <span style={{ position:"absolute", top:"38%", left:"50%", transform:"translate(-50%,-50%)", fontSize:40, opacity:0.3, color:"#E8A82E" }}>⬡</span>}
           <div style={{ position:"absolute", left:0, right:0, bottom:0, height:230, background:"linear-gradient(to top, #12100e 0%, #12100e 38%, rgba(18,16,14,0) 100%)" }} />
           <button onClick={onClose} style={{ position:"absolute", top:12, right:12, width:32, height:32, borderRadius:"50%", background:"rgba(8,7,6,0.75)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>×</button>
@@ -706,11 +744,12 @@ function ClerkSignInButton({ style, disabled, onSignedIn }) {
 
 // ── Checkout gate (inline — no separate import needed) ───────────
 function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAccount }) {
+  const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   const [step,       setStep]       = useState("choice");
   const [guestEmail, setGuestEmail] = useState("");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
-  const [returning,  setReturning]  = useState(null); // { totalOrders, favouriteName } | null
+  const [returning,  setReturning]  = useState(null); // { totalOrders, favoriteName } | null
 
   // Recognizes a returning guest by email so we can surface their history —
   // without touching the cart they're actively checking out with.
@@ -721,7 +760,7 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
       if (!res.ok) { setReturning(null); return; }
       const data = await res.json();
       setReturning(data?.orders?.length > 0
-        ? { totalOrders: data.stats?.totalOrders ?? data.orders.length, favouriteName: data.favourites?.[0]?.name ?? null }
+        ? { totalOrders: data.stats?.totalOrders ?? data.orders.length, favoriteName: data.favorites?.[0]?.name ?? null }
         : null);
     } catch { setReturning(null); }
   };
@@ -755,14 +794,16 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
 
   return (
     <div onClick={e => e.target===e.currentTarget && onCancel()} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:700, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div style={{ background:"#12100e", borderRadius:"18px 18px 0 0", width:"100%", maxWidth:520, maxHeight:"92vh", overflowY:"auto" }}>
-        <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
-        <div style={{ padding:"16px 20px 12px", borderBottom:"0.5px solid rgba(250,246,239,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div>
-            <p style={{ fontFamily:"'Great Vibes',cursive", fontSize:26, color:"#FAF6EF", margin:0, lineHeight:1 }}>Rani Mahal</p>
-            <p style={{ fontSize:11, color:"#B8A995", letterSpacing:"0.12em", textTransform:"uppercase", margin:"3px 0 0" }}>Ready to order · {fmt(total)}</p>
+      <div style={{ background:"#12100e", borderRadius:"18px 18px 0 0", width:"100%", maxWidth:520, maxHeight:"92vh", overflowY:"auto", ...sheetStyle }}>
+        <div {...handleProps}>
+          <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
+          <div style={{ padding:"16px 20px 12px", borderBottom:"0.5px solid rgba(250,246,239,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <p style={{ fontFamily:"'Great Vibes',cursive", fontSize:26, color:"#FAF6EF", margin:0, lineHeight:1 }}>Rani Mahal</p>
+              <p style={{ fontSize:11, color:"#B8A995", letterSpacing:"0.12em", textTransform:"uppercase", margin:"3px 0 0" }}>Ready to order · {fmt(total)}</p>
+            </div>
+            <button onClick={onCancel} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
           </div>
-          <button onClick={onCancel} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
         </div>
 
         <div style={{ padding:"16px 20px 32px" }}>
@@ -804,7 +845,7 @@ function CheckoutGate({ cart, total, tip, onCancel, onGuestIdentified, onViewAcc
                 {returning && (
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:"rgba(232,168,46,0.1)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"10px 14px", marginBottom:12 }}>
                     <p style={{ fontSize:12.5, color:"#FAF6EF", lineHeight:1.4, margin:0 }}>
-                      Welcome back! You've ordered with us {returning.totalOrders} time{returning.totalOrders===1?"":"s"}{returning.favouriteName ? ` — usually ${returning.favouriteName}` : ""}.
+                      Welcome back! You've ordered with us {returning.totalOrders} time{returning.totalOrders===1?"":"s"}{returning.favoriteName ? ` — usually ${returning.favoriteName}` : ""}.
                     </p>
                     <button type="button" onClick={() => onViewAccount?.()} style={{ background:"transparent", border:"none", color:"#E8A82E", fontSize:12, fontWeight:600, cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" }}>
                       View past orders
@@ -852,6 +893,7 @@ export default function RaniMahal() {
   const [modalItem, setModalItem] = useState(null);
   const [notice, setNotice]     = useState(null);
   const [drawerOpen,       setDrawerOpen]       = useState(false);
+  const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
   const [tipPct,  setTipPct]  = useState(0);   // 0, 0.15, 0.2, 0.25, or "custom"
   const [tipCustom, setTipCustom] = useState("");
@@ -902,6 +944,30 @@ export default function RaniMahal() {
     setShowSectionSheet(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Locks background scroll and wires Escape to close whichever overlay is
+  // topmost, for every full-screen sheet in this file (item modal, checkout,
+  // cart drawer, jump-to-section) in one place rather than four separate
+  // copies of the same effect. Order below is highest z-index first, so
+  // Escape closes what's actually on top when more than one is somehow open.
+  const anyOverlayOpen = !!modalItem || showCheckoutGate || drawerOpen || showSectionSheet;
+  useEffect(() => {
+    if (!anyOverlayOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = e => {
+      if (e.key !== "Escape") return;
+      if (showCheckoutGate) setShowCheckoutGate(false);
+      else if (modalItem) setModalItem(null);
+      else if (showSectionSheet) setShowSectionSheet(false);
+      else if (drawerOpen) setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [anyOverlayOpen, showCheckoutGate, modalItem, showSectionSheet, drawerOpen]);
 
   // Load images from cloud on mount — falls back to localStorage in dev.
   // Must be state, not a ref: a ref write doesn't trigger a re-render, so
@@ -1043,6 +1109,16 @@ export default function RaniMahal() {
 
   const dismissNotice = () => { setNotice(null); clearTimeout(noticeTimer.current); };
 
+  // Adds one favorite straight to the existing cart from the account portal
+  // — reuses the same adjustQty every other qty control goes through, so
+  // it stays in sync with the cart rather than replacing it like a reorder.
+  const quickAddFavorite = (baseId) => {
+    adjustQty(baseId, 1);
+    const isQA = baseId.startsWith("qa-");
+    const source = isQA ? QA[baseId] : ITEM_MAP[baseId];
+    if (source) showNotice(`${source.name} added to your cart.`);
+  };
+
   const handleCheckout = () => {
     if (itemCount === 0) return;
     setDrawerOpen(false);
@@ -1066,6 +1142,8 @@ export default function RaniMahal() {
         guestEmail={guestEmail}
         onStartOrder={() => setView("menu")}
         onReorder={reorderFromOrder}
+        onQuickAdd={quickAddFavorite}
+        cloudImages={cloudImages}
       />
     );
   }
@@ -1199,11 +1277,13 @@ export default function RaniMahal() {
       {drawerOpen && (
         <>
           <div onClick={()=>setDrawerOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300 }} />
-          <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#12100e", borderRadius:"16px 16px 0 0", zIndex:400, maxHeight:"85vh", overflowY:"auto" }}>
-            <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
-            <div style={{ padding:"1rem 1.25rem", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
-              <span style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:500, color:"#FAF6EF" }}>Your order</span>
-              <button onClick={()=>setDrawerOpen(false)} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
+          <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#12100e", borderRadius:"16px 16px 0 0", zIndex:400, maxHeight:"85vh", overflowY:"auto", ...drawerSwipe.sheetStyle }}>
+            <div {...drawerSwipe.handleProps}>
+              <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
+              <div style={{ padding:"1rem 1.25rem", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
+                <span style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:500, color:"#FAF6EF" }}>Your order</span>
+                <button onClick={()=>setDrawerOpen(false)} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
+              </div>
             </div>
             {entries.length===0 ? (
               <p style={{ padding:"2.5rem 1.25rem", textAlign:"center", color:"#B8A995", fontSize:14 }}>Your cart is empty.</p>

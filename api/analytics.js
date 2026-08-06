@@ -240,21 +240,21 @@ function buildCustomers(orders) {
     const daysSinceLast= Math.floor((now - new Date(c.lastOrder)) / DAY);
     const daysSinceFirst=Math.floor((now - new Date(c.firstOrder)) / DAY);
 
-    // Favourite dish
+    // Favorite dish
     const dishCounts = {};
     c.orders.forEach(o => o.items.forEach(i => {
       dishCounts[i.name] = (dishCounts[i.name] ?? 0) + i.qty;
     }));
     const favDish = Object.entries(dishCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? "";
 
-    // Favourite spice
+    // Favorite spice
     const spiceCounts = {};
     c.orders.forEach(o => o.items.forEach(i => {
       if (i.spice) spiceCounts[i.spice] = (spiceCounts[i.spice] ?? 0) + 1;
     }));
     const favSpice = Object.entries(spiceCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? "";
 
-    // Favourite section
+    // Favorite section
     const secCounts = {};
     c.orders.forEach(o => o.items.forEach(i => {
       if (i.section) secCounts[i.section] = (secCounts[i.section] ?? 0) + 1;

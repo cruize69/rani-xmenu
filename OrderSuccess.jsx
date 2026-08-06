@@ -120,7 +120,6 @@ function LiveTracker({ orderId, initialStatus }) {
   const [prevStage, setPrevStage] = useState(null);
   const [polling, setPolling]     = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [readyBurst, setReadyBurst] = useState(false);
   const intervalRef = useRef(null);
 
   // DEMO: auto-advance through stages — only when there's no real order to
@@ -153,7 +152,7 @@ function LiveTracker({ orderId, initialStatus }) {
           setPrevStage(stage);
           setStage(newStage);
           setLastUpdate(new Date(data.updatedAt));
-          if (newStage === 2) { setPolling(false); setReadyBurst(true); }
+          if (newStage === 2) { setPolling(false); }
         }
       } catch (err) { console.error("Poll error:", err); }
     };
@@ -166,8 +165,6 @@ function LiveTracker({ orderId, initialStatus }) {
 
   return (
     <>
-      <Confetti trigger={readyBurst} />
-
       {/* Ready banner */}
       {isReady && (
         <div style={{ background:"#1A6B3A", borderRadius:12, padding:"16px 20px", marginBottom:20, textAlign:"center", animation:"fadeIn 0.5s ease" }}>
