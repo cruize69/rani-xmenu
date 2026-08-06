@@ -307,19 +307,18 @@ function SectionJumpSheet({ sections, activeSection, onSelect, onClose, sectionP
       <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"88vh", display:"flex", flexDirection:"column", ...sheetStyle }}>
         <div {...handleProps} style={{ flexShrink:0 }}>
           <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0.6rem 1.25rem 0.75rem" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              {/* Small Mughal arch outline — same motif as the marketing
-                  site, here as a plain SVG stroke rather than a photo, so it
-                  carries the palace theme with zero image-fatigue risk. */}
-              <svg viewBox="0 0 100 130" width="14" height="18" fill="none" aria-hidden="true">
-                <path d="M2 128 L2 72 C2 47 11 29 30 17 C44 8 55 4 50 2 C45 4 56 8 70 17 C89 29 98 47 98 72 L98 128" stroke="#E8A82E" strokeWidth="7" />
-              </svg>
-              <p style={{ fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
-            </div>
-            <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>×</button>
+          {/* Centered via a matching-width spacer on the left rather than
+              justify-content:center, so the title sits centered on the
+              sheet itself instead of centered in the leftover space next
+              to the close button. Border moved to the plain hairline every
+              other sheet header in this file uses (CheckoutGate, cart
+              drawer) — the previous gold rule sat directly above the active
+              tile's own gold border and the two competed. */}
+          <div style={{ display:"flex", alignItems:"center", padding:"0.6rem 1.25rem 0.75rem", borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
+            <div style={{ width:32, flexShrink:0 }} />
+            <p style={{ flex:1, textAlign:"center", fontFamily:"'Fraunces',serif", fontSize:19, fontWeight:500, color:"#FAF6EF" }}>Jump to section</p>
+            <button onClick={onClose} aria-label="Close" style={{ width:32, height:32, borderRadius:"50%", background:"rgba(250,246,239,0.08)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>×</button>
           </div>
-          <div style={{ height:1.5, background:"linear-gradient(to right, transparent, #E8A82E 15%, #E8A82E 85%, transparent)" }} />
         </div>
         {/* 3-column thumbnail grid — sized so all 11 sections land in a
             single screen (no internal scroll on typical phone heights);
