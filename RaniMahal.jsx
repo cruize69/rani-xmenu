@@ -405,35 +405,44 @@ function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
   );
 }
 
-function UpsellChip({ id, cart, onQtyChange }) {
+// Full-bleed photo quick-add card — shared by the cart drawer's "Complete
+// your meal" rail and the item modal's upsell sections, so both use the
+// exact same photo treatment instead of drifting apart. Quick-add ids have
+// no photo of their own, so imageUrl is resolved by the caller via
+// QA_ITEM_ID against the real menu item's photo.
+function QuickAddCard({ id, cart, onQty, imageUrl }) {
   const item = QA[id];
   if (!item) return null;
   const qty = cart[id]?.qty ?? 0;
-  const inCart = qty > 0;
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", border:`0.5px solid ${item.star?"rgba(232,168,46,0.4)":"rgba(250,246,239,0.1)"}`, borderRadius:10, background: inCart?"rgba(232,168,46,0.12)":item.star?"#1c1814":"#12100e", position:"relative", transition:"border-color 0.12s" }}>
-      {item.star && <span style={{ position:"absolute", top:-7, left:10, fontSize:9, fontWeight:500, letterSpacing:"0.08em", background:"#E8A82E", color:"#080706", padding:"1px 6px", borderRadius:20 }}>Most Loved</span>}
-      <div style={{ flex:1, minWidth:0 }}>
-        <p style={{ fontSize:14, fontWeight:500, color:"#FAF6EF" }}>{item.name}</p>
-        <p style={{ fontSize:12, color:"#B8A995", marginTop:1 }}>{item.note}</p>
-      </div>
-      <span style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", flexShrink:0 }}>{fmt(item.price)}</span>
-      <div style={{ display:"flex", alignItems:"center", border:"1.5px solid #E8A82E", borderRadius:20, overflow:"hidden", flexShrink:0 }}>
-        {inCart ? (
-          <>
-            <button onClick={() => onQtyChange(id,-1)} style={{ width:28, height:28, background:"transparent", border:"none", color:"#E8A82E", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
-            <span style={{ fontSize:13, fontWeight:500, minWidth:20, textAlign:"center", color:"#FAF6EF" }}>{qty}</span>
-            <button onClick={() => onQtyChange(id,1)} style={{ width:28, height:28, background:"transparent", border:"none", color:"#E8A82E", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-          </>
-        ) : (
-          <button onClick={() => onQtyChange(id,1)} style={{ width:28, height:28, background:"transparent", border:"none", color:"#E8A82E", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-        )}
+    <div style={{ flexShrink:0, width:126, height:150, position:"relative", borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
+      {!imageUrl && (
+        <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+      )}
+      {item.star && (
+        <span style={{ position:"absolute", top:6, left:6, zIndex:2, fontSize:8, fontWeight:600, letterSpacing:"0.05em", color:"#080706", background:"#E8A82E", padding:"2px 6px", borderRadius:10 }}>MOST LOVED</span>
+      )}
+      <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(8,7,6,0.95) 0%, rgba(8,7,6,0.8) 34%, rgba(8,7,6,0.05) 68%, rgba(8,7,6,0) 100%)" }} />
+      <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:10 }}>
+        <p style={{ fontSize:12.5, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, marginBottom:6 }}>{item.name}</p>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ fontSize:12, color:"#FAF6EF" }}>{fmt(item.price)}</span>
+          {qty > 0 ? (
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <button aria-label={`Remove one ${item.name}`} onClick={() => onQty(id,-1)} style={{ width:20, height:20, borderRadius:"50%", background:"transparent", border:"1px solid #E8A82E", color:"#E8A82E", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+              <span style={{ fontSize:12, color:"#FAF6EF", minWidth:12, textAlign:"center" }}>{qty}</span>
+              <button aria-label={`Add another ${item.name}`} onClick={() => onQty(id,1)} style={{ width:20, height:20, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+            </div>
+          ) : (
+            <button aria-label={`Add ${item.name}`} onClick={() => onQty(id,1)} style={{ width:22, height:22, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:14, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
+function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl, cloudImages }) {
   // Called unconditionally before the item-null early return below (rules of hooks).
   const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [qty, setQty] = useState(1);
@@ -531,8 +540,13 @@ function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl }) {
             <div key={sec.label} style={{ marginTop:"1rem", borderTop:"0.5px solid rgba(250,246,239,0.07)", paddingTop:"1rem" }}>
               <p style={{ fontSize:12, fontWeight:500, letterSpacing:"0.15em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{sec.label}</p>
               <p style={{ fontSize:13, color:"#B8A995", lineHeight:1.55, marginBottom:10 }}>{sec.hint}</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-                {sec.items.map(id => <UpsellChip key={id} id={id} cart={cart} onQtyChange={onUpsellQty} />)}
+              {/* Horizontal photo rail, matching the cart drawer's "Complete
+                  your meal" treatment — bleeds past the modal body's own
+                  padding so cards can scroll edge-to-edge. */}
+              <div style={{ display:"flex", gap:8, overflowX:"auto", margin:"0 -1.25rem", padding:"0 1.25rem 4px", scrollbarWidth:"none" }}>
+                {sec.items.map(id => (
+                  <QuickAddCard key={id} id={id} cart={cart} onQty={onUpsellQty} imageUrl={cloudImages?.[QA_ITEM_ID[id]] ?? null} />
+                ))}
               </div>
             </div>
           ))}
@@ -623,42 +637,9 @@ function CompleteMealRail({ cart, onQty, images }) {
     <div style={{ borderTop:"0.5px solid rgba(250,246,239,0.07)", padding:"12px 0" }}>
       <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.15em", textTransform:"uppercase", color:"#E8A82E", marginBottom:10, padding:"0 1.25rem" }}>Complete your meal</p>
       <div style={{ display:"flex", gap:8, overflowX:"auto", padding:"0 1.25rem 4px", scrollbarWidth:"none" }}>
-        {items.map(item => {
-          const qty = cart[item.id]?.qty ?? 0;
-          // Quick-adds share the same photo library as the full menu (see
-          // QA_ITEM_ID) rather than needing separate photography.
-          const imageUrl = images?.[QA_ITEM_ID[item.id]] ?? null;
-          return (
-            // Full-bleed photo — the whole card is the image, text sits on
-            // a gradient scrim over the bottom of it, so the photo gets the
-            // maximum area this fixed-width rail card can offer instead of
-            // splitting space between a photo strip and a separate text panel.
-            <div key={item.id} style={{ flexShrink:0, width:126, height:150, position:"relative", borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
-              {!imageUrl && (
-                <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
-              )}
-              {item.star && (
-                <span style={{ position:"absolute", top:6, left:6, zIndex:2, fontSize:8, fontWeight:600, letterSpacing:"0.05em", color:"#080706", background:"#E8A82E", padding:"2px 6px", borderRadius:10 }}>MOST LOVED</span>
-              )}
-              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(8,7,6,0.95) 0%, rgba(8,7,6,0.8) 34%, rgba(8,7,6,0.05) 68%, rgba(8,7,6,0) 100%)" }} />
-              <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:10 }}>
-                <p style={{ fontSize:12.5, fontWeight:500, color:"#FAF6EF", lineHeight:1.3, marginBottom:6 }}>{item.name}</p>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                  <span style={{ fontSize:12, color:"#FAF6EF" }}>{fmt(item.price)}</span>
-                  {qty > 0 ? (
-                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                      <button aria-label={`Remove one ${item.name}`} onClick={() => onQty(item.id,-1)} style={{ width:20, height:20, borderRadius:"50%", background:"transparent", border:"1px solid #E8A82E", color:"#E8A82E", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
-                      <span style={{ fontSize:12, color:"#FAF6EF", minWidth:12, textAlign:"center" }}>{qty}</span>
-                      <button aria-label={`Add another ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:20, height:20, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:12, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-                    </div>
-                  ) : (
-                    <button aria-label={`Add ${item.name}`} onClick={() => onQty(item.id,1)} style={{ width:22, height:22, borderRadius:"50%", background:"#E8A82E", border:"none", color:"#080706", fontSize:14, lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {items.map(item => (
+          <QuickAddCard key={item.id} id={item.id} cart={cart} onQty={onQty} imageUrl={images?.[QA_ITEM_ID[item.id]] ?? null} />
+        ))}
       </div>
     </div>
   );
@@ -1254,7 +1235,7 @@ export default function RaniMahal() {
       )}
 
       {/* Modal */}
-      {modalItem && <ItemModal item={modalItem} cart={cart} onClose={()=>setModalItem(null)} onCommit={commitItem} onUpsellQty={adjustQty} imageUrl={cloudImages[modalItem.id] ?? localStorage.getItem("img_"+modalItem.id) ?? null} />}
+      {modalItem && <ItemModal item={modalItem} cart={cart} onClose={()=>setModalItem(null)} onCommit={commitItem} onUpsellQty={adjustQty} imageUrl={cloudImages[modalItem.id] ?? localStorage.getItem("img_"+modalItem.id) ?? null} cloudImages={cloudImages} />}
 
       {/* Jump-to-section sheet */}
       {showSectionSheet && (
