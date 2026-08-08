@@ -40,6 +40,16 @@ export default async function handler(req, res) {
 
   const session = event.data.object;
 
+  // ── Idempotency guard — Stripe may retry webhooks on network failures ──
+  const dedupKey = `webhook-processed:${session.id}`;
+  const alreadyProcessed = await kv.get(dedupKey);
+  if (alreadyProcessed) {
+    console.log(`Duplicate webhook for session ${session.id} — skipping.`);
+    return res.status(200).json({ received: true, duplicate: true });
+  }
+  // Claim the key immediately before doing any work (24h TTL)
+  await kv.set(dedupKey, "1", { ex: 60 * 60 * 24 });
+
   // Reconstruct cart from metadata
   let cartItems = [];
   try {
@@ -56,9 +66,10 @@ export default async function handler(req, res) {
     try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
   }
 
-  // Build and save order
+  // Build and save order — paymentIntent declared here so saved-card block can reference it
+  const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
   const order = buildOrder({
-    paymentIntent:       await stripe.paymentIntents.retrieve(session.payment_intent),
+    paymentIntent,
     stripeSession:       session,
     cartItems,
     specialInstructions: session.metadata?.specialInstructions ?? "",
@@ -68,9 +79,11 @@ export default async function handler(req, res) {
     deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
   });
 
-  await saveOrder(order);
-  // Map session ID → order ID so OrderSuccess page can retrieve by session_id
-  await kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }); // 7 days
+  // Batch core KV writes for performance — session lookup + order save
+  await Promise.all([
+    saveOrder(order),
+    kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }), // 7 days
+  ]);
   console.log(`Order saved: ${order.id}`);
 
   // Link order to customer account (Clerk user or guest email)
@@ -78,8 +91,11 @@ export default async function handler(req, res) {
   const guestEmail = session.customer_details?.email ?? null;
   const linkId = accountId ?? (guestEmail ? `guest:${guestEmail.toLowerCase()}` : null);
   if (linkId) {
-    await kv.lpush(`account-orders:${linkId}`, order.id);
-    await kv.ltrim(`account-orders:${linkId}`, 0, 99);
+    // Batch account linking KV writes
+    await Promise.all([
+      kv.lpush(`account-orders:${linkId}`, order.id),
+      kv.ltrim(`account-orders:${linkId}`, 0, 99),
+    ]);
 
     // Save vaulted payment method metadata (non-sensitive: brand, last4, pm token)
     if (paymentIntent?.payment_method) {

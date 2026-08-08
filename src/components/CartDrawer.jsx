@@ -198,16 +198,25 @@ export function CheckoutGate({
     }
   }, [deliveryAddress]);
 
+  const checkReturnAbortRef = useRef(null);
+
   const checkReturning = async emailToCheck => {
     if (!emailToCheck.includes("@")) return;
+    // Cancel any in-flight request from a previous blur
+    checkReturnAbortRef.current?.abort();
+    checkReturnAbortRef.current = new AbortController();
     try {
-      const res = await fetch(`/api/account/profile?email=${encodeURIComponent(emailToCheck)}`);
+      const res = await fetch(`/api/account/profile?email=${encodeURIComponent(emailToCheck)}`, {
+        signal: checkReturnAbortRef.current.signal,
+      });
       if (!res.ok) { setReturning(null); return; }
       const data = await res.json();
       setReturning(data?.orders?.length > 0
         ? { totalOrders: data.stats?.totalOrders ?? data.orders.length, favoriteName: data.favorites?.[0]?.name ?? null }
         : null);
-    } catch { setReturning(null); }
+    } catch (e) {
+      if (e.name !== "AbortError") setReturning(null);
+    }
   };
 
   const validateDelivery = () => {
@@ -525,8 +534,8 @@ export function CartDrawer({
         ) : (
           <>
             <div style={{ flex:1, overflowY:"auto", minHeight:0 }}>
-              {entries.map((entry, i) => (
-                <CartRow key={i} entry={entry} onQty={adjustQty} onRemove={removeItem} />
+              {entries.map(entry => (
+                <CartRow key={entry.baseId} entry={entry} onQty={adjustQty} onRemove={removeItem} />
               ))}
               <CompleteMealRail cart={cart} onQty={adjustQty} images={cloudImages} />
               <TipSelector tipPct={tipPct} setTipPct={setTipPct} tipCustom={tipCustom} setTipCustom={setTipCustom} subtotal={subtotal} orderMode={orderMode} />

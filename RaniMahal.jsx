@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import AccountPortal from "./AccountPortal.jsx";
 import { useSwipeToClose } from "./src/hooks/useSwipeToClose.js";
@@ -157,16 +157,17 @@ export default function RaniMahal() {
   const [showSectionSheet, setShowSectionSheet] = useState(false);
   const [showFulfillmentSheet, setShowFulfillmentSheet] = useState(false);
 
-  const sectionPhotosRef = useRef(null);
-  if (!sectionPhotosRef.current && Object.keys(cloudImages).length > 0) {
+  const sectionPhotos = useMemo(() => {
+    if (Object.keys(cloudImages).length === 0) return {};
     const map = {};
     SECTIONS.forEach(s => {
       const candidates = s.subsections.flatMap(sub => sub.ids).filter(id => cloudImages[id]);
-      map[s.id] = candidates.length ? cloudImages[candidates[Math.floor(Math.random() * candidates.length)]] : null;
+      map[s.id] = candidates.length
+        ? cloudImages[candidates[Math.floor(Math.random() * candidates.length)]]
+        : null;
     });
-    sectionPhotosRef.current = map;
-  }
-  const sectionPhotos = sectionPhotosRef.current ?? {};
+    return map;
+  }, [cloudImages]);
 
   const [showFloatingJump, setShowFloatingJump] = useState(false);
   useEffect(() => {
