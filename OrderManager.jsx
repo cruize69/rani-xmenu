@@ -397,6 +397,11 @@ function OrderCard({ order, onStatusChange, onPrint, onRefundSuccess }) {
             {/* Totals */}
             <div style={{ borderTop:"0.5px solid rgba(0,0,0,0.1)", paddingTop:8, fontSize:13 }}>
               <div style={{ display:"flex", justifyContent:"space-between", color:"#8A7560", marginBottom:3 }}><span>Subtotal</span><span>{fmt(localOrder.subtotal)}</span></div>
+              {localOrder.orderMode === "delivery" && (
+                <div style={{ display:"flex", justifyContent:"space-between", color:"#C8600A", marginBottom:3, fontWeight:600 }}>
+                  <span>Delivery Fee</span><span>{localOrder.deliveryFee > 0 ? fmt(localOrder.deliveryFee) : "FREE"}</span>
+                </div>
+              )}
               <div style={{ display:"flex", justifyContent:"space-between", color:"#8A7560", marginBottom:6 }}><span>Tax (8.375%)</span><span>{fmt(localOrder.tax)}</span></div>
               <div style={{ display:"flex", justifyContent:"space-between", fontSize:15, fontWeight:700, color:"#0F0800" }}><span>Total charged</span><span>{fmt(localOrder.total)}</span></div>
               {localOrder.refundedTotal > 0 && (
@@ -406,6 +411,15 @@ function OrderCard({ order, onStatusChange, onPrint, onRefundSuccess }) {
                 </>
               )}
             </div>
+
+            {/* Delivery details if applicable */}
+            {localOrder.orderMode === "delivery" && localOrder.deliveryAddress && (
+              <div style={{ marginTop:10, padding:"8px 12px", background:"#FFF8EC", border:"0.5px solid rgba(232,168,46,0.4)", borderRadius:8, fontSize:12.5, color:"#7A4A10" }}>
+                <strong>🚗 Delivery Address: </strong>
+                {localOrder.deliveryAddress.street}{localOrder.deliveryAddress.apt ? `, ${localOrder.deliveryAddress.apt}` : ""}, {localOrder.deliveryAddress.city} {localOrder.deliveryAddress.zip || ""}
+                {localOrder.deliveryAddress.notes && <div style={{ marginTop:2, fontSize:12 }}><em>Driver Note: "{localOrder.deliveryAddress.notes}"</em></div>}
+              </div>
+            )}
 
             {/* Refund history inline */}
             {localOrder.refundHistory?.length > 0 && (

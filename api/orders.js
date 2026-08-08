@@ -15,6 +15,7 @@
 import Stripe from "stripe";
 import { kv } from "@vercel/kv";
 import { getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
+import { sendCustomerStatusEmail } from "../lib/notifications.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const VALID_STATUSES = Object.values(ORDER_STATUS);
@@ -85,6 +86,14 @@ async function handleUpdate(req, res) {
         sendCustomerSMS(phone, STATUS_SMS[status](updated))
           .catch(err => console.error("Customer SMS failed:", err));
       }
+    }
+
+    // Email needs no separate opt-in — customerEmail is already on the
+    // order from Stripe's own checkout page. sendCustomerStatusEmail
+    // no-ops on its own for statuses/orders it doesn't apply to.
+    if (status) {
+      sendCustomerStatusEmail(updated)
+        .catch(err => console.error("Customer status email failed:", err));
     }
 
     return res.status(200).json({ order: updated });

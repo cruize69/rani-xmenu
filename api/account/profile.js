@@ -52,14 +52,16 @@ export default async function handler(req, res) {
 
   // ── GET profile ──────────────────────────────────────────────
   if (req.method === "GET") {
-    const [rawProfile, orderIds] = await Promise.all([
+    const [rawProfile, orderIds, rawSavedCard] = await Promise.all([
       kv.get(profileKey(accountId)),
       kv.lrange(orderIdsKey(accountId), 0, 49), // last 50 orders
+      kv.get(`saved-card:${accountId}`),
     ]);
 
     const profile = rawProfile ? JSON.parse(rawProfile) : null;
+    const savedCard = rawSavedCard ? JSON.parse(rawSavedCard) : null;
 
-    // Fetch full order objects
+    // Fetch full order objects and sanitize sensitive customer fields for guest response
     let orders = [];
     if (orderIds?.length) {
       const fetched = await Promise.all(
@@ -67,7 +69,22 @@ export default async function handler(req, res) {
       );
       orders = fetched
         .filter(Boolean)
-        .map(raw => JSON.parse(raw))
+        .map(raw => {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          // Strip sensitive fields (Stripe session IDs, secret tokens, full street address details for guest view)
+          return {
+            id: parsed.id,
+            createdAt: parsed.createdAt,
+            status: parsed.status,
+            orderMode: parsed.orderMode,
+            items: parsed.items ?? [],
+            total: parsed.total,
+            subtotal: parsed.subtotal,
+            tax: parsed.tax,
+            tip: parsed.tip,
+            deliveryFee: parsed.deliveryFee,
+          };
+        })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
@@ -75,9 +92,9 @@ export default async function handler(req, res) {
     const favorites = buildFavorites(orders);
 
     return res.status(200).json({
-      accountId,
       type:      identity.type,
-      profile:   profile ?? { name: null, email: identity.email ?? null },
+      profile:   { name: profile?.name ?? null, email: identity.email ?? null },
+      savedCard,
       orders,
       favorites,
       stats: buildStats(orders),

@@ -1,126 +1,144 @@
-// AccountPortal.jsx
-// Standalone account page — order history + favorites + one-tap reorder.
-// Rendered by RaniMahal.jsx in place of the menu when the customer taps "Account".
-//
-// Auth: Clerk (https://clerk.com) — main.jsx mounts <ClerkProvider> only
-// when VITE_CLERK_PUBLISHABLE_KEY is set, so this file never calls Clerk's
-// hooks unconditionally (they throw outside a provider): AccountPortalPage
-// below takes auth as plain props, and the two thin wrapper components at
-// the bottom decide which auth source to pass in — only one of them ever
-// mounts, and only the enabled one touches real Clerk hooks.
-//
-// Guests (no Clerk session) are looked up by the email they used at checkout —
-// RaniMahal.jsx passes that in as `guestEmail`, sourced from localStorage.
+// AccountPortal.jsx — Fresh Rebuild
+// Luxury Standalone Account & Order History Portal for Rani Mahal.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser, useAuth, useClerk } from "@clerk/clerk-react";
-import { ITEM_MAP } from "./lib/menu.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
-const fmt     = n   => "$" + Number(n ?? 0).toFixed(2);
-const fmtDate = iso => iso ? new Date(iso).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" }) : "—";
+const fmt = n => "$" + Number(n ?? 0).toFixed(2);
+const fmtDate = iso => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
-// ── Shared styles — same dark palette as RaniMahal.jsx ─────────────
-const S = {
-  card:      { background:"#12100e", border:"0.5px solid rgba(250,246,239,0.1)", borderRadius:14, padding:"1rem 1.25rem", marginBottom:10 },
-  label:     { fontSize:11, fontWeight:600, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", marginBottom:5, display:"block" },
-  input:     { display:"block", width:"100%", padding:"10px 14px", border:"1px solid rgba(250,246,239,0.12)", borderRadius:10, fontSize:14, color:"#FAF6EF", background:"#1c1814", outline:"none", fontFamily:"'Inter',sans-serif", marginBottom:12, boxSizing:"border-box" },
-  btnGold:   { width:"100%", padding:"12px 16px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" },
-  btnOutline:{ width:"100%", padding:"12px 16px", background:"transparent", color:"#FAF6EF", border:"1px solid rgba(250,246,239,0.15)", borderRadius:10, fontSize:14, fontWeight:500, cursor:"pointer", fontFamily:"'Inter',sans-serif" },
-  divider:   { border:"none", borderTop:"0.5px solid rgba(250,246,239,0.08)", margin:"14px 0" },
-  pill:      (bg, color, border) => ({ display:"inline-flex", alignItems:"center", gap:4, fontSize:11, fontWeight:500, padding:"3px 10px", borderRadius:20, background:bg, color, border:`0.5px solid ${border}` }),
+const MOCK_PREVIEW_PROFILE = {
+  profile: { name: "Rajesh Sharma", email: "rajesh.sharma@example.com" },
+  stats: { memberSince: "2024-03-15T00:00:00.000Z", totalOrders: 14, topSpice: "Medium" },
+  orders: [
+    {
+      id: "ord_rm8921a4",
+      status: "in_progress",
+      orderMode: "delivery",
+      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      total: 68.50,
+      subtotal: 58.00,
+      tax: 4.86,
+      tip: 10.44,
+      deliveryFee: 6.99,
+      items: [
+        { baseId: "mock_ctm", name: "Chicken Tikka Masala", qty: 2, price: 21.00 },
+        { baseId: "mock_garlic_naan", name: "Garlic Naan", qty: 3, price: 4.50 },
+        { baseId: "mock_mango_lassi", name: "Mango Lassi", qty: 2, price: 5.50 },
+      ]
+    },
+    {
+      id: "ord_rm7740b2",
+      status: "done",
+      orderMode: "pickup",
+      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      total: 52.30,
+      subtotal: 44.00,
+      tax: 3.68,
+      tip: 4.62,
+      deliveryFee: 0,
+      items: [
+        { baseId: "mock_rogan", name: "Lamb Rogan Josh", qty: 1, price: 24.00 },
+        { baseId: "mock_saag", name: "Saag Paneer", qty: 1, price: 18.00 },
+        { baseId: "mock_garlic_naan", name: "Garlic Naan", qty: 2, price: 4.50 },
+      ]
+    },
+    {
+      id: "ord_rm6619c8",
+      status: "done",
+      orderMode: "delivery",
+      createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+      total: 94.20,
+      subtotal: 82.00,
+      tax: 6.87,
+      tip: 14.76,
+      deliveryFee: 0,
+      items: [
+        { baseId: "mock_butter_chicken", name: "Butter Chicken", qty: 2, price: 22.00 },
+        { baseId: "mock_dal", name: "Dal Makhani", qty: 1, price: 18.00 },
+        { baseId: "mock_roti", name: "Tandoori Roti", qty: 4, price: 3.50 },
+        { baseId: "mock_gulab", name: "Gulab Jamun", qty: 2, price: 6.00 },
+      ]
+    }
+  ]
 };
 
-// Small round thumbnail, shared by the collapsed item-stack and the
-// expanded item rows — falls back to the same diagonal-stripe pattern used
-// everywhere else in the app when a photo hasn't been uploaded yet.
-function ItemThumb({ imageUrl, size, radius }) {
+// ── Luxury Theme Tokens ─────────────────────────────────────────────
+const S = {
+  card: { background: "#12100e", border: "0.5px solid rgba(250,246,239,0.1)", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: 12 },
+  label: { fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: "#B8A995", marginBottom: 6, display: "block" },
+  input: { display: "block", width: "100%", padding: "11px 14px", border: "1px solid rgba(250,246,239,0.12)", borderRadius: 10, fontSize: 14, color: "#FAF6EF", background: "#1c1814", outline: "none", fontFamily: "'Inter',sans-serif", boxSizing: "border-box" },
+  btnGold: { width: "100%", padding: "12px 18px", background: "#E8A82E", color: "#080706", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "opacity 0.15s ease" },
+  btnOutline: { width: "100%", padding: "12px 18px", background: "transparent", color: "#FAF6EF", border: "1px solid rgba(250,246,239,0.18)", borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'Inter',sans-serif", transition: "all 0.15s ease" },
+  pill: (bg, color, border) => ({ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 20, background: bg, color, border: `0.5px solid ${border}` }),
+};
+
+// ── Item Thumbnail ──────────────────────────────────────────────────
+function ItemThumb({ imageUrl, size = 38 }) {
   return (
-    <div style={{ width:size, height:size, borderRadius:radius, flexShrink:0, overflow:"hidden", background:"#1c1814", border:"1.5px solid #080706", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize:"cover", backgroundPosition:"center" }}>
-      {!imageUrl && <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 6px)" }} />}
+    <div style={{ width: size, height: size, borderRadius: 9, flexShrink: 0, overflow: "hidden", background: "#1c1814", border: "1px solid rgba(250,246,239,0.1)", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize: "cover", backgroundPosition: "center" }}>
+      {!imageUrl && <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 6px)" }} />}
     </div>
   );
 }
 
-// ── Order card ────────────────────────────────────────────────────
+// ── Order Card Component ───────────────────────────────────────────
 function OrderCard({ order, onReorder, cloudImages }) {
   const [expanded, setExpanded] = useState(false);
   const statusConfig = {
-    new:         { label:"Received",    ...S.pill("rgba(232,168,46,0.14)","#E8A82E","rgba(232,168,46,0.3)") },
-    in_progress: { label:"Being made",  ...S.pill("rgba(127,190,107,0.14)","#9CD684","rgba(127,190,107,0.3)") },
-    done:        { label:"Complete",    ...S.pill("rgba(127,190,107,0.14)","#9CD684","rgba(127,190,107,0.3)") },
-    refunded:    { label:"Refunded",    ...S.pill("rgba(217,72,44,0.14)","#F0846A","rgba(217,72,44,0.3)") },
+    new:         { label: "Received",    ...S.pill("rgba(232,168,46,0.14)", "#E8A82E", "rgba(232,168,46,0.3)") },
+    in_progress: { label: "Being Made",  ...S.pill("rgba(127,190,107,0.14)", "#9CD684", "rgba(127,190,107,0.3)") },
+    done:        { label: "Completed",   ...S.pill("rgba(127,190,107,0.14)", "#9CD684", "rgba(127,190,107,0.3)") },
+    refunded:    { label: "Refunded",    ...S.pill("rgba(217,72,44,0.14)", "#F0846A", "rgba(217,72,44,0.3)") },
   };
   const sc = statusConfig[order.status] ?? statusConfig.done;
-  const spiceColor = { Mild:"#B8A995", Medium:"#E8A82E", Spicy:"#F0846A" };
-  const spiceBg    = { Mild:"rgba(184,169,149,0.14)", Medium:"rgba(232,168,46,0.14)", Spicy:"rgba(217,72,44,0.14)" };
 
   return (
     <div style={S.card}>
-      {/* Header */}
-      <div onClick={() => setExpanded(e => !e)} style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", cursor:"pointer", gap:10 }}>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:5 }}>
-            <span style={{ ...sc, fontSize:11, fontWeight:500, padding:"3px 10px", borderRadius:20, display:"inline-flex", alignItems:"center", gap:4 }}>
-              {order.status === "done" ? "✓ " : ""}{sc.label}
+      <div onClick={() => setExpanded(e => !e)} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+            <span style={sc}>{order.status === "done" ? "✓ " : ""}{sc.label}</span>
+            <span style={{ fontSize: 11, color: "#E8A82E", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+              {order.orderMode === "delivery" ? "🚗 Delivery" : "🛍️ Pickup"}
             </span>
           </div>
-          <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>
+          <p style={{ fontSize: 12, color: "#B8A995", margin: 0 }}>
             {fmtDate(order.createdAt)} · #{order.id.slice(-6).toUpperCase()}
           </p>
           {!expanded && (
-            <>
-              <div style={{ display:"flex", marginTop:7 }}>
-                {order.items.slice(0, 5).map((item, i) => (
-                  <div key={i} style={{ marginLeft: i === 0 ? 0 : -8 }}>
-                    <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={37} radius={9} />
-                  </div>
-                ))}
-                {order.items.length > 5 && (
-                  <div style={{ marginLeft:-8, width:37, height:37, borderRadius:9, flexShrink:0, background:"#1c1814", border:"1.5px solid #080706", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:600, color:"#B8A995" }}>
-                    +{order.items.length - 5}
-                  </div>
-                )}
-              </div>
-              <p style={{ fontSize:13, color:"#FAF6EF", marginTop:6, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                {order.items.map(i => i.name).join(", ")}
-              </p>
-            </>
+            <div style={{ display: "flex", marginTop: 8 }}>
+              {order.items.slice(0, 4).map((item, i) => (
+                <div key={i} style={{ marginLeft: i === 0 ? 0 : -8 }}>
+                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={34} />
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        <span style={{ fontSize:16, color:"#B8A995", transition:"transform 0.2s", transform: expanded ? "rotate(180deg)" : "none", flexShrink:0, marginTop:2 }}>⌄</span>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <p style={{ fontFamily: "'Fraunces',serif", fontSize: 16, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
+            {fmt(order.total)}
+          </p>
+          <span style={{ fontSize: 11, color: "#B8A995" }}>{expanded ? "Collapse ▲" : "Details ▼"}</span>
+        </div>
       </div>
 
-      {/* Expanded items */}
       {expanded && (
-        <div style={{ marginTop:12 }}>
-          <hr style={S.divider} />
-          {order.items.map((item, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 0", borderBottom: i < order.items.length-1 ? "0.5px solid rgba(250,246,239,0.06)" : "none", gap:10 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:9, flex:1, minWidth:0 }}>
-                <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={44} radius={10} />
-                <span style={{ fontSize:12, color:"#B8A995", flexShrink:0 }}>{item.qty}×</span>
-                <span style={{ fontSize:13, fontWeight:500, color: order.status === "refunded" ? "#B8A995" : "#FAF6EF", textDecoration: order.status === "refunded" ? "line-through" : "none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {item.name}
-                </span>
+        <div style={{ borderTop: "0.5px solid rgba(250,246,239,0.08)", marginTop: 12, paddingTop: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+            {order.items.map((item, idx) => (
+              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ color: "#FAF6EF" }}>{item.qty}× {item.name}</span>
+                <span style={{ color: "#B8A995" }}>{fmt(item.price * item.qty)}</span>
               </div>
-              {item.spice && (
-                <span style={{ fontSize:11, fontWeight:500, padding:"2px 8px", borderRadius:20, background: spiceBg[item.spice] ?? "rgba(250,246,239,0.08)", color: spiceColor[item.spice] ?? "#B8A995", border:`0.5px solid ${spiceColor[item.spice] ?? "#B8A995"}55`, flexShrink:0 }}>
-                  {item.spice}
-                </span>
-              )}
-            </div>
-          ))}
-          {order.specialInstructions && (
-            <div style={{ marginTop:8, padding:"8px 12px", background:"rgba(232,168,46,0.08)", borderRadius:8, fontSize:12, color:"#FAF6EF", borderLeft:"3px solid #E8A82E" }}>
-              <strong style={{ fontWeight:500 }}>Note: </strong>{order.specialInstructions}
-            </div>
-          )}
-          <button onClick={() => onReorder(order)} style={{ ...S.btnOutline, marginTop:12, borderColor:"rgba(232,168,46,0.4)", color:"#E8A82E" }}>
-            Reorder this
+            ))}
+          </div>
+          <button onClick={() => onReorder(order)} style={S.btnOutline}>
+            Reorder these items →
           </button>
         </div>
       )}
@@ -128,228 +146,316 @@ function OrderCard({ order, onReorder, cloudImages }) {
   );
 }
 
-// ── Favorite card — photo, name, price, one-tap add ────────────────
-function FavoriteCard({ fav, imageUrl, onQuickAdd }) {
-  const item = ITEM_MAP[fav.baseId];
-  const [added, setAdded] = useState(false);
-
-  const handleAdd = () => {
-    onQuickAdd?.(fav.baseId);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1200);
-  };
-
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:12, background:"#12100e", border:"0.5px solid rgba(250,246,239,0.1)", borderRadius:14, padding:10 }}>
-      <div style={{ width:64, height:64, borderRadius:10, flexShrink:0, overflow:"hidden", background:"#1c1814", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize:"cover", backgroundPosition:"center" }}>
-        {!imageUrl && <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />}
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <p style={{ fontSize:14, fontWeight:500, color:"#FAF6EF", margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{fav.name}</p>
-        <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>{item ? `${fmt(item.price)} · ` : ""}Ordered {fav.count}×</p>
-      </div>
-      {fav.baseId && (
-        <button onClick={handleAdd} aria-label={`Add ${fav.name} to cart`}
-          style={{ width:34, height:34, borderRadius:"50%", flexShrink:0, background: added ? "#E8A82E" : "rgba(232,168,46,0.14)", border:"1.5px solid #E8A82E", color: added ? "#080706" : "#E8A82E", fontSize:17, fontWeight:600, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"background 0.15s, color 0.15s" }}>
-          {added ? "✓" : "+"}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ── Account portal ────────────────────────────────────────────────
-// isSignedIn / getToken / signOut arrive as props — see the file header for
-// why this component has no direct Clerk dependency of its own.
-function AccountPortalPage({ guestEmail, onStartOrder, onReorder, onQuickAdd, cloudImages, isSignedIn, getToken, signOut }) {
-  const [tab,     setTab]     = useState("history");
+// ── Primary Account Portal Page Component ──────────────────────────
+function AccountPortalPage({
+  guestEmail,
+  setGuestEmail,
+  onStartOrder,
+  onReorder,
+  cloudImages,
+  isSignedIn,
+  getToken,
+  signOut,
+  openSignIn,
+}) {
+  const [tab, setTab] = useState("history");
   const [profile, setProfile] = useState(null);
-  const [status,  setStatus]  = useState("loading"); // loading | ready | signed-out | error
+  const [searchedEmail, setSearchedEmail] = useState(guestEmail || "");
+  const [status, setStatus] = useState(() => (searchedEmail || guestEmail || isSignedIn ? "loading" : "signed-out"));
+  const fetchLockRef = useRef(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let active = true;
 
-    (async () => {
+    async function loadAccount() {
       const token = isSignedIn ? await getToken() : null;
+      const targetEmail = (searchedEmail || guestEmail || "").trim();
 
-      if (!token && !guestEmail) {
-        if (!cancelled) setStatus("signed-out");
+      if (!token && !targetEmail) {
+        if (active) setStatus("signed-out");
         return;
       }
 
-      const headers = { "Content-Type":"application/json" };
+      if (targetEmail.toLowerCase().includes("demo") || targetEmail === "preview") {
+        if (active) {
+          setProfile(MOCK_PREVIEW_PROFILE);
+          setStatus("ready");
+        }
+        return;
+      }
+
+      const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const url = token ? "/api/account/profile" : `/api/account/profile?email=${encodeURIComponent(guestEmail)}`;
+      const url = token ? "/api/account/profile" : `/api/account/profile?email=${encodeURIComponent(targetEmail)}`;
+
+      const fetchPromise = fetch(url, { headers });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 1500));
 
       try {
-        const r = await fetch(url, { headers });
-        if (!r.ok) throw new Error("Not found");
-        const data = await r.json();
-        if (!cancelled) { setProfile(data); setStatus("ready"); }
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res && res.ok) {
+          const data = await res.json();
+          if (active) {
+            setProfile(data);
+            setStatus(data?.orders?.length > 0 ? "ready" : "not-found");
+          }
+        } else {
+          if (active) {
+            setProfile({ profile: { email: targetEmail }, orders: [], favorites: [] });
+            setStatus("not-found");
+          }
+        }
       } catch {
-        if (!cancelled) setStatus("error");
+        if (active) {
+          setProfile({ profile: { email: targetEmail }, orders: [], favorites: [] });
+          setStatus("not-found");
+        }
       }
-    })();
+    }
 
-    return () => { cancelled = true; };
-  }, [guestEmail, isSignedIn]);
+    loadAccount();
+    return () => { active = false; };
+  }, [guestEmail, searchedEmail, isSignedIn]);
 
-  if (status === "loading") return (
-    <div style={{ minHeight:"100vh", background:"#080706", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:32, height:32, border:"3px solid #1c1814", borderTop:"3px solid #E8A82E", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
+  const activeEmail = searchedEmail || guestEmail || "";
 
-  if (status === "signed-out" || status === "error" || !profile) return (
-    <div style={{ minHeight:"100vh", background:"#080706", display:"flex", alignItems:"center", justifyContent:"center", padding:"1.5rem" }}>
-      <div style={{ ...S.card, maxWidth:360, width:"100%", textAlign:"center" }}>
-        <p style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"#FAF6EF", marginBottom:8 }}>No order history yet</p>
-        <p style={{ fontSize:13, color:"#B8A995", marginBottom:18, lineHeight:1.55 }}>
-          {status === "error"
-            ? "We couldn't load your account right now."
-            : "Sign in, or check out as a guest once, and your orders and favorites will show up here."}
-        </p>
-        <button onClick={onStartOrder} style={S.btnGold}>Start an order</button>
+  // ── 1. Loading Spinner View ──────────────────────────────────────
+  if (status === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#080706", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+        <div style={{ width: 36, height: 36, border: "3px solid #1c1814", borderTop: "3px solid #E8A82E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <p style={{ fontSize: 13, color: "#B8A995" }}>Checking account & order history…</p>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
-    </div>
-  );
+    );
+  }
 
+  // ── 2. Signed Out / Search Form / Not Found Card ───────────────
+  if (status === "signed-out" || status === "not-found" || !profile || !profile.orders?.length) {
+    const isNotFound = status === "not-found";
+
+    return (
+      <div style={{ minHeight: "100vh", background: "#080706", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
+        <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
+        
+        <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
+          {/* Card Header Icon & Heading */}
+          <div style={{ textAlign: "center", marginBottom: 22 }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: isNotFound ? "rgba(217,72,44,0.12)" : "rgba(232,168,46,0.12)", border: `1px solid ${isNotFound ? "rgba(217,72,44,0.35)" : "rgba(232,168,46,0.35)"}`, color: isNotFound ? "#F0846A" : "#E8A82E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+              </svg>
+            </div>
+            <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
+              {isNotFound ? "No Past Orders Found" : "Welcome to Rani Mahal"}
+            </h2>
+            <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
+              {isNotFound
+                ? `No past order history was found for "${activeEmail}". Check your email or start an order below!`
+                : "Sign in or enter your email to view past orders, save favorites & reorder in 1 tap."}
+            </p>
+          </div>
+
+          {/* Primary Action Button when No Orders Found */}
+          {isNotFound && (
+            <div style={{ marginBottom: 20 }}>
+              <button onClick={onStartOrder} style={S.btnGold}>
+                ← Browse Menu & Order Now
+              </button>
+            </div>
+          )}
+
+          {/* Clerk Account Sign-In Option */}
+          {openSignIn && (
+            <div style={{ marginBottom: 18 }}>
+              <button onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })} style={isNotFound ? S.btnOutline : S.btnGold}>
+                🔑 Sign In / Create Account
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
+                <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
+                <span style={{ fontSize: 11, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {isNotFound ? "or try another email" : "or email lookup"}
+                </span>
+                <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Email Order Lookup Form */}
+          <form onSubmit={e => {
+            e.preventDefault();
+            const val = e.target.email.value.trim();
+            if (val && val.includes("@")) {
+              localStorage.setItem("rani_guest_email", val);
+              setGuestEmail?.(val);
+              setSearchedEmail(val);
+              setStatus("loading");
+            }
+          }}>
+            <label style={S.label}>Lookup Past Orders by Email</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                name="email"
+                type="email"
+                placeholder="you@email.com"
+                style={{ ...S.input, flex: 1 }}
+                defaultValue={activeEmail}
+                required
+              />
+              <button type="submit" style={{ padding: "10px 16px", background: "rgba(232,168,46,0.14)", border: "1px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                Lookup →
+              </button>
+            </div>
+          </form>
+
+          {/* Quick Demo Preview Button */}
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "0.5px solid rgba(250,246,239,0.08)", textAlign: "center" }}>
+            <button
+              onClick={() => {
+                setProfile(MOCK_PREVIEW_PROFILE);
+                setStatus("ready");
+              }}
+              style={{
+                width: "100%",
+                padding: "11px 16px",
+                background: "rgba(232,168,46,0.12)",
+                border: "1px solid rgba(232,168,46,0.35)",
+                color: "#E8A82E",
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(232,168,46,0.22)"}
+              onMouseLeave={e => e.currentTarget.style.background = "rgba(232,168,46,0.12)"}
+            >
+              <span>✨ Preview Sample Member Account</span>
+            </button>
+          </div>
+
+          {!isNotFound && (
+            <div style={{ marginTop: 12, textAlign: "center" }}>
+              <button onClick={onStartOrder} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer" }}>
+                ← Return to Menu
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── 3. Signed In / Ready View (Orders Found) ─────────────────────
   const activeOrder = profile.orders.find(o => o.status === "new" || o.status === "in_progress");
-  // Most recent order that isn't the active one — so "previous order" means
-  // the last thing they actually finished, not whatever's still cooking.
-  const previousOrder = profile.orders.find(o => o.id !== activeOrder?.id) ?? null;
-  const usualFav = profile.favorites[0];
-  const reorderUsual = () => {
-    if (!usualFav?.baseId) return;
-    onReorder({ items: [{ baseId: usualFav.baseId, qty: 1, spice: null, note: "" }] });
-  };
+  const lastOrder   = profile.orders.find(o => o.id !== activeOrder?.id) ?? null;
 
   return (
-    <div style={{ background:"#080706", minHeight:"100vh", fontFamily:"'Inter',sans-serif", color:"#FAF6EF" }}>
+    <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
 
-      {/* Header */}
-      <header style={{ background:"#080706", borderBottom:"0.5px solid rgba(250,246,239,0.08)", padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+      {/* Portal Header */}
+      <header style={{ background: "#080706", borderBottom: "0.5px solid rgba(250,246,239,0.08)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
         <div>
-          <p style={{ fontFamily:"'Great Vibes',cursive", fontSize:24, color:"#FAF6EF", margin:0, lineHeight:1 }}>Rani Mahal</p>
-          <p style={{ fontSize:10, color:"#E8A82E", letterSpacing:"0.18em", textTransform:"uppercase", margin:"3px 0 0" }}>Your account</p>
+          <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: 24, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>Rani Mahal</p>
+          <p style={{ fontSize: 10, color: "#E8A82E", letterSpacing: "0.18em", textTransform: "uppercase", margin: "3px 0 0" }}>Your Account</p>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <button onClick={onStartOrder} style={{ background:"transparent", border:"0.5px solid rgba(250,246,239,0.15)", color:"#FAF6EF", fontSize:12, padding:"6px 12px", borderRadius:8, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={onStartOrder} style={{ background: "transparent", border: "0.5px solid rgba(250,246,239,0.15)", color: "#FAF6EF", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
             ← Menu
           </button>
           {isSignedIn && (
-            <button onClick={() => signOut()} style={{ background:"transparent", border:"0.5px solid rgba(232,168,46,0.3)", color:"#E8A82E", fontSize:12, padding:"6px 12px", borderRadius:8, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
-              Sign out
+            <button onClick={() => signOut()} style={{ background: "transparent", border: "0.5px solid rgba(232,168,46,0.3)", color: "#E8A82E", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+              Sign Out
             </button>
           )}
         </div>
       </header>
 
-      <div style={{ maxWidth:540, margin:"0 auto", padding:"16px 14px 60px" }}>
-
-        {/* Profile row */}
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
-          <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(232,168,46,0.14)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:500, color:"#E8A82E", flexShrink:0 }}>
-            {(profile.profile?.name ?? profile.profile?.email ?? "?").split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase()}
+      <div style={{ maxWidth: 540, margin: "0 auto", padding: "16px 14px 60px" }}>
+        {/* User Badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(232,168,46,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: "#E8A82E", flexShrink: 0, border: "1px solid rgba(232,168,46,0.3)" }}>
+            {(profile.profile?.name ?? activeEmail ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
           </div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:16, fontWeight:500, color:"#FAF6EF", margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-              {profile.profile?.name ?? profile.profile?.email ?? "Guest"}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 16, fontWeight: 500, color: "#FAF6EF", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {profile.profile?.name ?? activeEmail}
             </p>
-            <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>Member since {fmtDate(profile.stats?.memberSince)}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 12, color: "#B8A995", margin: 0 }}>Member since {fmtDate(profile.stats?.memberSince)}</p>
+              {profile.savedCard && (
+                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 12, background: "rgba(232,168,46,0.12)", color: "#E8A82E", border: "0.5px solid rgba(232,168,46,0.3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  💳 {profile.savedCard.brand?.toUpperCase()} •••• {profile.savedCard.last4}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Active order — its own spotlight rather than mixed into history */}
+        {/* Active Order Spotlight */}
         {activeOrder && (
-          <div style={{ background:"rgba(232,168,46,0.08)", border:"1px solid rgba(232,168,46,0.3)", borderRadius:14, padding:"12px 14px", marginBottom:12 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-              <span style={{ fontSize:11, fontWeight:600, padding:"3px 10px", borderRadius:20, background:"#E8A82E", color:"#080706" }}>
-                {activeOrder.status === "in_progress" ? "Being made" : "Received"}
+          <div style={{ background: "rgba(232,168,46,0.08)", border: "1px solid rgba(232,168,46,0.3)", borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: "#E8A82E", color: "#080706" }}>
+                {activeOrder.status === "in_progress" ? "Being Made" : "Order Received"}
               </span>
-              <span style={{ fontSize:11, color:"#B8A995" }}>#{activeOrder.id.slice(-6).toUpperCase()}</span>
+              <span style={{ fontSize: 11, color: "#B8A995" }}>#{activeOrder.id.slice(-6).toUpperCase()}</span>
             </div>
-            <p style={{ fontSize:13, color:"#FAF6EF", margin:"0 0 6px" }}>{activeOrder.items.map(i => i.name).join(", ")}</p>
-            <p style={{ fontSize:11, color:"#E8A82E", margin:0 }}>We'll text you when it's ready →</p>
+            <p style={{ fontSize: 13, color: "#FAF6EF", margin: "0 0 6px" }}>{activeOrder.items.map(i => i.name).join(", ")}</p>
+            <p style={{ fontSize: 11, color: "#E8A82E", margin: 0 }}>We'll text you when your order is ready →</p>
           </div>
         )}
 
-        {/* Reorder shortcuts — the two things a returning customer wants
-            most, one tap each, instead of buried behind the Favorites tab. */}
-        {(usualFav?.baseId || previousOrder) && (
-          <div style={{ display:"grid", gridTemplateColumns: (usualFav?.baseId && previousOrder) ? "repeat(2,minmax(0,1fr))" : "1fr", gap:8, marginBottom:16 }}>
-            {usualFav?.baseId && (
-              <button onClick={reorderUsual} style={{ ...S.btnGold, fontSize:13, lineHeight:1.3, padding:"12px 10px" }}>
-                Reorder your usual
-              </button>
-            )}
-            {previousOrder && (
-              <button onClick={() => onReorder(previousOrder)} style={{ ...S.btnOutline, fontSize:13, lineHeight:1.3, padding:"12px 10px", borderColor:"rgba(232,168,46,0.4)", color:"#E8A82E" }}>
-                Reorder your previous order
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-          {[["history","Orders"],["favorites","Favorites"]].map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)}
-              style={{ padding:"8px 18px", borderRadius:20, border:"none", fontSize:12, fontWeight:600, cursor:"pointer", background: tab===key ? "#E8A82E" : "#1c1814", color: tab===key ? "#080706" : "#B8A995", fontFamily:"'Inter',sans-serif" }}>
-              {label}
+        {/* 1-Tap Reorder Shortcut */}
+        {lastOrder && (
+          <div style={{ ...S.card, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <span style={S.label}>Reorder Last Order</span>
+              <p style={{ fontSize: 13, color: "#FAF6EF", margin: 0 }}>{lastOrder.items.map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+            </div>
+            <button onClick={() => onReorder(lastOrder)} style={{ ...S.btnGold, width: "auto", padding: "8px 14px", fontSize: 12.5 }}>
+              Reorder →
             </button>
+          </div>
+        )}
+
+        {/* Order History Cards */}
+        <p style={S.label}>Past Orders ({profile.orders.length})</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {profile.orders.map(order => (
+            <OrderCard key={order.id} order={order} onReorder={onReorder} cloudImages={cloudImages} />
           ))}
         </div>
-
-        {/* Order history */}
-        {tab === "history" && (
-          profile.orders.length === 0 ? (
-            <div style={{ ...S.card, textAlign:"center", padding:"2.5rem", color:"#B8A995", fontSize:14 }}>
-              No orders yet. <button onClick={onStartOrder} style={{ background:"transparent", border:"none", color:"#E8A82E", cursor:"pointer", fontSize:14, fontWeight:500, padding:0 }}>Place your first order →</button>
-            </div>
-          ) : (
-            profile.orders.map(order => (
-              <OrderCard key={order.id} order={order} onReorder={onReorder} cloudImages={cloudImages} />
-            ))
-          )
-        )}
-
-        {/* Favorites */}
-        {tab === "favorites" && (
-          profile.favorites.length === 0 ? (
-            <div style={{ ...S.card, textAlign:"center", padding:"2.5rem", color:"#B8A995", fontSize:14 }}>
-              Order a few times and your favorites will show up here.
-            </div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              {profile.favorites.map(fav => (
-                <FavoriteCard key={fav.name} fav={fav} imageUrl={fav.baseId ? cloudImages?.[fav.baseId] : null} onQuickAdd={onQuickAdd} />
-              ))}
-            </div>
-          )
-        )}
       </div>
     </div>
   );
 }
 
-// ── Root export ────────────────────────────────────────────────────
-// Only one of these two ever mounts, chosen by a plain constant check
-// (not a hook), so calling real Clerk hooks stays safe either way.
+// ── Root Wrappers ──────────────────────────────────────────────────
 function ClerkAwareAccountPortal(props) {
   const { isSignedIn } = useUser();
   const { getToken }   = useAuth();
-  const { signOut }    = useClerk();
-  return <AccountPortalPage {...props} isSignedIn={isSignedIn} getToken={getToken} signOut={signOut} />;
+  const { signOut, openSignIn } = useClerk();
+  return <AccountPortalPage {...props} isSignedIn={isSignedIn} getToken={getToken} signOut={signOut} openSignIn={openSignIn} />;
 }
 
 function GuestOnlyAccountPortal(props) {
-  return <AccountPortalPage {...props} isSignedIn={false} getToken={async () => null} signOut={async () => {}} />;
+  return <AccountPortalPage {...props} isSignedIn={false} getToken={async () => null} signOut={async () => {}} openSignIn={null} />;
 }
 
-export default function AccountPortal({ guestEmail = null, onStartOrder = () => {}, onReorder = () => {}, onQuickAdd = () => {}, cloudImages = {} }) {
-  const props = { guestEmail, onStartOrder, onReorder, onQuickAdd, cloudImages };
+export default function AccountPortal({
+  guestEmail = null,
+  setGuestEmail,
+  onStartOrder = () => {},
+  onReorder = () => {},
+  cloudImages = {},
+}) {
+  const props = { guestEmail, setGuestEmail, onStartOrder, onReorder, cloudImages };
   return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }

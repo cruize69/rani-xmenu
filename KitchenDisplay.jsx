@@ -60,15 +60,36 @@ function Ticket({ order, onAdvance, onUndo }) {
       {/* Ticket header */}
       <div style={{ background: isNew ? "#C8600A" : isCooking ? "#1A6B3A" : "#8A7560", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-          <span style={{ fontSize:26, fontWeight:900, color:"#FFFFFF", lineHeight:1, letterSpacing:"-0.01em" }}>
-            {order.customerName}
-          </span>
-          <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.65)", letterSpacing:"0.18em", textTransform:"uppercase" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+            <span style={{ fontSize:26, fontWeight:900, color:"#FFFFFF", lineHeight:1, letterSpacing:"-0.01em" }}>
+              {order.customerName}
+            </span>
+            {order.orderMode === "delivery" && (
+              <span style={{ background:"#D9482C", color:"#FFFFFF", fontSize:12, fontWeight:800, padding:"3px 10px", borderRadius:12, letterSpacing:"0.08em", whiteSpace:"nowrap" }}>
+                🚗 DELIVERY
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.75)", letterSpacing:"0.18em", textTransform:"uppercase" }}>
             {stage.label} · #{order.id.slice(-4).toUpperCase()}
           </span>
         </div>
         <ElapsedBadge createdAt={order.createdAt} status={order.status} />
       </div>
+
+      {/* Delivery Destination banner if delivery order */}
+      {order.orderMode === "delivery" && order.deliveryAddress && (
+        <div style={{ background:"#FFF8EC", padding:"10px 16px", borderBottom:"1px solid rgba(232,168,46,0.3)", color:"#7A4A10" }}>
+          <p style={{ fontSize:12, fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", margin:0 }}>
+            🚗 Deliver To: {order.deliveryAddress.street}{order.deliveryAddress.apt ? `, ${order.deliveryAddress.apt}` : ""}, {order.deliveryAddress.city} {order.deliveryAddress.zip || ""}
+          </p>
+          {order.deliveryAddress.notes && (
+            <p style={{ fontSize:12, color:"#922424", fontWeight:700, margin:"3px 0 0" }}>
+              Driver Note: "{order.deliveryAddress.notes}"
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Special instructions — shown prominently if present */}
       {order.specialInstructions && (

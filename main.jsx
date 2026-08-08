@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { ClerkProvider } from "@clerk/clerk-react";
-import RaniMahal from "./RaniMahal.jsx";
+import RaniMahal, { ErrorBoundary } from "./RaniMahal.jsx";
 import StaffGate from "./StaffGate.jsx";
 
 // Order confirmation is public — Stripe's success_url redirects here.
@@ -14,12 +14,6 @@ const KitchenDisplay = lazy(() => import("./KitchenDisplay.jsx"));
 const ImageManager   = lazy(() => import("./ImageManager.jsx"));
 const SalesDashboard = lazy(() => import("./SalesDashboard.jsx"));
 
-// Wraps only the customer-facing routes — Clerk powers signed-in accounts
-// (Google + email), not the staff tools, which stay behind StaffGate's
-// separate password gate. Falls back to rendering children un-wrapped if
-// no publishable key is configured yet, rather than letting a missing key
-// crash Clerk's own init and take down checkout — guest checkout must keep
-// working regardless of whether Clerk is set up.
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 function MaybeClerkProvider({ children }) {
@@ -41,7 +35,7 @@ const renderRoute = ROUTES[path];
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Suspense fallback={null}>
-      {renderRoute ? renderRoute() : <MaybeClerkProvider><RaniMahal /></MaybeClerkProvider>}
+      {renderRoute ? renderRoute() : <ErrorBoundary><MaybeClerkProvider><RaniMahal /></MaybeClerkProvider></ErrorBoundary>}
     </Suspense>
   </React.StrictMode>
 );

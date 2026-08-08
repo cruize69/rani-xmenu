@@ -6,7 +6,7 @@ import Stripe from "stripe";
 import { buffer } from "micro";
 import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder } from "../lib/orders.js";
-import { sendOrderEmail, sendOrderSMS } from "../lib/notifications.js";
+import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -51,13 +51,21 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true, error: "cart parse failed" });
   }
 
+  let deliveryAddress = null;
+  if (session.metadata?.deliveryAddress) {
+    try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
+  }
+
   // Build and save order
   const order = buildOrder({
     paymentIntent:       await stripe.paymentIntents.retrieve(session.payment_intent),
     stripeSession:       session,
     cartItems,
-    specialInstructions: session.metadata.specialInstructions ?? "",
-    tip:                 parseFloat(session.metadata.tip ?? "0") || 0,
+    specialInstructions: session.metadata?.specialInstructions ?? "",
+    tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
+    orderMode:           session.metadata?.orderMode ?? "pickup",
+    deliveryAddress:     deliveryAddress,
+    deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
   });
 
   await saveOrder(order);
@@ -72,11 +80,35 @@ export default async function handler(req, res) {
   if (linkId) {
     await kv.lpush(`account-orders:${linkId}`, order.id);
     await kv.ltrim(`account-orders:${linkId}`, 0, 99);
+
+    // Save vaulted payment method metadata (non-sensitive: brand, last4, pm token)
+    if (paymentIntent?.payment_method) {
+      try {
+        const pm = typeof paymentIntent.payment_method === "string"
+          ? await stripe.paymentMethods.retrieve(paymentIntent.payment_method)
+          : paymentIntent.payment_method;
+        if (pm?.card) {
+          const cardMetadata = {
+            paymentMethodId:  pm.id,
+            stripeCustomerId: session.customer ?? null,
+            brand:            pm.card.brand,
+            last4:            pm.card.last4,
+            expMonth:         pm.card.exp_month,
+            expYear:          pm.card.exp_year,
+            updatedAt:        new Date().toISOString(),
+          };
+          await kv.set(`saved-card:${linkId}`, JSON.stringify(cardMetadata));
+        }
+      } catch (e) {
+        console.error("Failed to save vaulted payment method metadata:", e);
+      }
+    }
   }
 
   // Fire notifications concurrently — don't block webhook response
   Promise.allSettled([
     sendOrderEmail(order),
+    sendCustomerReceiptEmail(order),
     sendOrderSMS(order),
     notifyPrintQueue(order.id),
   ]).then(results => {
@@ -93,7 +125,6 @@ export default async function handler(req, res) {
  * The local print bridge polls this list every 5 seconds.
  */
 async function notifyPrintQueue(orderId) {
-  const { kv } = await import("@vercel/kv");
   await kv.lpush("print_queue", orderId);
   // Expire after 1 hour (in case bridge is offline, don't build up forever)
   await kv.expire("print_queue", 3600);
