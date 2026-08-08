@@ -5,6 +5,7 @@ import { rankedQuickAdds, cartCount, QA_ITEM_ID } from "../utils/upsells.js";
 import { QuickAddCard } from "./MenuItemCard.jsx";
 import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
 import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
+import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
@@ -355,26 +356,47 @@ export function CheckoutGate({
               <button onClick={() => { setStep("choice"); setError(null); }} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back</button>
 
               {orderMode === "delivery" && (
-                <div style={{ marginBottom:16, background:"#1c1814", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:12, padding:"14px" }}>
-                  <p style={{ fontSize:13, fontWeight:600, color:"#E8A82E", margin:"0 0 10px", textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                <div style={{ marginBottom:16, background:"#1c1814", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:14, padding:"16px", display:"flex", flexDirection:"column", gap:12 }}>
+                  <p style={{ fontSize:13, fontWeight:600, color:"#E8A82E", margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.08em" }}>
                     🚗 Delivery Address & Driver Instructions
                   </p>
-                  <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:4, display:"block" }}>Street Address *</label>
-                  <input type="text" placeholder="123 Main St" value={street} onChange={e => {
-                    const val = e.target.value; setStreet(val);
-                    setDeliveryAddress?.({ street: val, apt, city, zip, notes });
-                  }} style={iStyle} required />
+                  
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Street Address *</label>
+                    <AddressAutocomplete
+                      street={street}
+                      setStreet={(val) => {
+                        setStreet(val); setError(null);
+                        setDeliveryAddress?.({ street: val, apt, city, zip, notes });
+                      }}
+                      city={city}
+                      setCity={setCity}
+                      zip={zip}
+                      setZip={setZip}
+                      onSelectAddress={(selected) => {
+                        setError(null);
+                        setDeliveryAddress?.({
+                          street: selected.street,
+                          apt,
+                          city: selected.city,
+                          zip: selected.zip,
+                          notes,
+                        });
+                      }}
+                      placeholder="Start typing street address (e.g. 150 Boston Post Rd)"
+                    />
+                  </div>
 
                   <div style={{ display:"flex", gap:10 }}>
                     <div style={{ flex:1 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:4, display:"block" }}>Apt / Suite / Unit (Optional)</label>
+                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Apt / Suite (Optional)</label>
                       <input type="text" placeholder="Apt 4B" value={apt} onChange={e => {
                         const val = e.target.value; setApt(val);
                         setDeliveryAddress?.({ street, apt: val, city, zip, notes });
                       }} style={iStyle} />
                     </div>
                     <div style={{ flex:1 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:4, display:"block" }}>City *</label>
+                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>City *</label>
                       <input type="text" placeholder="Mamaroneck" value={city} onChange={e => {
                         const val = e.target.value; setCity(val);
                         setDeliveryAddress?.({ street, apt, city: val, zip, notes });
@@ -382,21 +404,27 @@ export function CheckoutGate({
                     </div>
                   </div>
 
-                  <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:4, display:"block" }}>ZIP Code *</label>
-                  <input type="text" placeholder="10543" value={zip} onChange={e => {
-                    const val = e.target.value;
-                    setZip(val);
-                    const found = lookupTownByZip(val);
-                    const newCity = found ? found.city : city;
-                    if (found) setCity(found.city);
-                    setDeliveryAddress?.({ street, apt, city: newCity, zip: val, notes });
-                  }} style={iStyle} maxLength={5} required />
-
-                  <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:4, display:"block" }}>Driver Instructions (Optional)</label>
-                  <input type="text" placeholder="e.g. Leave at front door, ring doorbell" value={notes} onChange={e => {
-                    const val = e.target.value; setNotes(val);
-                    setDeliveryAddress?.({ street, apt, city, zip, notes: val });
-                  }} style={iStyle} />
+                  <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+                    <div style={{ width:110, flexShrink:0 }}>
+                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>ZIP Code *</label>
+                      <input type="text" placeholder="10543" value={zip} onChange={e => {
+                        const val = e.target.value;
+                        setZip(val);
+                        setError(null);
+                        const found = lookupTownByZip(val);
+                        const newCity = found ? found.city : city;
+                        if (found) setCity(found.city);
+                        setDeliveryAddress?.({ street, apt, city: newCity, zip: val, notes });
+                      }} style={{ ...iStyle, textAlign:"center", fontWeight:600 }} maxLength={5} required />
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Driver Instructions (Optional)</label>
+                      <input type="text" placeholder="e.g. Leave at door, ring bell" value={notes} onChange={e => {
+                        const val = e.target.value; setNotes(val);
+                        setDeliveryAddress?.({ street, apt, city, zip, notes: val });
+                      }} style={iStyle} />
+                    </div>
+                  </div>
                 </div>
               )}
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
 import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
+import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 
 export function PickupIcon({ size = 18, color = "#E8A82E" }) {
   return (
@@ -217,28 +218,38 @@ export function FulfillmentSheet({
         {/* Delivery Address Form (If Delivery is selected) */}
         {selectedMode === "delivery" && (
           <div style={{ padding: "1.25rem 1.5rem 0" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#E8A82E", margin: 0 }}>
                 Delivery Destination
               </p>
               {zip.trim().length === 5 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: isZipValid ? "#4ADE80" : "#FCA5A5" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: isZipValid ? "#4ADE80" : "#FCA5A5", boxShadow: isZipValid ? "0 0 8px #4ADE80" : "0 0 8px #FCA5A5", display: "inline-block" }} />
-                  {isZipValid ? `Delivery Available — ${city ? city + ", " : ""}${lookupTownByZip(zip)?.state || "NY"}` : "Outside Delivery Zone"}
+                  {isZipValid ? "Delivery Available" : "Outside Delivery Zone"}
                 </div>
               )}
             </div>
             
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input
-                type="text"
-                placeholder="Street Address (e.g. 123 Main St)"
-                value={street}
-                onChange={e => {
-                  const val = e.target.value; setStreet(val); setError(null);
-                  setDeliveryAddress?.({ street: val, apt, city, zip, notes });
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Frictionless Verified Street Address Autocomplete */}
+              <AddressAutocomplete
+                street={street}
+                setStreet={(val) => { setStreet(val); setError(null); }}
+                city={city}
+                setCity={setCity}
+                zip={zip}
+                setZip={setZip}
+                onSelectAddress={(selected) => {
+                  setError(null);
+                  setDeliveryAddress?.({
+                    street: selected.street,
+                    apt,
+                    city: selected.city,
+                    zip: selected.zip,
+                    notes,
+                  });
                 }}
-                style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(250,246,239,0.12)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none" }}
+                placeholder="Start typing street address (e.g. 150 Boston Post Rd)"
               />
 
               <div style={{ display: "flex", gap: 10 }}>
@@ -250,18 +261,21 @@ export function FulfillmentSheet({
                     const val = e.target.value; setApt(val);
                     setDeliveryAddress?.({ street, apt: val, city, zip, notes });
                   }}
-                  style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(250,246,239,0.12)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none" }}
+                  style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(250,246,239,0.15)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none", fontFamily: "'Inter', sans-serif" }}
                 />
                 <input
                   type="text"
-                  placeholder="City"
+                  placeholder="City (e.g. Mamaroneck)"
                   value={city}
                   onChange={e => {
                     const val = e.target.value; setCity(val);
                     setDeliveryAddress?.({ street, apt, city: val, zip, notes });
                   }}
-                  style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(250,246,239,0.12)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none" }}
+                  style={{ flex: 1.5, padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(250,246,239,0.15)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none", fontFamily: "'Inter', sans-serif" }}
                 />
+              </div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <input
                   type="text"
                   placeholder="ZIP"
@@ -276,20 +290,19 @@ export function FulfillmentSheet({
                     if (town) setCity(town.city);
                     setDeliveryAddress?.({ street, apt, city: newCity, zip: val, notes });
                   }}
-                  style={{ width: 90, padding: "10px 14px", borderRadius: 10, border: `1px solid ${isZipValid ? "#1A6B3A" : "rgba(250,246,239,0.12)"}`, background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none", textAlign: "center" }}
+                  style={{ width: 110, flexShrink: 0, padding: "11px 14px", borderRadius: 12, border: `1px solid ${isZipValid ? "#1A6B3A" : "rgba(250,246,239,0.15)"}`, background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none", textAlign: "center", fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
+                />
+                <input
+                  type="text"
+                  placeholder="Driver Notes / Gate Code (optional)"
+                  value={notes}
+                  onChange={e => {
+                    const val = e.target.value; setNotes(val);
+                    setDeliveryAddress?.({ street, apt, city, zip, notes: val });
+                  }}
+                  style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(250,246,239,0.15)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
-
-              <input
-                type="text"
-                placeholder="Driver Notes / Gate Code (optional)"
-                value={notes}
-                onChange={e => {
-                  const val = e.target.value; setNotes(val);
-                  setDeliveryAddress?.({ street, apt, city, zip, notes: val });
-                }}
-                style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(250,246,239,0.12)", background: "#1c1814", color: "#FAF6EF", fontSize: 13.5, outline: "none" }}
-              />
             </div>
           </div>
         )}

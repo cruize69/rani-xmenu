@@ -10,62 +10,6 @@ const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,w
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 const fmtDate = iso => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
-const MOCK_PREVIEW_PROFILE = {
-  profile: { name: "Rajesh Sharma", email: "rajesh.sharma@example.com" },
-  stats: { memberSince: "2024-03-15T00:00:00.000Z", totalOrders: 14, topSpice: "Medium" },
-  orders: [
-    {
-      id: "ord_rm8921a4",
-      status: "in_progress",
-      orderMode: "delivery",
-      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      total: 68.50,
-      subtotal: 58.00,
-      tax: 4.86,
-      tip: 10.44,
-      deliveryFee: 6.99,
-      items: [
-        { baseId: "mock_ctm", name: "Chicken Tikka Masala", qty: 2, price: 21.00 },
-        { baseId: "mock_garlic_naan", name: "Garlic Naan", qty: 3, price: 4.50 },
-        { baseId: "mock_mango_lassi", name: "Mango Lassi", qty: 2, price: 5.50 },
-      ]
-    },
-    {
-      id: "ord_rm7740b2",
-      status: "done",
-      orderMode: "pickup",
-      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-      total: 52.30,
-      subtotal: 44.00,
-      tax: 3.68,
-      tip: 4.62,
-      deliveryFee: 0,
-      items: [
-        { baseId: "mock_rogan", name: "Lamb Rogan Josh", qty: 1, price: 24.00 },
-        { baseId: "mock_saag", name: "Saag Paneer", qty: 1, price: 18.00 },
-        { baseId: "mock_garlic_naan", name: "Garlic Naan", qty: 2, price: 4.50 },
-      ]
-    },
-    {
-      id: "ord_rm6619c8",
-      status: "done",
-      orderMode: "delivery",
-      createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-      total: 94.20,
-      subtotal: 82.00,
-      tax: 6.87,
-      tip: 14.76,
-      deliveryFee: 0,
-      items: [
-        { baseId: "mock_butter_chicken", name: "Butter Chicken", qty: 2, price: 22.00 },
-        { baseId: "mock_dal", name: "Dal Makhani", qty: 1, price: 18.00 },
-        { baseId: "mock_roti", name: "Tandoori Roti", qty: 4, price: 3.50 },
-        { baseId: "mock_gulab", name: "Gulab Jamun", qty: 2, price: 6.00 },
-      ]
-    }
-  ]
-};
-
 // ── Luxury Theme Tokens ─────────────────────────────────────────────
 const S = {
   card: { background: "#12100e", border: "0.5px solid rgba(250,246,239,0.1)", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: 12 },
@@ -173,14 +117,6 @@ function AccountPortalPage({
 
       if (!token && !targetEmail) {
         if (active) setStatus("signed-out");
-        return;
-      }
-
-      if (targetEmail.toLowerCase().includes("demo") || targetEmail === "preview") {
-        if (active) {
-          setProfile(MOCK_PREVIEW_PROFILE);
-          setStatus("ready");
-        }
         return;
       }
 
@@ -308,36 +244,6 @@ function AccountPortalPage({
               </button>
             </div>
           </form>
-
-          {/* Quick Demo Preview Button */}
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: "0.5px solid rgba(250,246,239,0.08)", textAlign: "center" }}>
-            <button
-              onClick={() => {
-                setProfile(MOCK_PREVIEW_PROFILE);
-                setStatus("ready");
-              }}
-              style={{
-                width: "100%",
-                padding: "11px 16px",
-                background: "rgba(232,168,46,0.12)",
-                border: "1px solid rgba(232,168,46,0.35)",
-                color: "#E8A82E",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(232,168,46,0.22)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(232,168,46,0.12)"}
-            >
-              <span>✨ Preview Sample Member Account</span>
-            </button>
-          </div>
 
           {!isNotFound && (
             <div style={{ marginTop: 12, textAlign: "center" }}>

@@ -112,6 +112,14 @@ export function getDeliveryZoneForZip(zip) {
   return null;
 }
 
+export function cleanTownName(name) {
+  if (!name) return "";
+  return String(name)
+    .replace(/^(village of|city of|town of|borough of|township of)\s+/i, "")
+    .replace(/\s+(village|city|town|borough|township)$/i, "")
+    .trim();
+}
+
 export function isZipInDeliveryZone(zip) {
   if (!zip) return false;
   const clean = String(zip).trim().slice(0, 5);
