@@ -462,8 +462,26 @@ export function CartDrawer({
   return (
     <>
       <div onClick={() => setDrawerOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300 }} />
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, margin:"0 auto", width:"100%", maxWidth:640, background:"#12100e", borderRadius:"18px 18px 0 0", zIndex:400, maxHeight:"88vh", overflowY:"auto", boxShadow:"0 -8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(250,246,239,0.1)", ...drawerSwipe.sheetStyle }}>
-        <div {...drawerSwipe.handleProps}>
+      <div style={{
+        position:"fixed",
+        bottom:0,
+        left:0,
+        right:0,
+        margin:"0 auto",
+        width:"100%",
+        maxWidth:640,
+        background:"#12100e",
+        borderRadius:"18px 18px 0 0",
+        zIndex:400,
+        height:"auto",
+        maxHeight:"88vh",
+        display:"flex",
+        flexDirection:"column",
+        boxShadow:"0 -8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(250,246,239,0.1)",
+        ...drawerSwipe.sheetStyle
+      }}>
+        {/* Fixed Top Header */}
+        <div {...drawerSwipe.handleProps} style={{ flexShrink:0 }}>
           <div style={{ width:36, height:4, background:"rgba(250,246,239,0.15)", borderRadius:2, margin:"12px auto 0" }} />
           <div style={{ padding:"1rem 1.25rem", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
             <span style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:500, color:"#FAF6EF" }}>
@@ -472,59 +490,65 @@ export function CartDrawer({
             <button onClick={() => setDrawerOpen(false)} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
           </div>
         </div>
+
+        {/* Scrollable Drawer Body */}
         {entries.length === 0 ? (
           <p style={{ padding:"2.5rem 1.25rem", textAlign:"center", color:"#B8A995", fontSize:14 }}>Your cart is empty.</p>
         ) : (
           <>
-            {entries.map((entry, i) => (
-              <CartRow key={i} entry={entry} onQty={adjustQty} onRemove={removeItem} />
-            ))}
-            <CompleteMealRail cart={cart} onQty={adjustQty} images={cloudImages} />
-            <TipSelector tipPct={tipPct} setTipPct={setTipPct} tipCustom={tipCustom} setTipCustom={setTipCustom} subtotal={subtotal} orderMode={orderMode} />
-            
-            {isDelivery && (() => {
-              const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
-              const zoneMin = zone?.minOrder || 50.00;
-              return (
-                <div style={{ margin:"0.75rem 1.25rem 0", padding:"12px 14px", background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:12, fontSize:12.5, color:"#FAF6EF" }}>
-                  {subtotal < zoneMin ? (
-                    <div style={{ color:"#E8A82E", textAlign:"center", fontWeight:500 }}>
-                      Delivery requires a <strong>${zoneMin.toFixed(2)}</strong> minimum food subtotal. Add <strong>{fmt(zoneMin - subtotal)}</strong> more to checkout.
-                    </div>
-                  ) : subtotal < 99 ? (
-                    <div>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:12, fontWeight:600 }}>
-                        <span style={{ color:"#E8A82E" }}>🎉 Add {fmt(99 - subtotal)} more for FREE Delivery!</span>
-                        <span style={{ color:"#B8A995" }}>{Math.round((subtotal / 99) * 100)}%</span>
-                      </div>
-                      <div style={{ height:6, background:"rgba(250,246,239,0.12)", borderRadius:3, overflow:"hidden" }}>
-                        <div style={{ height:"100%", background:"linear-gradient(90deg, #E8A82E 0%, #F5C56B 100%)", borderRadius:3, width:`${Math.min(100, (subtotal / 99) * 100)}%`, transition:"width 0.3s ease" }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ color:"#4ADE80", fontWeight:600, textAlign:"center" }}>
-                      🎉 FREE Delivery Unlocked! ($6.99 fee waived)
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
-              {[
-                ["Subtotal", fmt(subtotal), false],
-                isDelivery ? ["Delivery fee ($6.99 | Free over $99)", deliveryFee === 0 ? "FREE" : fmt(6.99), false] : null,
-                ["Tax (est. 8.375%)", fmt(tax), false],
-                ["Tip", fmt(tip), false],
-                ["Credit card processing fee", fmt(ccFee), false],
-                ["Total", fmt(total), true],
-              ].filter(Boolean).map(([l, v, isTotal]) => (
-                <div key={l} style={{ display:"flex", justifyContent:"space-between", fontSize:isTotal?16:14, fontWeight:isTotal?500:400, color:isTotal?"#FAF6EF":"#B8A995", padding:"3px 0", borderTop:isTotal?"0.5px solid rgba(250,246,239,0.08)":"none", marginTop:isTotal?6:0 }}>
-                  <span>{l}</span><span>{v}</span>
-                </div>
+            <div style={{ flex:1, overflowY:"auto", minHeight:0 }}>
+              {entries.map((entry, i) => (
+                <CartRow key={i} entry={entry} onQty={adjustQty} onRemove={removeItem} />
               ))}
+              <CompleteMealRail cart={cart} onQty={adjustQty} images={cloudImages} />
+              <TipSelector tipPct={tipPct} setTipPct={setTipPct} tipCustom={tipCustom} setTipCustom={setTipCustom} subtotal={subtotal} orderMode={orderMode} />
+              
+              {isDelivery && (() => {
+                const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
+                const zoneMin = zone?.minOrder || 50.00;
+                return (
+                  <div style={{ margin:"0.75rem 1.25rem 0", padding:"12px 14px", background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:12, fontSize:12.5, color:"#FAF6EF" }}>
+                    {subtotal < zoneMin ? (
+                      <div style={{ color:"#E8A82E", textAlign:"center", fontWeight:500 }}>
+                        Delivery requires a <strong>${zoneMin.toFixed(2)}</strong> minimum food subtotal. Add <strong>{fmt(zoneMin - subtotal)}</strong> more to checkout.
+                      </div>
+                    ) : subtotal < 99 ? (
+                      <div>
+                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:12, fontWeight:600 }}>
+                          <span style={{ color:"#E8A82E" }}>🎉 Add {fmt(99 - subtotal)} more for FREE Delivery!</span>
+                          <span style={{ color:"#B8A995" }}>{Math.round((subtotal / 99) * 100)}%</span>
+                        </div>
+                        <div style={{ height:6, background:"rgba(250,246,239,0.12)", borderRadius:3, overflow:"hidden" }}>
+                          <div style={{ height:"100%", background:"linear-gradient(90deg, #E8A82E 0%, #F5C56B 100%)", borderRadius:3, width:`${Math.min(100, (subtotal / 99) * 100)}%`, transition:"width 0.3s ease" }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ color:"#4ADE80", fontWeight:600, textAlign:"center" }}>
+                        🎉 FREE Delivery Unlocked! ($6.99 fee waived)
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
+                {[
+                  ["Subtotal", fmt(subtotal), false],
+                  isDelivery ? ["Delivery fee ($6.99 | Free over $99)", deliveryFee === 0 ? "FREE" : fmt(6.99), false] : null,
+                  ["Tax (est. 8.375%)", fmt(tax), false],
+                  ["Tip", fmt(tip), false],
+                  ["Credit card processing fee", fmt(ccFee), false],
+                  ["Total", fmt(total), true],
+                ].filter(Boolean).map(([l, v, isTotal]) => (
+                  <div key={l} style={{ display:"flex", justifyContent:"space-between", fontSize:isTotal?16:14, fontWeight:isTotal?500:400, color:isTotal?"#FAF6EF":"#B8A995", padding:"3px 0", borderTop:isTotal?"0.5px solid rgba(250,246,239,0.08)":"none", marginTop:isTotal?6:0 }}>
+                    <span>{l}</span><span>{v}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ padding:"0 1.25rem 2rem" }}>
+
+            {/* Permanent Sticky Bottom Checkout Footer */}
+            <div style={{ flexShrink:0, padding:"1rem 1.25rem 1.5rem", background:"#12100e", borderTop:"1px solid rgba(250,246,239,0.1)", zIndex:10 }}>
               <button 
                 onClick={handleCheckout}
                 disabled={isBelowMin}
@@ -537,9 +561,10 @@ export function CartDrawer({
                   color: isBelowMin ? "#B8A995" : "#080706", 
                   fontSize:15, 
                   fontWeight:600, 
-                  borderRadius:8, 
+                  borderRadius:10, 
                   cursor: isBelowMin ? "not-allowed" : "pointer",
-                  transition: "background 0.15s, color 0.15s"
+                  transition: "background 0.15s, color 0.15s",
+                  boxShadow: isBelowMin ? "none" : "0 4px 20px rgba(232,168,46,0.3)"
                 }}
               >
                 {isBelowMin ? `Add ${fmt(DELIVERY_CONFIG.MINIMUM_ORDER - subtotal)} for delivery ($50 min)` : `Proceed to checkout — ${fmt(total)}`}

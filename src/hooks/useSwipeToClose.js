@@ -23,8 +23,12 @@ export function useSwipeToClose(onClose, threshold = 100) {
 
   const onTouchEnd = () => {
     draggingRef.current = false;
-    if (dragY > threshold) onClose();
-    else setDragY(0);
+    if (dragY > threshold) {
+      setDragY(0);
+      onClose();
+    } else {
+      setDragY(0);
+    }
   };
 
   return {
