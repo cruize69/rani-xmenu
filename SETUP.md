@@ -63,7 +63,7 @@ vercel env add NEXT_PUBLIC_BASE_URL
 ## Step 4 — Resend (email)
 
 1. Create account at resend.com
-2. Add your domain (ranimahal.cc) and verify DNS
+2. Add your domain (rani-mahal.com) and verify DNS
 3. Create API key → add as `RESEND_API_KEY`
 4. Set `RESTAURANT_EMAIL` to where orders should go
 
@@ -131,7 +131,7 @@ node print-bridge.js
 | `TWILIO_AUTH_TOKEN` | Twilio auth token | twilio.com |
 | `TWILIO_FROM` | Your Twilio number | twilio.com |
 | `RESTAURANT_PHONE` | Restaurant mobile | Your number |
-| `NEXT_PUBLIC_BASE_URL` | Your Vercel URL | e.g. https://ranimahal.cc |
+| `NEXT_PUBLIC_BASE_URL` | Your Vercel URL | e.g. https://rani-mahal.com |
 
 ---
 

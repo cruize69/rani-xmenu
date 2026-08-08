@@ -17,11 +17,15 @@ Keep a notes doc open — you'll be copying keys between services throughout.
 
 ---
 
-## Step 1 — Domain Setup: ranimahal.cc (Primary)
+## Step 1 — Buy rani-mahal.com on Namecheap
 
-1. Go to **namecheap.com** (or your registrar)
-2. Manage `ranimahal.cc` (Primary domain) as well as `ranimahal.food` and `ranimahalny.com`
-3. Go to **Dashboard → Domain List → ranimahal.cc → Manage**
+1. Go to **namecheap.com**
+2. Search for `rani-mahal.com` — confirm it shows as available (you've already purchased this)
+3. Add to cart → Checkout
+   - Enable **WhoisGuard** (free privacy protection — always turn this on)
+   - 1-year registration is fine (~$11)
+4. Complete purchase
+5. Go to **Dashboard → Domain List → rani-mahal.com → Manage**
    (You've already purchased this — pick up from the nameserver step below)
 6. Find **Nameservers** section → change from "Namecheap BasicDNS" to **Custom DNS**
 7. Enter these two nameservers:
@@ -65,7 +69,7 @@ vercel --prod   # deploy to production
 ### 2c — Add your custom domain
 
 1. In Vercel Dashboard → your project → **Settings → Domains**
-2. Add `www.ranimahal.cc` (primary) and `ranimahal.cc` (Vercel will auto-redirect bare domain → www)
+2. Add `www.rani-mahal.com` (primary) and `rani-mahal.com` (Vercel will auto-redirect bare domain → www)
 3. Vercel will confirm DNS is connected (green checkmark once nameservers have propagated)
 
 ---
@@ -120,7 +124,7 @@ BLOB_READ_WRITE_TOKEN
 ### 5c — Set up webhook
 
 1. Dashboard → **Developers → Webhooks → Add endpoint**
-2. Endpoint URL: `https://www.ranimahal.cc/api/webhook`
+2. Endpoint URL: `https://www.rani-mahal.com/api/webhook`
 3. Under **Select events**, choose:
    - `checkout.session.completed`
 4. Click **Add endpoint**
@@ -133,7 +137,7 @@ BLOB_READ_WRITE_TOKEN
 
 1. Go to **resend.com** → Create account
 2. Dashboard → **Domains → Add Domain**
-3. Enter `ranimahal.cc` (Resend verifies the root domain — covers www automatically)
+3. Enter `rani-mahal.com` (Resend verifies the root domain — covers www automatically)
 4. Resend gives you DNS records to add. Go back to **Vercel Dashboard → your project → Settings → Domains** and add each record:
    - Add the TXT record for SPF
    - Add the CNAME records for DKIM
@@ -167,7 +171,7 @@ BLOB_READ_WRITE_TOKEN
 3. Dashboard → **API Keys**
    - Copy **Publishable key** (starts with `pk_live_...`) → save as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - Copy **Secret key** (starts with `sk_live_...`) → save as `CLERK_SECRET_KEY`
-4. Dashboard → **Domains** → Add `ranimahal.cc` as a production domain
+4. Dashboard → **Domains** → Add `rani-mahal.com` as a production domain
 
 ---
 
@@ -187,7 +191,7 @@ BLOB_READ_WRITE_TOKEN
 | `TWILIO_AUTH_TOKEN` | your token | Twilio dashboard |
 | `TWILIO_FROM` | `+19145550000` | Your Twilio number |
 | `RESTAURANT_PHONE` | `+19149999999` | Restaurant mobile |
-| `NEXT_PUBLIC_BASE_URL` | `https://www.ranimahal.cc` | Your domain (with www) |
+| `NEXT_PUBLIC_BASE_URL` | `https://www.rani-mahal.com` | Your domain (with www) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_...` | Clerk → API Keys |
 | `CLERK_SECRET_KEY` | `sk_live_...` | Clerk → API Keys |
 
@@ -217,7 +221,7 @@ Copy the output and use it as `MANAGER_SECRET`. Save it somewhere safe — you'l
 2. Find the CONFIG section at the top and update:
 ```js
 const CONFIG = {
-  apiBase:       "https://www.ranimahal.cc",   // your live URL
+  apiBase:       "https://www.rani-mahal.com",   // your live URL
   managerSecret: "paste-your-MANAGER_SECRET-here",
   printer: {
     type: "tcp",
@@ -278,7 +282,7 @@ node print-bridge.js
 
 ## Step 11 — Upload menu photos
 
-1. Go to `https://www.ranimahal.cc/image-manager`
+1. Go to `https://www.rani-mahal.com/image-manager`
 2. Log in with your manager secret when prompted
 3. You'll see a grid of all 98 dishes — grey placeholders for any without photos
 4. Click or drag-and-drop a photo onto each dish
@@ -300,8 +304,8 @@ Run through this checklist before going live:
 - [ ] Receipt prints at the restaurant
 
 **Order flow:**
-- [ ] Order appears in Order Manager (`www.ranimahal.cc/manager`)
-- [ ] Order appears in Kitchen Display (`www.ranimahal.cc/kitchen`)
+- [ ] Order appears in Order Manager (`www.rani-mahal.com/manager`)
+- [ ] Order appears in Kitchen Display (`www.rani-mahal.com/kitchen`)
 - [ ] Kitchen taps "Start Cooking" → customer gets SMS (if they opted in on success page)
 - [ ] Kitchen taps "Mark Ready" → customer gets "order ready" SMS
 - [ ] Customer order tracker updates on success page
@@ -329,12 +333,12 @@ Run through this checklist before going live:
 
 | What | URL | Who uses it |
 |---|---|---|
-| Customer menu | `https://www.ranimahal.cc` | Customers |
-| Order success | `https://www.ranimahal.cc/order-success` | Auto-redirect after payment |
-| Customer account | `https://www.ranimahal.cc/account` | Customers |
-| Order manager | `https://www.ranimahal.cc/manager` | You (owner) |
-| Kitchen display | `https://www.ranimahal.cc/kitchen` | Kitchen tablet |
-| Image manager | `https://www.ranimahal.cc/image-manager` | You (owner) |
+| Customer menu | `https://www.rani-mahal.com` | Customers |
+| Order success | `https://www.rani-mahal.com/order-success` | Auto-redirect after payment |
+| Customer account | `https://www.rani-mahal.com/account` | Customers |
+| Order manager | `https://www.rani-mahal.com/manager` | You (owner) |
+| Kitchen display | `https://www.rani-mahal.com/kitchen` | Kitchen tablet |
+| Image manager | `https://www.rani-mahal.com/image-manager` | You (owner) |
 
 > Protect /manager, /kitchen, and /image-manager with Vercel's password protection
 > (Dashboard → project → Settings → Deployment Protection → Vercel Authentication)

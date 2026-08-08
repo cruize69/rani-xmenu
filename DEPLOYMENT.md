@@ -21,14 +21,14 @@ Estimated total setup time: 2–3 hours on your first run.
 **Time: 5 minutes**
 
 1. Go to namecheap.com
-2. Search: `ranimahal.cc`
+2. Search: `rani-mahal.com`
 3. If available, add to cart — $10.98/year
 4. At checkout, leave Domain Privacy ON (it's free — keeps your personal info off public records)
 5. Skip all upsells (hosting, SSL, email — you don't need them through Namecheap)
 6. Complete purchase
 7. Log in to Namecheap dashboard — you'll come back here in Step 8 to point the domain at Vercel
 
-**If ranimahal.cc is taken:** try `order.ranimahal.com` (requires owning ranimahal.com first),
+**If rani-mahal.com is taken:** try `order.ranimahal.com` (requires owning ranimahal.com first),
 or `ranimahal.menu`, or `ranimahalorder.com`
 
 ---
@@ -65,9 +65,9 @@ or `ranimahal.menu`, or `ranimahalorder.com`
 **Time: 10 minutes**
 
 1. Go to resend.com → Create account
-2. Add your domain: Dashboard → Domains → Add domain → enter ranimahal.cc
+2. Add your domain: Dashboard → Domains → Add domain → enter rani-mahal.com
 3. Resend will show you DNS records to add. Leave this tab open.
-4. Go to Namecheap dashboard → Domain List → ranimahal.cc → Manage → Advanced DNS
+4. Go to Namecheap dashboard → Domain List → rani-mahal.com → Manage → Advanced DNS
 5. Add each record Resend shows you (usually 3 TXT/CNAME records)
 6. Back in Resend, click Verify — may take 5–30 minutes to propagate
 7. Create API key: Dashboard → API Keys → Create API key
@@ -145,7 +145,7 @@ Add each one (set Environment to "Production, Preview, Development" for all):
 | TWILIO_AUTH_TOKEN | (from Twilio) | Twilio dashboard |
 | TWILIO_FROM | +1914... | Your Twilio number |
 | RESTAURANT_PHONE | +1914835... | Rani Mahal mobile |
-| NEXT_PUBLIC_BASE_URL | https://ranimahal.cc | Your domain (or Vercel URL for now) |
+| NEXT_PUBLIC_BASE_URL | https://rani-mahal.com | Your domain (or Vercel URL for now) |
 | CLERK_SECRET_KEY | sk_live_... | Clerk → API Keys |
 | NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY | pk_live_... | Clerk → API Keys |
 
@@ -195,10 +195,10 @@ Once you upgrade ($20 minimum credit), SMS goes to any US number.
    - Add both to Vercel environment variables
 4. Configure redirect URLs:
    - Clerk Dashboard → Paths
-   - Sign-in URL: https://ranimahal.cc
-   - Sign-up URL: https://ranimahal.cc
-   - After sign-in: https://ranimahal.cc
-   - After sign-up: https://ranimahal.cc
+   - Sign-in URL: https://rani-mahal.com
+   - Sign-up URL: https://rani-mahal.com
+   - After sign-in: https://rani-mahal.com
+   - After sign-up: https://rani-mahal.com
 5. In your React app (index.js or App.js), wrap the root component:
    ```jsx
    import { ClerkProvider } from '@clerk/clerk-react';
@@ -227,7 +227,7 @@ Copy your .jsx files into the src/ folder.
 ### Add environment variables to your .env file:
 Create a file called `.env` in your project root:
 ```
-REACT_APP_API_BASE=https://ranimahal.cc
+REACT_APP_API_BASE=https://rani-mahal.com
 REACT_APP_MANAGER_SECRET=your-manager-secret-here
 ```
 
@@ -243,17 +243,17 @@ vercel --prod
 **Time: 5 minutes setup, up to 48 hours DNS propagation**
 
 1. Vercel Dashboard → your project → Settings → Domains
-2. Add domain: ranimahal.cc
+2. Add domain: rani-mahal.com
 3. Vercel shows you DNS records to add. You need two:
    - An A record pointing to Vercel's IP
    - A CNAME record for www
-4. Go to Namecheap → Domain List → ranimahal.cc → Manage → Advanced DNS
+4. Go to Namecheap → Domain List → rani-mahal.com → Manage → Advanced DNS
 5. Delete any existing A records and CNAME for @
 6. Add the records Vercel shows you
 7. Back in Vercel, click Verify — green checkmark means it's working
 
 While waiting for DNS: your site works at the Vercel URL (xyz.vercel.app)
-After propagation: ranimahal.cc goes live
+After propagation: rani-mahal.com goes live
 
 ---
 
@@ -276,7 +276,7 @@ Download from nodejs.org — use the LTS version
 4. Install dependencies: `npm install`
 5. Edit print-bridge.js — update these three lines:
    ```javascript
-   apiBase: "https://ranimahal.cc",        // your live domain
+   apiBase: "https://rani-mahal.com",        // your live domain
    managerSecret: "your-manager-secret",       // same as MANAGER_SECRET env var
    host: "192.168.1.x",                        // your printer's IP from above
    ```
@@ -307,7 +307,7 @@ Download from nodejs.org — use the LTS version
 
 **Time: as long as you want**
 
-1. Go to ranimahal.cc/image-manager
+1. Go to rani-mahal.com/image-manager
 2. You'll see a grid of all 98 menu items — all showing grey placeholders
 3. Click any dish to upload a photo, or drag a photo directly onto the card
 4. Photos go live on the menu within 60 seconds
@@ -327,7 +327,7 @@ Download from nodejs.org — use the LTS version
 
 Do this in order, with your printer running and bridge connected.
 
-1. **Open ranimahal.cc** — menu should load, photos should appear
+1. **Open rani-mahal.com** — menu should load, photos should appear
 2. **Add items to cart** — CC fee line should appear in totals
 3. **Tap "Proceed to checkout"** — checkout gate should open (Guest / Google / Apple / Email)
 4. **Choose Guest** → enter a test email → click Continue to payment
@@ -337,12 +337,12 @@ Do this in order, with your printer running and bridge connected.
 8. **Check printer** — receipt should print within 10 seconds
 9. **Check your email** — order confirmation should arrive
 10. **Check restaurant phone** — SMS alert should arrive
-11. **Open Order Manager** at ranimahal.cc/manager
+11. **Open Order Manager** at rani-mahal.com/manager
 12. **Find your test order** — tap to expand, tap "Start Order"
 13. **Check your mobile** — you should get "order being prepared" SMS
 14. **Tap "Mark Done"** in Order Manager
 15. **Check your mobile** — you should get "order ready for pickup" SMS
-16. **Open Kitchen Display** at ranimahal.cc/kitchen — verify your order appeared there too
+16. **Open Kitchen Display** at rani-mahal.com/kitchen — verify your order appeared there too
 
 If everything works → switch Stripe from Test mode to Live mode → you're open.
 
@@ -352,7 +352,7 @@ If everything works → switch Stripe from Test mode to Live mode → you're ope
 
 Before switching Stripe to live mode, confirm:
 
-- [ ] ranimahal.cc loads and shows the full menu
+- [ ] rani-mahal.com loads and shows the full menu
 - [ ] All photos uploaded (or at least key dishes)
 - [ ] Stripe in Live mode (not Test)
 - [ ] Print bridge running on restaurant computer
@@ -361,7 +361,7 @@ Before switching Stripe to live mode, confirm:
 - [ ] MANAGER_SECRET set and working in Order Manager
 - [ ] Order Manager loads at /manager
 - [ ] Kitchen Display loads at /kitchen
-- [ ] NEXT_PUBLIC_BASE_URL set to https://ranimahal.cc (not Vercel URL)
+- [ ] NEXT_PUBLIC_BASE_URL set to https://rani-mahal.com (not Vercel URL)
 
 ---
 
@@ -369,12 +369,12 @@ Before switching Stripe to live mode, confirm:
 
 | Page | URL |
 |------|-----|
-| Customer menu | ranimahal.cc |
-| Order success | ranimahal.cc/order-success |
-| Order manager | ranimahal.cc/manager |
-| Kitchen display | ranimahal.cc/kitchen |
-| Image manager | ranimahal.cc/image-manager |
-| Customer account | ranimahal.cc/account |
+| Customer menu | rani-mahal.com |
+| Order success | rani-mahal.com/order-success |
+| Order manager | rani-mahal.com/manager |
+| Kitchen display | rani-mahal.com/kitchen |
+| Image manager | rani-mahal.com/image-manager |
+| Customer account | rani-mahal.com/account |
 
 ## Quick reference — dashboards
 
