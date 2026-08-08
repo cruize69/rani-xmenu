@@ -105,8 +105,8 @@ function AccountPortalPage({
   const [tab, setTab] = useState("history");
   const [profile, setProfile] = useState(null);
   const [searchedEmail, setSearchedEmail] = useState(guestEmail || "");
+  const [searchCount, setSearchCount] = useState(0);
   const [status, setStatus] = useState(() => (searchedEmail || guestEmail || isSignedIn ? "loading" : "signed-out"));
-  const fetchLockRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -151,7 +151,15 @@ function AccountPortalPage({
 
     loadAccount();
     return () => { active = false; };
-  }, [guestEmail, searchedEmail, isSignedIn]);
+  }, [guestEmail, searchedEmail, isSignedIn, searchCount]);
+
+  const handleResetLookup = () => {
+    setSearchedEmail("");
+    setGuestEmail?.("");
+    localStorage.removeItem("rani_guest_email");
+    setProfile(null);
+    setStatus("signed-out");
+  };
 
   const activeEmail = searchedEmail || guestEmail || "";
 
@@ -177,41 +185,44 @@ function AccountPortalPage({
         <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
           {/* Card Header Icon & Heading */}
           <div style={{ textAlign: "center", marginBottom: 22 }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: isNotFound ? "rgba(217,72,44,0.12)" : "rgba(232,168,46,0.12)", border: `1px solid ${isNotFound ? "rgba(217,72,44,0.35)" : "rgba(232,168,46,0.35)"}`, color: isNotFound ? "#F0846A" : "#E8A82E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: isNotFound ? "rgba(232,168,46,0.12)" : "rgba(232,168,46,0.12)", border: `1px solid ${isNotFound ? "rgba(232,168,46,0.35)" : "rgba(232,168,46,0.35)"}`, color: "#E8A82E", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
               </svg>
             </div>
             <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
-              {isNotFound ? "No Past Orders Found" : "Welcome to Rani Mahal"}
+              {isNotFound ? "Welcome New Guest" : "Welcome to Rani Mahal"}
             </h2>
             <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
               {isNotFound
-                ? `No past order history was found for "${activeEmail}". Check your email or start an order below!`
+                ? `No past order history found for "${activeEmail}". You can start an order as a new guest or try another email below!`
                 : "Sign in or enter your email to view past orders, save favorites & reorder in 1 tap."}
             </p>
           </div>
 
-          {/* Primary Action Button when No Orders Found */}
+          {/* Primary Actions when No Orders Found */}
           {isNotFound && (
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               <button onClick={onStartOrder} style={S.btnGold}>
-                ← Browse Menu & Order Now
+                Start Order as Guest ({activeEmail.split("@")[0] || "Guest"}) →
+              </button>
+              <button onClick={handleResetLookup} style={S.btnOutline}>
+                ← Try Another Email
               </button>
             </div>
           )}
 
           {/* Clerk Account Sign-In Option */}
-          {openSignIn && (
+          {openSignIn && !isNotFound && (
             <div style={{ marginBottom: 18 }}>
-              <button onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })} style={isNotFound ? S.btnOutline : S.btnGold}>
+              <button onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })} style={S.btnGold}>
                 🔑 Sign In / Create Account
               </button>
               <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
                 <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
                 <span style={{ fontSize: 11, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  {isNotFound ? "or try another email" : "or email lookup"}
+                  or email lookup
                 </span>
                 <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
               </div>
@@ -219,31 +230,34 @@ function AccountPortalPage({
           )}
 
           {/* Email Order Lookup Form */}
-          <form onSubmit={e => {
-            e.preventDefault();
-            const val = e.target.email.value.trim();
-            if (val && val.includes("@")) {
-              localStorage.setItem("rani_guest_email", val);
-              setGuestEmail?.(val);
-              setSearchedEmail(val);
-              setStatus("loading");
-            }
-          }}>
-            <label style={S.label}>Lookup Past Orders by Email</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                name="email"
-                type="email"
-                placeholder="you@email.com"
-                style={{ ...S.input, flex: 1 }}
-                defaultValue={activeEmail}
-                required
-              />
-              <button type="submit" style={{ padding: "10px 16px", background: "rgba(232,168,46,0.14)", border: "1px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-                Lookup →
-              </button>
-            </div>
-          </form>
+          {!isNotFound && (
+            <form onSubmit={e => {
+              e.preventDefault();
+              const val = e.target.email.value.trim();
+              if (val && val.includes("@")) {
+                localStorage.setItem("rani_guest_email", val);
+                setGuestEmail?.(val);
+                setSearchedEmail(val);
+                setSearchCount(c => c + 1);
+                setStatus("loading");
+              }
+            }}>
+              <label style={S.label}>Lookup Past Orders by Email</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="you@email.com"
+                  style={{ ...S.input, flex: 1 }}
+                  defaultValue={activeEmail}
+                  required
+                />
+                <button type="submit" style={{ padding: "10px 16px", background: "rgba(232,168,46,0.14)", border: "1px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  Lookup →
+                </button>
+              </div>
+            </form>
+          )}
 
           {!isNotFound && (
             <div style={{ marginTop: 12, textAlign: "center" }}>
