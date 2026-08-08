@@ -7,7 +7,7 @@ export const DELIVERY_CONFIG = {
   PICKUP_ETA: "25–35 min",
 };
 
-// 3 Distinct Delivery Zones
+// 3 Distinct Delivery Zones — ordered by distance from Rani Mahal (327 Mamaroneck Ave)
 export const DELIVERY_ZONES = {
   ZONE_1: {
     id: "zone_1",
@@ -20,26 +20,29 @@ export const DELIVERY_ZONES = {
   ZONE_2: {
     id: "zone_2",
     name: "Zone 2 (Mid Westchester)",
-    label: "Zone 2: Scarsdale, White Plains, New Rochelle, Pelham, Port Chester, Purchase, Eastchester, Tuckahoe, Bronxville, Hartsdale, Ardsley, Dobbs Ferry",
+    label: "Zone 2: Scarsdale, White Plains, New Rochelle, Port Chester, Purchase, Eastchester, Tuckahoe, Hartsdale, Ardsley, Dobbs Ferry, Elmsford",
     minOrder: 60.00,
     eta: "45–55 min",
     zips: new Set([
       "10583", "10601", "10603", "10604", "10605", "10606", "10607", // Scarsdale & White Plains
-      "10801", "10804", "10805", "10803", // New Rochelle & Pelham
-      "10573", "10577", // Port Chester & Purchase
-      "10530", "10707", "10708", "10709", // Hartsdale, Tuckahoe, Bronxville, Eastchester
-      "10502", "10522", "10523" // Ardsley, Dobbs Ferry, Elmsford
+      "10801", "10804", "10805",                                      // New Rochelle
+      "10573", "10577",                                               // Port Chester & Purchase
+      "10530", "10707", "10709",                                      // Hartsdale, Tuckahoe, Eastchester
+      "10502", "10522", "10523"                                       // Ardsley, Dobbs Ferry, Elmsford
     ]),
   },
   ZONE_3: {
     id: "zone_3",
-    name: "Zone 3 (Fairfield CT / Outer)",
-    label: "Zone 3: Greenwich, Old Greenwich, Riverside, Cos Cob, Stamford",
+    name: "Zone 3 (Outer Westchester / Fairfield CT)",
+    label: "Zone 3: Bronxville, Pelham, Mt. Vernon, Greenwich, Old Greenwich, Riverside, Cos Cob, Stamford",
     minOrder: 70.00,
     eta: "50–65 min",
     zips: new Set([
-      "06830", "06831", "06870", "06878", "06807", // Greenwich, Old Greenwich, Riverside, Cos Cob
-      "06901", "06902", "06903", "06905", "06906", "06907" // Stamford
+      "10708",                                                         // Bronxville
+      "10803",                                                         // Pelham
+      "10550", "10552", "10553",                                       // Mt. Vernon
+      "06830", "06831", "06870", "06878", "06807",                    // Greenwich, Old Greenwich, Riverside, Cos Cob
+      "06901", "06902", "06903", "06905", "06906", "06907"            // Stamford
     ]),
   },
 };
@@ -48,12 +51,12 @@ export const DELIVERY_ZONES = {
 export const ZIP_TOWN_MAP = {
   // Zone 1: Mamaroneck, Larchmont, Harrison, Rye
   "10543": { city: "Mamaroneck", state: "NY", zoneId: "zone_1" },
-  "10538": { city: "Larchmont", state: "NY", zoneId: "zone_1" },
-  "10528": { city: "Harrison", state: "NY", zoneId: "zone_1" },
-  "10580": { city: "Rye", state: "NY", zoneId: "zone_1" },
+  "10538": { city: "Larchmont",  state: "NY", zoneId: "zone_1" },
+  "10528": { city: "Harrison",   state: "NY", zoneId: "zone_1" },
+  "10580": { city: "Rye",        state: "NY", zoneId: "zone_1" },
 
-  // Zone 2: Scarsdale, White Plains, New Rochelle, Pelham, Port Chester, Purchase, Eastchester, etc.
-  "10583": { city: "Scarsdale", state: "NY", zoneId: "zone_2" },
+  // Zone 2: Scarsdale, White Plains, New Rochelle, Port Chester, Purchase, Eastchester, etc.
+  "10583": { city: "Scarsdale",    state: "NY", zoneId: "zone_2" },
   "10601": { city: "White Plains", state: "NY", zoneId: "zone_2" },
   "10603": { city: "White Plains", state: "NY", zoneId: "zone_2" },
   "10604": { city: "White Plains", state: "NY", zoneId: "zone_2" },
@@ -63,23 +66,28 @@ export const ZIP_TOWN_MAP = {
   "10801": { city: "New Rochelle", state: "NY", zoneId: "zone_2" },
   "10804": { city: "New Rochelle", state: "NY", zoneId: "zone_2" },
   "10805": { city: "New Rochelle", state: "NY", zoneId: "zone_2" },
-  "10803": { city: "Pelham", state: "NY", zoneId: "zone_2" },
   "10573": { city: "Port Chester", state: "NY", zoneId: "zone_2" },
-  "10577": { city: "Purchase", state: "NY", zoneId: "zone_2" },
-  "10530": { city: "Hartsdale", state: "NY", zoneId: "zone_2" },
-  "10707": { city: "Tuckahoe", state: "NY", zoneId: "zone_2" },
-  "10708": { city: "Bronxville", state: "NY", zoneId: "zone_2" },
-  "10709": { city: "Eastchester", state: "NY", zoneId: "zone_2" },
-  "10502": { city: "Ardsley", state: "NY", zoneId: "zone_2" },
-  "10522": { city: "Dobbs Ferry", state: "NY", zoneId: "zone_2" },
-  "10523": { city: "Elmsford", state: "NY", zoneId: "zone_2" },
+  "10577": { city: "Purchase",     state: "NY", zoneId: "zone_2" },
+  "10530": { city: "Hartsdale",    state: "NY", zoneId: "zone_2" },
+  "10707": { city: "Tuckahoe",     state: "NY", zoneId: "zone_2" },
+  "10709": { city: "Eastchester",  state: "NY", zoneId: "zone_2" },
+  "10502": { city: "Ardsley",      state: "NY", zoneId: "zone_2" },
+  "10522": { city: "Dobbs Ferry",  state: "NY", zoneId: "zone_2" },
+  "10523": { city: "Elmsford",     state: "NY", zoneId: "zone_2" },
+
+  // Zone 3: Outer Westchester — Bronxville, Pelham, Mt. Vernon
+  "10708": { city: "Bronxville", state: "NY", zoneId: "zone_3" },
+  "10803": { city: "Pelham",     state: "NY", zoneId: "zone_3" },
+  "10550": { city: "Mt. Vernon", state: "NY", zoneId: "zone_3" },
+  "10552": { city: "Mt. Vernon", state: "NY", zoneId: "zone_3" },
+  "10553": { city: "Mt. Vernon", state: "NY", zoneId: "zone_3" },
 
   // Zone 3: Greenwich & Lower Fairfield County, CT
-  "06830": { city: "Greenwich", state: "CT", zoneId: "zone_3" },
-  "06831": { city: "Greenwich", state: "CT", zoneId: "zone_3" },
+  "06830": { city: "Greenwich",     state: "CT", zoneId: "zone_3" },
+  "06831": { city: "Greenwich",     state: "CT", zoneId: "zone_3" },
   "06870": { city: "Old Greenwich", state: "CT", zoneId: "zone_3" },
-  "06878": { city: "Riverside", state: "CT", zoneId: "zone_3" },
-  "06807": { city: "Cos Cob", state: "CT", zoneId: "zone_3" },
+  "06878": { city: "Riverside",     state: "CT", zoneId: "zone_3" },
+  "06807": { city: "Cos Cob",       state: "CT", zoneId: "zone_3" },
 
   // Stamford CT
   "06901": { city: "Stamford", state: "CT", zoneId: "zone_3" },
