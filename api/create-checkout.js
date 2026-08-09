@@ -12,20 +12,26 @@ import crypto from "crypto";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-const MAX_QTY_PER_LINE = 25;
-// Stripe's card rate: 2.9% + $0.30 — gross-up so the restaurant nets subtotal+tax exactly
-const STRIPE_PCT = 0.029;
-const STRIPE_FLAT = 0.30;
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const { items, specialInstructions, clerkUserId, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress } = req.body;
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
+                            process.env.STRIPE_LIVE_SECRET_KEY || 
+                            process.env.STRIPE_KEY || 
+                            process.env.STRIPE_SECRET;
+
+    if (!stripeSecretKey) {
+      const detectedStripeVars = Object.keys(process.env).filter(k => k.toUpperCase().includes("STRIPE"));
+      const debugMsg = detectedStripeVars.length > 0 
+        ? `Found environment variables: [${detectedStripeVars.join(", ")}]. Please rename to STRIPE_SECRET_KEY in Vercel.` 
+        : `No Stripe environment variables found on server. Ensure Production environment is checked in Vercel settings and click Redeploy.`;
+      return res.status(500).json({ error: `Stripe Secret Key is not configured. ${debugMsg}` });
+    }
+
+    const stripe = new Stripe(stripeSecretKey);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "No items in cart" });
@@ -147,10 +153,6 @@ export default async function handler(req, res) {
       .createHash("sha256")
       .update(JSON.stringify({ cartJson, clerkUserId, guestEmail, orderMode, minute: Math.floor(Date.now() / 60000) }))
       .digest("hex");
-
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return res.status(500).json({ error: "Stripe Secret Key is not configured on the server. Please set STRIPE_SECRET_KEY in Vercel environment variables." });
-    }
 
     const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
     const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || reqOrigin || "https://ranimahal.food").replace(/\/$/, "");
