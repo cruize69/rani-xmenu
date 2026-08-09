@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
-import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
-import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
+import { isZipInDeliveryZone, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 
 export function PickupIcon({ size = 18, color = "#E8A82E" }) {
@@ -35,32 +34,25 @@ export function FulfillmentSheet({
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [selectedMode, setSelectedMode] = useState(orderMode);
-  
-  const initialAddr = deliveryAddress || {};
-  const [street, setStreet] = useState(initialAddr.street || "");
-  const [apt, setApt]       = useState(initialAddr.apt || "");
-  const [city, setCity]     = useState(initialAddr.city || "Mamaroneck");
-  const [zip, setZip]       = useState(initialAddr.zip || "10543");
-  const [notes, setNotes]   = useState(initialAddr.notes || "");
-  const [error, setError]   = useState(null);
+  const [error, setError] = useState(null);
 
   const wasOpenRef = useRef(false);
-
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setSelectedMode(orderMode || "pickup");
-      const addr = deliveryAddress || {};
-      setStreet(addr.street || "");
-      setApt(addr.apt || "");
-      setCity(addr.city || "Mamaroneck");
-      setZip(addr.zip || "10543");
-      setNotes(addr.notes || "");
       setError(null);
     }
     wasOpenRef.current = isOpen;
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Read live from deliveryAddress prop — no local shadow state
+  const addr = deliveryAddress || {};
+  const zip = addr.zip || "";
+  const city = addr.city || "";
+  const street = addr.street || "";
+  const isZipValid = zip.trim().length >= 5 && isZipInDeliveryZone(zip);
 
   const handleSave = () => {
     setError(null);
@@ -69,7 +61,7 @@ export function FulfillmentSheet({
         setError("Please enter your street address for delivery.");
         return;
       }
-      if (!zip.trim()) {
+      if (!zip.trim() || zip.trim().length < 5) {
         setError("Please enter your 5-digit ZIP code.");
         return;
       }
@@ -77,23 +69,18 @@ export function FulfillmentSheet({
         setError("We deliver to Greenwich, Stamford, Mamaroneck, Larchmont, Scarsdale, White Plains, New Rochelle, Pelham, Harrison, Purchase, Port Chester & Rye. Please check your ZIP code.");
         return;
       }
-      setDeliveryAddress({
-        street: street.trim(),
-        apt: apt.trim(),
-        city: city.trim() || "Mamaroneck",
-        zip: zip.trim(),
-        notes: notes.trim(),
-      });
     }
     setOrderMode(selectedMode);
     onClose();
   };
 
-  const isZipValid = zip.trim().length >= 5 && isZipInDeliveryZone(zip);
+  const zone = selectedMode === "delivery" && zip ? getDeliveryZoneForZip(zip) : null;
+  const eta = zone?.eta || "45–60 min";
+  const minStr = zone?.minOrder ? `$${zone.minOrder.toFixed(0)} min` : "$50–$70 min";
 
   return (
     <div
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
       style={{
         position: "fixed",
         inset: 0,
@@ -112,10 +99,10 @@ export function FulfillmentSheet({
           borderRadius: "20px 20px 0 0",
           width: "100%",
           maxWidth: 600,
-          maxHeight: "90vh",
+          maxHeight: "92vh",
           overflowY: "auto",
           boxShadow: "0 -12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(250,246,239,0.12)",
-          paddingBottom: "1.5rem",
+          paddingBottom: "env(safe-area-inset-bottom, 1.5rem)",
           ...sheetStyle,
         }}
       >
@@ -124,27 +111,29 @@ export function FulfillmentSheet({
           <div style={{ width: 40, height: 4, background: "rgba(250,246,239,0.2)", borderRadius: 2, margin: "0 auto" }} />
         </div>
 
-        {/* Header Row */}
-        <div style={{ padding: "10px 1.5rem 12px", borderBottom: "0.5px solid rgba(250,246,239,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#E8A82E" }}>
-              Select Fulfillment
-            </span>
-          </div>
+        {/* Header */}
+        <div style={{ padding: "10px 1.25rem 12px", borderBottom: "0.5px solid rgba(250,246,239,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#E8A82E" }}>
+            Pickup or Delivery
+          </span>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: "transparent", border: "none", fontSize: 24, color: "#B8A995", cursor: "pointer", padding: 0, lineHeight: 1 }}
+            aria-label="Close"
+            style={{ background: "transparent", border: "none", fontSize: 26, color: "#B8A995", cursor: "pointer", padding: 0, lineHeight: 1, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             ×
           </button>
         </div>
 
         {/* Mode Cards */}
-        <div style={{ padding: "1.25rem 1.5rem 0", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "1.25rem 1.25rem 0", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Pickup Card */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => { setSelectedMode("pickup"); setError(null); }}
+            onKeyDown={(e) => e.key === "Enter" && setSelectedMode("pickup")}
             style={{
               padding: "14px 16px",
               borderRadius: 14,
@@ -166,7 +155,7 @@ export function FulfillmentSheet({
                 <p style={{ fontSize: 15, fontWeight: 600, color: selectedMode === "pickup" ? "#E8A82E" : "#FAF6EF", margin: 0 }}>
                   Pickup at Rani Mahal
                 </p>
-                <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2 }}>
+                <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2, margin: "2px 0 0" }}>
                   327 Mamaroneck Ave · Ready in 25–35 min · No minimum
                 </p>
               </div>
@@ -178,7 +167,10 @@ export function FulfillmentSheet({
 
           {/* Delivery Card */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => { setSelectedMode("delivery"); setError(null); }}
+            onKeyDown={(e) => e.key === "Enter" && setSelectedMode("delivery")}
             style={{
               padding: "14px 16px",
               borderRadius: 14,
@@ -200,13 +192,8 @@ export function FulfillmentSheet({
                 <p style={{ fontSize: 15, fontWeight: 600, color: selectedMode === "delivery" ? "#E8A82E" : "#FAF6EF", margin: 0 }}>
                   Delivery to Your Door
                 </p>
-                <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2 }}>
-                  {(() => {
-                    const zone = getDeliveryZoneForZip(zip);
-                    const eta = zone?.eta || "45–60 min";
-                    const minStr = zone?.minOrder ? `$${zone.minOrder.toFixed(0)} min` : "$50–$70 min";
-                    return `Est. ${eta} · $6.99 fee (FREE over $99) · ${minStr}`;
-                  })()}
+                <p style={{ fontSize: 12, color: "#B8A995", margin: "2px 0 0" }}>
+                  Est. {eta} · $6.99 fee (FREE over $99) · {minStr}
                 </p>
               </div>
             </div>
@@ -216,9 +203,9 @@ export function FulfillmentSheet({
           </div>
         </div>
 
-        {/* Delivery Address Form (If Delivery is selected) */}
+        {/* Universal Delivery Address Form */}
         {selectedMode === "delivery" && (
-          <div style={{ padding: "1.25rem 1.5rem 0" }}>
+          <div style={{ padding: "1.25rem 1.25rem 0" }}>
             <UniversalDeliveryForm
               deliveryAddress={deliveryAddress}
               setDeliveryAddress={setDeliveryAddress}
@@ -227,32 +214,36 @@ export function FulfillmentSheet({
           </div>
         )}
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <div style={{ margin: "1rem 1.5rem 0", padding: "10px 14px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", borderRadius: 10, color: "#FCA5A5", fontSize: 12.5 }}>
+          <div style={{ margin: "1rem 1.25rem 0", padding: "10px 14px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", borderRadius: 10, color: "#FCA5A5", fontSize: 13, lineHeight: 1.5 }}>
             {error}
           </div>
         )}
 
         {/* Confirm Button */}
-        <div style={{ padding: "1.25rem 1.5rem 0" }}>
+        <div style={{ padding: "1.25rem 1.25rem 0" }}>
           <button
             type="button"
             onClick={handleSave}
             style={{
               width: "100%",
-              padding: "13px",
+              padding: "14px",
               borderRadius: 30,
               border: "none",
               background: "#E8A82E",
               color: "#080706",
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 700,
               cursor: "pointer",
-              transition: "background 0.15s",
+              transition: "opacity 0.15s",
+              fontFamily: "'Inter', sans-serif",
+              minHeight: 50,
             }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
           >
-            {selectedMode === "delivery" ? "Save Address & Start Order →" : "Set Pickup & Start Order →"}
+            {selectedMode === "delivery" ? "Save Address & Continue →" : "Confirm Pickup & Continue →"}
           </button>
         </div>
       </div>

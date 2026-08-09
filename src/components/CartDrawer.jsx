@@ -281,7 +281,7 @@ export function CheckoutGate({
     goToStripe({ guestEmail });
   };
 
-  const iStyle = { display:"block", width:"100%", padding:"10px 14px", border:"1px solid rgba(250,246,239,0.12)", borderRadius:10, fontSize:14, color:"#FAF6EF", background:"#1c1814", outline:"none", fontFamily:"'Inter',sans-serif", marginBottom:10, boxSizing:"border-box" };
+  const iStyle = { display:"block", width:"100%", padding:"13px 14px", border:"1px solid rgba(250,246,239,0.15)", borderRadius:12, fontSize:15, color:"#FAF6EF", background:"#1c1814", outline:"none", fontFamily:"'Inter',sans-serif", marginBottom:10, boxSizing:"border-box", minHeight:48, WebkitAppearance:"none", appearance:"none" };
   const socialBtn = { width:"100%", padding:"11px 16px", background:"#1c1814", color:"#FAF6EF", border:"0.5px solid rgba(250,246,239,0.15)", borderRadius:10, fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'Inter',sans-serif", display:"flex", alignItems:"center", gap:10, marginBottom:8 };
 
   return (

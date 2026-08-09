@@ -198,15 +198,18 @@ export function AddressAutocomplete({
           }}
           style={{
             width: "100%",
-            padding: "12px 14px",
+            padding: "13px 14px",
             borderRadius: 12,
             border: "1px solid rgba(250,246,239,0.18)",
             background: "#1c1814",
             color: "#FAF6EF",
-            fontSize: 14,
+            fontSize: 15,
             outline: "none",
             boxSizing: "border-box",
             fontFamily: "'Inter', sans-serif",
+            WebkitAppearance: "none",
+            appearance: "none",
+            minHeight: 48,
             transition: "border-color 0.15s, box-shadow 0.15s",
             ...style,
           }}
