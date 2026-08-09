@@ -282,7 +282,7 @@ function AccountPortalPage({
 
     return (
       <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
-        <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
+        <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
         
         <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
           {/* Card Header Icon & Heading */}
@@ -451,7 +451,7 @@ function AccountPortalPage({
 
   return (
     <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
-      <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
+      <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
 
       {/* Portal Header */}
       <header style={{ background: "rgba(18,16,14,0.85)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "0.5px solid rgba(250,246,239,0.08)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
