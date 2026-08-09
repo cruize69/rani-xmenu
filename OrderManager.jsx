@@ -1,6 +1,6 @@
 // OrderManager.jsx — Rani Mahal order + charge management dashboard
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
 
 const API_BASE       = ""; // same-origin — /api/* is served by this deployment

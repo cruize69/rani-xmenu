@@ -2,7 +2,7 @@
 // Owner-only sales analytics + customer CRM + Mailchimp export
 // Routed at /dashboard (see main.jsx) — protected by StaffGate
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
 
 const API_BASE = ""; // same-origin — /api/* is served by this deployment
