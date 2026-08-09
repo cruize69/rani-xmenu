@@ -21,7 +21,7 @@ const VALID_STATUSES = Object.values(ORDER_STATUS);
 
 export default async function handler(req, res) {
   // Public customer routes on OrderSuccess page (no auth required)
-  if (req.method === "GET" && (req.query.session_id || req.query.status_id)) {
+  if (req.method === "GET" && (req.query.session_id || req.query.status_id || req.query.test_email)) {
     return handlePublicGet(req, res);
   }
 
