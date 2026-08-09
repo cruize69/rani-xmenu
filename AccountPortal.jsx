@@ -285,36 +285,54 @@ function AccountPortalPage({
           <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: 24, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>Rani Mahal</p>
           <p style={{ fontSize: 10, color: "#E8A82E", letterSpacing: "0.18em", textTransform: "uppercase", margin: "3px 0 0" }}>Your Account</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={onStartOrder} style={{ background: "transparent", border: "0.5px solid rgba(250,246,239,0.15)", color: "#FAF6EF", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
             ← Menu
           </button>
-          {isSignedIn && (
-            <button onClick={() => signOut()} style={{ background: "transparent", border: "0.5px solid rgba(232,168,46,0.3)", color: "#E8A82E", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-              Sign Out
+          {isSignedIn ? (
+            <button onClick={() => signOut()} style={{ background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+              🚪 Log Out
+            </button>
+          ) : (
+            <button onClick={handleResetLookup} style={{ background: "rgba(232,168,46,0.12)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+              🔄 Switch Email
             </button>
           )}
         </div>
       </header>
 
       <div style={{ maxWidth: 540, margin: "0 auto", padding: "16px 14px 60px" }}>
-        {/* User Badge */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(232,168,46,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: "#E8A82E", flexShrink: 0, border: "1px solid rgba(232,168,46,0.3)" }}>
-            {(profile.profile?.name ?? activeEmail ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 16, fontWeight: 500, color: "#FAF6EF", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {profile.profile?.name ?? activeEmail}
-            </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
-              <p style={{ fontSize: 12, color: "#B8A995", margin: 0 }}>Member since {fmtDate(profile.stats?.memberSince)}</p>
-              {profile.savedCard && (
-                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 12, background: "rgba(232,168,46,0.12)", color: "#E8A82E", border: "0.5px solid rgba(232,168,46,0.3)", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  💳 {profile.savedCard.brand?.toUpperCase()} •••• {profile.savedCard.last4}
-                </span>
-              )}
+        {/* User Identity & Account Actions Card */}
+        <div style={{ ...S.card, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(232,168,46,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: "#E8A82E", flexShrink: 0, border: "1px solid rgba(232,168,46,0.3)" }}>
+              {(profile.profile?.name ?? activeEmail ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
             </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "#FAF6EF", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {profile.profile?.name ?? activeEmail}
+                </p>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: isSignedIn ? "rgba(127,190,107,0.14)" : "rgba(232,168,46,0.12)", color: isSignedIn ? "#9CD684" : "#E8A82E", border: `0.5px solid ${isSignedIn ? "rgba(127,190,107,0.3)" : "rgba(232,168,46,0.3)"}` }}>
+                  {isSignedIn ? "✓ Signed In Account" : "Guest History"}
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2, margin: 0 }}>
+                {activeEmail ? `Email: ${activeEmail}` : `Member since ${fmtDate(profile.stats?.memberSince)}`}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ flexShrink: 0 }}>
+            {isSignedIn ? (
+              <button onClick={() => signOut()} style={{ padding: "8px 14px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🚪 Log Out
+              </button>
+            ) : (
+              <button onClick={handleResetLookup} style={{ padding: "8px 14px", background: "rgba(232,168,46,0.14)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🔄 Switch Email
+              </button>
+            )}
           </div>
         </div>
 
