@@ -11,7 +11,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { id, test_email } = req.query;
+  const urlObj = new URL(req.url, "http://localhost");
+  const id = req.query?.id || urlObj.searchParams.get("id");
+  const test_email = req.query?.test_email || urlObj.searchParams.get("test_email");
 
   if (test_email) {
     const testOrder = {
