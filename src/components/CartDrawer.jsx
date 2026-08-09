@@ -232,7 +232,7 @@ export function CheckoutGate({
     const zone = getDeliveryZoneForZip(zipStr);
     const requiredMin = zone?.minOrder || 50.00;
     if (subtotal < requiredMin) {
-      setError(`Delivery to ${cityStr || "your area"} (${zone?.name || "Zone"}) requires a minimum food subtotal of $${requiredMin.toFixed(2)}.`);
+      setError(`Delivery to ${cityStr || "your area"} requires a minimum food subtotal of $${requiredMin.toFixed(2)}.`);
       return false;
     }
     return true;
@@ -540,16 +540,27 @@ export function CartDrawer({
               {isDelivery && (() => {
                 const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
                 const zoneMin = zone?.minOrder || 50.00;
+                const city = deliveryAddress?.city || "your area";
+                const belowMin = subtotal < zoneMin;
                 return (
                   <div style={{ margin:"0.75rem 1.25rem 0", padding:"12px 14px", background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:12, fontSize:12.5, color:"#FAF6EF" }}>
-                    {subtotal < zoneMin ? (
-                      <div style={{ color:"#E8A82E", textAlign:"center", fontWeight:500 }}>
-                        Delivery requires a <strong>${zoneMin.toFixed(2)}</strong> minimum food subtotal. Add <strong>{fmt(zoneMin - subtotal)}</strong> more to checkout.
+                    {belowMin ? (
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                        <p style={{ fontSize:13, color:"#E8A82E", fontWeight:500, margin:0, lineHeight:1.45 }}>
+                          Delivery to <strong>{city}</strong> requires a <strong>${zoneMin.toFixed(2)}</strong> minimum — add <strong>{fmt(zoneMin - subtotal)}</strong> more.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setDrawerOpen(false)}
+                          style={{ flexShrink:0, padding:"8px 14px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:20, fontSize:12.5, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}
+                        >
+                          + Add Items
+                        </button>
                       </div>
                     ) : subtotal < 99 ? (
                       <div>
                         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, fontSize:12, fontWeight:600 }}>
-                          <span style={{ color:"#E8A82E" }}>🎉 Add {fmt(99 - subtotal)} more for FREE Delivery!</span>
+                          <span style={{ color:"#E8A82E" }}>Add {fmt(99 - subtotal)} more for FREE Delivery!</span>
                           <span style={{ color:"#B8A995" }}>{Math.round((subtotal / 99) * 100)}%</span>
                         </div>
                         <div style={{ height:6, background:"rgba(250,246,239,0.12)", borderRadius:3, overflow:"hidden" }}>
@@ -583,26 +594,49 @@ export function CartDrawer({
 
             {/* Permanent Sticky Bottom Checkout Footer */}
             <div style={{ flexShrink:0, padding:"1rem 1.25rem 1.5rem", background:"#12100e", borderTop:"1px solid rgba(250,246,239,0.1)", zIndex:10 }}>
-              <button 
-                onClick={handleCheckout}
-                disabled={isBelowMin}
-                style={{ 
-                  display:"block", 
-                  width:"100%", 
-                  padding:14, 
-                  background: isBelowMin ? "#342820" : "#E8A82E", 
-                  border:"none", 
-                  color: isBelowMin ? "#B8A995" : "#080706", 
-                  fontSize:15, 
-                  fontWeight:600, 
-                  borderRadius:10, 
-                  cursor: isBelowMin ? "not-allowed" : "pointer",
-                  transition: "background 0.15s, color 0.15s",
-                  boxShadow: isBelowMin ? "none" : "0 4px 20px rgba(232,168,46,0.3)"
-                }}
-              >
-                {isBelowMin ? `Add ${fmt(DELIVERY_CONFIG.MINIMUM_ORDER - subtotal)} for delivery ($50 min)` : `Proceed to checkout — ${fmt(total)}`}
-              </button>
+              {isBelowMin ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    style={{
+                      display:"block",
+                      width:"100%",
+                      padding:14,
+                      background:"#E8A82E",
+                      border:"none",
+                      color:"#080706",
+                      fontSize:15,
+                      fontWeight:700,
+                      borderRadius:10,
+                      cursor:"pointer",
+                      boxShadow:"0 4px 20px rgba(232,168,46,0.3)",
+                    }}
+                  >
+                    ← Add More Items
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCheckout}
+                  style={{
+                    display:"block",
+                    width:"100%",
+                    padding:14,
+                    background:"#E8A82E",
+                    border:"none",
+                    color:"#080706",
+                    fontSize:15,
+                    fontWeight:600,
+                    borderRadius:10,
+                    cursor:"pointer",
+                    transition:"background 0.15s",
+                    boxShadow:"0 4px 20px rgba(232,168,46,0.3)"
+                  }}
+                >
+                  Proceed to checkout — {fmt(total)}
+                </button>
+              )}
             </div>
           </>
         )}
