@@ -91,20 +91,20 @@ const FULFILLMENT_STORAGE_KEY = "rani_fulfillment_v1";
 function loadStoredFulfillment() {
   try {
     const raw = localStorage.getItem(FULFILLMENT_STORAGE_KEY);
-    if (!raw) return { mode: "pickup", address: { street: "", apt: "", city: "Mamaroneck", zip: "10543", notes: "" } };
+    if (!raw) return { mode: "pickup", address: { street: "", apt: "", city: "", zip: "", notes: "" } };
     const parsed = JSON.parse(raw);
     return {
       mode: parsed.mode || "pickup",
       address: {
         street: parsed.address?.street || "",
         apt: parsed.address?.apt || "",
-        city: parsed.address?.city || "Mamaroneck",
-        zip: parsed.address?.zip || "10543",
+        city: parsed.address?.city || "",
+        zip: parsed.address?.zip || "",
         notes: parsed.address?.notes || "",
       },
     };
   } catch {
-    return { mode: "pickup", address: { street: "", apt: "", city: "Mamaroneck", zip: "10543", notes: "" } };
+    return { mode: "pickup", address: { street: "", apt: "", city: "", zip: "", notes: "" } };
   }
 }
 

@@ -49,7 +49,7 @@ export function AddressAutocomplete({
   zip,
   setZip,
   onSelectAddress,
-  placeholder = "Start typing street address (e.g. 150 Boston Post Rd)",
+  placeholder = "Street address",
   style = {},
 }) {
   const [suggestions, setSuggestions] = useState([]);
@@ -137,7 +137,7 @@ export function AddressAutocomplete({
               const house = a.house_number ? `${a.house_number} ` : "";
               const road = a.road || a.pedestrian || a.street || "";
               const st = (house + road).trim();
-              const rawTown = a.city || a.town || a.village || a.suburb || a.county || "Mamaroneck";
+              const rawTown = a.city || a.town || a.village || a.suburb || a.county || "";
               const town = cleanTownName(rawTown);
               const pc = a.postcode || "";
               if (!st) return null;
@@ -216,18 +216,13 @@ export function AddressAutocomplete({
             ...style,
           }}
         />
-        {loading && (
-          <span style={{ position: "absolute", right: 12, fontSize: 11, color: "#E8A82E", fontWeight: 600 }}>
-            Verifying…
-          </span>
-        )}
       </div>
 
-      {/* Optimized Inline Flow Container */}
+      {/* Clean Dropdown List */}
       {showDropdown && suggestions.length > 0 && (
         <div
           style={{
-            marginTop: 8,
+            marginTop: 6,
             background: "#181410",
             border: "1px solid rgba(232,168,46,0.35)",
             borderRadius: 12,
@@ -237,16 +232,8 @@ export function AddressAutocomplete({
             overflowY: "auto",
           }}
         >
-          <div style={{ padding: "6px 12px", background: "rgba(232,168,46,0.08)", borderBottom: "1px solid rgba(232,168,46,0.18)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#E8A82E" }}>
-              Verified Address Suggestions
-            </span>
-            <span style={{ fontSize: 10, color: "#B8A995" }}>Select to auto-fill</span>
-          </div>
-
           {suggestions.map((item, idx) => {
             const displayCity = cleanTownName(item.city);
-            const inZone = item.zip ? isZipInDeliveryZone(item.zip) : true;
             return (
               <div
                 key={idx}
@@ -256,7 +243,7 @@ export function AddressAutocomplete({
                   handleSelect(item);
                 }}
                 style={{
-                  padding: "11px 14px",
+                  padding: "12px 14px",
                   borderBottom: idx < suggestions.length - 1 ? "1px solid rgba(250,246,239,0.06)" : "none",
                   cursor: "pointer",
                   display: "flex",
@@ -268,18 +255,13 @@ export function AddressAutocomplete({
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
                 <div>
-                  <p style={{ fontSize: 13.5, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
-                    <span aria-hidden="true">📍</span> {item.street}
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
+                    {item.street}
                   </p>
-                  <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0" }}>
-                    {displayCity}, {item.state || "NY"} {item.zip ? item.zip : ""}
+                  <p style={{ fontSize: 12, color: "#B8A995", margin: "2px 0 0" }}>
+                    {displayCity ? `${displayCity}, ` : ""}{item.state || "NY"} {item.zip ? item.zip : ""}
                   </p>
                 </div>
-                {inZone && (
-                  <span style={{ fontSize: 10.5, fontWeight: 600, color: "#4ADE80", background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.3)", padding: "2px 8px", borderRadius: 10, flexShrink: 0 }}>
-                    Verified Zone
-                  </span>
-                )}
               </div>
             );
           })}

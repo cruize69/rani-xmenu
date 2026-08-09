@@ -59,7 +59,7 @@ export function UniversalDeliveryForm({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-      {/* Header row: label + zone status badge */}
+      {/* Header row: label + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#E8A82E" }}>
           Delivery Address
@@ -75,7 +75,7 @@ export function UniversalDeliveryForm({
               display: "inline-block",
               flexShrink: 0,
             }} />
-            {isZipValid ? "Delivery Available ✓" : "Outside Delivery Zone"}
+            {isZipValid ? "Eligible for Delivery ✓" : "Outside Delivery Zone"}
           </div>
         )}
       </div>
@@ -94,7 +94,7 @@ export function UniversalDeliveryForm({
             setError?.(null);
             setDeliveryAddress?.({ street: selected.street, apt, city: selected.city, zip: selected.zip, notes });
           }}
-          placeholder="Street address (e.g. 150 Boston Post Rd)"
+          placeholder="Street address"
           style={{ fontSize: 16, padding: "13px 14px", minHeight: 48 }}
         />
       </div>
@@ -106,7 +106,7 @@ export function UniversalDeliveryForm({
           <input
             id="delivery-apt"
             type="text"
-            placeholder="Apt 4B (optional)"
+            placeholder="Apt, suite, floor"
             autoComplete="address-line2"
             value={apt}
             onChange={(e) => update({ apt: e.target.value })}
@@ -118,7 +118,7 @@ export function UniversalDeliveryForm({
           <input
             id="delivery-city"
             type="text"
-            placeholder="Mamaroneck"
+            placeholder="City"
             autoComplete="address-level2"
             value={city}
             onChange={(e) => update({ city: e.target.value })}
@@ -134,7 +134,7 @@ export function UniversalDeliveryForm({
           <input
             id="delivery-zip"
             type="text"
-            placeholder="10543"
+            placeholder="ZIP"
             maxLength={5}
             inputMode="numeric"
             autoComplete="postal-code"
@@ -145,7 +145,7 @@ export function UniversalDeliveryForm({
               textAlign: "center",
               fontWeight: 700,
               fontSize: 16,
-              letterSpacing: "0.12em",
+              letterSpacing: "0.08em",
               borderColor: zipDone ? (isZipValid ? "#1A6B3A" : "rgba(240,132,106,0.5)") : "rgba(250,246,239,0.15)",
             }}
           />
@@ -155,7 +155,7 @@ export function UniversalDeliveryForm({
           <input
             id="delivery-notes"
             type="text"
-            placeholder="Gate code, leave at door… (optional)"
+            placeholder="Driver notes (optional)"
             autoComplete="off"
             value={notes}
             onChange={(e) => update({ notes: e.target.value })}
