@@ -9,10 +9,11 @@ const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 
 // Internal tools — code-split so their JS never ships to customer visits,
 // and gated behind StaffGate (see StaffGate.jsx for why).
-const OrderManager   = lazy(() => import("./OrderManager.jsx"));
-const KitchenDisplay = lazy(() => import("./KitchenDisplay.jsx"));
-const ImageManager   = lazy(() => import("./ImageManager.jsx"));
-const SalesDashboard = lazy(() => import("./SalesDashboard.jsx"));
+const OrderManager     = lazy(() => import("./OrderManager.jsx"));
+const KitchenDisplay   = lazy(() => import("./KitchenDisplay.jsx"));
+const TvKitchenDisplay = lazy(() => import("./TvKitchenDisplay.jsx"));
+const ImageManager     = lazy(() => import("./ImageManager.jsx"));
+const SalesDashboard   = lazy(() => import("./SalesDashboard.jsx"));
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -23,11 +24,13 @@ function MaybeClerkProvider({ children }) {
 
 const ROUTES = {
   "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
-  "/manager":   () => <StaffGate><OrderManager /></StaffGate>,
-  "/kitchen":   () => <StaffGate><KitchenDisplay /></StaffGate>,
-  "/images":    () => <StaffGate><ImageManager /></StaffGate>,
-  "/sales":     () => <StaffGate><SalesDashboard /></StaffGate>,
-  "/dashboard": () => <StaffGate><SalesDashboard /></StaffGate>,
+  "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
+  "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
+  "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
+  "/tv-kitchen": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
+  "/images":     () => <StaffGate><ImageManager /></StaffGate>,
+  "/sales":      () => <StaffGate><SalesDashboard /></StaffGate>,
+  "/dashboard":  () => <StaffGate><SalesDashboard /></StaffGate>,
 };
 
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
