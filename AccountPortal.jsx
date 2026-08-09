@@ -21,10 +21,35 @@ const S = {
 };
 
 // ── Item Thumbnail ──────────────────────────────────────────────────
-function ItemThumb({ imageUrl, size = 38 }) {
+function ItemThumb({ imageUrl, size = 52, alt = "" }) {
   return (
-    <div style={{ width: size, height: size, borderRadius: 9, flexShrink: 0, overflow: "hidden", background: "#1c1814", border: "1px solid rgba(250,246,239,0.1)", backgroundImage: imageUrl ? `url(${imageUrl})` : "none", backgroundSize: "cover", backgroundPosition: "center" }}>
-      {!imageUrl && <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 6px)" }} />}
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: 12,
+      flexShrink: 0,
+      overflow: "hidden",
+      background: "#1c1814",
+      border: "1.5px solid rgba(232,168,46,0.3)",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+      backgroundImage: imageUrl ? `url(${imageUrl})` : "none",
+      backgroundSize: "cover",
+      backgroundPosition: "center"
+    }}>
+      {!imageUrl && (
+        <div style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, rgba(232,168,46,0.12) 0%, rgba(28,24,20,0.8) 100%)",
+          color: "#E8A82E",
+          fontSize: size * 0.4
+        }}>
+          🍲
+        </div>
+      )}
     </div>
   );
 }
@@ -41,48 +66,80 @@ function OrderCard({ order, onReorder, cloudImages }) {
   const sc = statusConfig[order.status] ?? statusConfig.done;
 
   return (
-    <div style={S.card}>
-      <div onClick={() => setExpanded(e => !e)} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer", gap: 10 }}>
+    <div style={{ ...S.card, padding: "1.25rem 1.4rem" }}>
+      <div onClick={() => setExpanded(e => !e)} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
             <span style={sc}>{order.status === "done" ? "✓ " : ""}{sc.label}</span>
             <span style={{ fontSize: 11, color: "#E8A82E", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
               {order.orderMode === "delivery" ? "🚗 Delivery" : "🛍️ Pickup"}
             </span>
           </div>
-          <p style={{ fontSize: 12, color: "#B8A995", margin: 0 }}>
+          <p style={{ fontSize: 12, color: "#B8A995", margin: 0, fontWeight: 500 }}>
             {fmtDate(order.createdAt)} · #{order.id.slice(-6).toUpperCase()}
           </p>
+          
+          {/* Prominent High-Visibility Dish Image Previews */}
           {!expanded && (
-            <div style={{ display: "flex", marginTop: 8 }}>
-              {order.items.slice(0, 4).map((item, i) => (
-                <div key={i} style={{ marginLeft: i === 0 ? 0 : -8 }}>
-                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={34} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, overflowX: "auto", paddingBottom: 2 }}>
+              {order.items.slice(0, 5).map((item, i) => (
+                <div key={i} style={{ position: "relative" }}>
+                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={52} />
+                  {item.qty > 1 && (
+                    <span style={{ position: "absolute", top: -4, right: -4, background: "#E8A82E", color: "#080706", fontSize: 10, fontWeight: 800, borderRadius: 10, padding: "1px 5px", boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>
+                      ×{item.qty}
+                    </span>
+                  )}
                 </div>
               ))}
+              {order.items.length > 5 && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#E8A82E", background: "rgba(232,168,46,0.12)", padding: "4px 8px", borderRadius: 8, border: "0.5px solid rgba(232,168,46,0.3)" }}>
+                  +{order.items.length - 5} more
+                </span>
+              )}
             </div>
           )}
         </div>
+
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p style={{ fontFamily: "'Fraunces',serif", fontSize: 16, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
+          <p style={{ fontFamily: "'Fraunces',serif", fontSize: 17, color: "#FAF6EF", margin: 0, fontWeight: 600 }}>
             {fmt(order.total)}
           </p>
-          <span style={{ fontSize: 11, color: "#B8A995" }}>{expanded ? "Collapse ▲" : "Details ▼"}</span>
+          <span style={{ fontSize: 11.5, color: "#E8A82E", fontWeight: 500, display: "block", marginTop: 4 }}>
+            {expanded ? "Collapse ▲" : "View Details ▼"}
+          </span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ borderTop: "0.5px solid rgba(250,246,239,0.08)", marginTop: 12, paddingTop: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        <div style={{ borderTop: "0.5px solid rgba(250,246,239,0.1)", marginTop: 14, paddingTop: 14 }}>
+          {/* Expanded Item Breakdown with Large Food Previews */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
             {order.items.map((item, idx) => (
-              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
-                <span style={{ color: "#FAF6EF" }}>{item.qty}× {item.name}</span>
-                <span style={{ color: "#B8A995" }}>{fmt(item.price * item.qty)}</span>
+              <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "rgba(250,246,239,0.02)", padding: "8px 10px", borderRadius: 12, border: "0.5px solid rgba(250,246,239,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={46} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 13.5, fontWeight: 600, color: "#FAF6EF", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.qty}× {item.name}
+                    </p>
+                    {(item.spice || item.note) && (
+                      <p style={{ fontSize: 11, color: "#E8A82E", margin: "2px 0 0" }}>
+                        {[item.spice ? `Spice: ${item.spice}` : null, item.note].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: "#FAF6EF", flexShrink: 0 }}>
+                  {fmt(item.price * item.qty)}
+                </span>
               </div>
             ))}
           </div>
-          <button onClick={() => onReorder(order)} style={S.btnOutline}>
-            Reorder these items →
+
+          <button onClick={() => onReorder(order)} style={{ ...S.btnGold, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 18px", fontSize: 13.5 }}>
+            <span>⚡ Reorder These Items</span>
+            <span>({fmt(order.total)}) →</span>
           </button>
         </div>
       )}
