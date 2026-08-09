@@ -37,7 +37,42 @@ export default async function handler(req, res) {
 
 // ── Public GET: customer session lookup & status tracking ──────────
 async function handlePublicGet(req, res) {
-  const { session_id, status_id } = req.query;
+  const { session_id, status_id, test_email } = req.query;
+
+  if (test_email) {
+    const testOrder = {
+      id: "order_" + Date.now().toString(36).toUpperCase(),
+      customerName: "Riyadh Juwel",
+      customerEmail: test_email,
+      orderMode: "delivery",
+      deliveryAddress: {
+        street: "123 Forest Ave",
+        apt: "Suite 4B",
+        city: "Mamaroneck",
+        zip: "10543",
+        notes: "Ring doorbell twice, leave on front porch please"
+      },
+      status: "new",
+      items: [
+        { name: "Saffron Lamb Biryani", price: 24.95, qty: 2, spice: "Medium", note: "Extra raita on the side" },
+        { name: "Chicken Tikka Masala", price: 19.95, qty: 2, spice: "Spicy", note: "Well done naan bread" },
+        { name: "Fresh Garlic Naan", price: 4.95, qty: 4, spice: null, note: "Piping hot buttered" },
+        { name: "Mango Lassi", price: 5.50, qty: 2, spice: null, note: "" }
+      ],
+      subtotal: 120.60,
+      deliveryFee: 0.00,
+      tax: 10.10,
+      tip: 21.70,
+      total: 152.40,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      await sendCustomerReceiptEmail(testOrder);
+      return res.status(200).json({ success: true, sentTo: test_email, orderTotal: testOrder.total });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
 
   // Status polling on OrderSuccess page
   if (status_id) {
