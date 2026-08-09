@@ -148,6 +148,13 @@ export default async function handler(req, res) {
       .update(JSON.stringify({ cartJson, clerkUserId, guestEmail, orderMode, minute: Math.floor(Date.now() / 60000) }))
       .digest("hex");
 
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.status(500).json({ error: "Stripe Secret Key is not configured on the server. Please set STRIPE_SECRET_KEY in Vercel environment variables." });
+    }
+
+    const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || reqOrigin || "https://ranimahal.food").replace(/\/$/, "");
+
     const session = await stripe.checkout.sessions.create({
       mode:                 "payment",
       payment_method_types: ["card"],
@@ -169,14 +176,14 @@ export default async function handler(req, res) {
         deliveryAddress:     isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress).slice(0, 500) : "",
         source:              "online_ordering",
       },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/order-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}`,
+      success_url: `${baseUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${baseUrl}`,
     }, { idempotencyKey });
 
     return res.status(200).json({ url: session.url });
 
   } catch (err) {
     console.error("Checkout error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || "Failed to create checkout session" });
   }
 }

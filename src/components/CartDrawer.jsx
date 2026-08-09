@@ -258,9 +258,14 @@ export function CheckoutGate({
           deliveryFee: orderMode === "delivery" ? deliveryFee : 0
         }),
       });
-      if (!res.ok) throw new Error("Checkout failed");
-      const { url } = await res.json();
-      window.location.href = url;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Checkout failed");
+      }
+      if (!data.url) {
+        throw new Error("No checkout URL returned from server");
+      }
+      window.location.href = data.url;
     } catch (err) {
       setError(err.message || "Something went wrong. Please call (914) 835-9066.");
       setLoading(false);
