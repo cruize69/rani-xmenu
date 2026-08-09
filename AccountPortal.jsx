@@ -203,11 +203,45 @@ function AccountPortalPage({
 
           {/* Primary Actions when No Orders Found */}
           {isNotFound && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-              <button onClick={onStartOrder} style={S.btnGold}>
-                Start Order as Guest ({activeEmail.split("@")[0] || "Guest"}) →
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <button
+                onClick={onStartOrder}
+                style={{
+                  padding: "11px 24px",
+                  background: "#E8A82E",
+                  color: "#080706",
+                  border: "none",
+                  borderRadius: 24,
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  boxShadow: "0 4px 14px rgba(232,168,46,0.25)",
+                  transition: "transform 0.15s ease, opacity 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                Continue as Guest ({activeEmail.split("@")[0] || "Guest"}) →
               </button>
-              <button onClick={handleResetLookup} style={S.btnOutline}>
+
+              <button
+                onClick={handleResetLookup}
+                style={{
+                  background: "transparent",
+                  color: "#B8A995",
+                  border: "none",
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  textDecoration: "underline",
+                }}
+              >
                 ← Try Another Email
               </button>
             </div>
@@ -215,11 +249,31 @@ function AccountPortalPage({
 
           {/* Clerk Account Sign-In Option */}
           {openSignIn && !isNotFound && (
-            <div style={{ marginBottom: 18 }}>
-              <button onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })} style={S.btnGold}>
-                🔑 Sign In / Create Account
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 18 }}>
+              <button
+                onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })}
+                style={{
+                  padding: "12px 28px",
+                  background: "#E8A82E",
+                  color: "#080706",
+                  border: "none",
+                  borderRadius: 24,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  boxShadow: "0 4px 16px rgba(232,168,46,0.3)",
+                  transition: "transform 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <span>🔑 Sign In / Create Account</span>
               </button>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", margin: "18px 0 14px" }}>
                 <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
                 <span style={{ fontSize: 11, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   or email lookup

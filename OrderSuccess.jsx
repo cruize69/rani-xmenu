@@ -41,17 +41,38 @@ function AccountClaimCard({ email }) {
       <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
         Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to track orders live, save payment details, and reorder your favorites in seconds next time.
       </p>
-      <button
-        onClick={() => {
-          if (clerk) {
-            clerk.openSignUp({ initialValues: { emailAddress: email } });
-          } else {
-            window.location.href = `/account?email=${encodeURIComponent(email || "")}`;
-          }
-        }}
-        style={{ width: "100%", padding: "12px 18px", background: "#C8853A", color: "#0F0800", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <span>Create Account / Claim Order →</span>
-      </button>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+        <button
+          onClick={() => {
+            if (clerk) {
+              clerk.openSignUp({ initialValues: { emailAddress: email } });
+            } else {
+              window.location.href = `/account?email=${encodeURIComponent(email || "")}`;
+            }
+          }}
+          style={{
+            padding: "11px 22px",
+            background: "#C8853A",
+            color: "#0F0800",
+            border: "none",
+            borderRadius: 24,
+            fontSize: 13.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "'Inter',sans-serif",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            boxShadow: "0 4px 14px rgba(200,133,58,0.3)",
+            transition: "transform 0.15s ease",
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+          <span>Create Account / Claim Order →</span>
+        </button>
+      </div>
     </div>
   );
 }
