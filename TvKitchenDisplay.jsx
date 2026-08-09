@@ -154,8 +154,8 @@ function TvOrderCard({ order }) {
     <div
       style={{
         background: "linear-gradient(180deg, #1c1814 0%, #120e0b 100%)",
-        borderRadius: 22,
-        border: `4px solid ${townCfg.border}`,
+        borderRadius: 20,
+        border: `3.5px solid ${townCfg.border}`,
         boxShadow: isUrgent
           ? "0 0 50px rgba(239,68,68,0.65), 0 12px 36px rgba(0,0,0,0.85)"
           : `0 0 30px ${townCfg.bg}, 0 12px 36px rgba(0,0,0,0.85)`,
@@ -172,20 +172,21 @@ function TvOrderCard({ order }) {
         style={{
           background: townCfg.tagBg,
           color: "#080706",
-          padding: "12px 18px",
+          padding: "1.0vh 1.2vw",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           fontWeight: 900,
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {order.orderMode === "delivery" ? (
-            <TvDeliveryIcon size={32} color="#080706" />
+            <TvDeliveryIcon size={28} color="#080706" />
           ) : (
-            <TvPickupIcon size={32} color="#080706" />
+            <TvPickupIcon size={28} color="#080706" />
           )}
-          <span style={{ fontSize: 28, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: "clamp(20px, 1.3vw, 28px)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             {order.orderMode === "delivery" ? city : "PICKUP"}
           </span>
         </div>
@@ -195,9 +196,9 @@ function TvOrderCard({ order }) {
           style={{
             background: isUrgent ? "#EF4444" : isFresh ? "rgba(8,7,6,0.9)" : "rgba(8,7,6,0.85)",
             color: isUrgent ? "#FFFFFF" : isFresh ? "#4ADE80" : townCfg.border,
-            padding: "6px 16px",
+            padding: "4px 14px",
             borderRadius: 24,
-            fontSize: 22,
+            fontSize: "clamp(16px, 1.0vw, 22px)",
             fontWeight: 900,
             letterSpacing: "0.04em",
             animation: isUrgent ? "pulseWarning 1.5s infinite" : "none",
@@ -208,42 +209,42 @@ function TvOrderCard({ order }) {
       </div>
 
       {/* Customer Name & Order ID Bar */}
-      <div style={{ padding: "16px 20px 12px", background: "rgba(255,255,255,0.04)", borderBottom: "1.5px solid rgba(250,246,239,0.12)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-        <h2 style={{ fontSize: 36, fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ padding: "1.2vh 1.4vw 1.0vh", background: "rgba(255,255,255,0.04)", borderBottom: "1.5px solid rgba(250,246,239,0.12)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
+        <h2 style={{ fontSize: "clamp(24px, 1.8vw, 36px)", fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {order.customerName}
         </h2>
-        <span style={{ fontSize: 24, fontWeight: 900, color: "#E8A82E", letterSpacing: "0.1em", flexShrink: 0 }}>
+        <span style={{ fontSize: "clamp(18px, 1.2vw, 24px)", fontWeight: 900, color: "#E8A82E", letterSpacing: "0.1em", flexShrink: 0 }}>
           #{order.id.slice(-4).toUpperCase()}
         </span>
       </div>
 
       {/* Delivery Street Address banner if applicable */}
       {order.orderMode === "delivery" && order.deliveryAddress?.street && (
-        <div style={{ background: "rgba(232,168,46,0.14)", padding: "10px 20px", borderBottom: "1.5px solid rgba(232,168,46,0.25)", fontSize: 20, fontWeight: 800, color: townCfg.text }}>
+        <div style={{ background: "rgba(232,168,46,0.14)", padding: "0.8vh 1.4vw", borderBottom: "1.5px solid rgba(232,168,46,0.25)", fontSize: "clamp(16px, 1.0vw, 20px)", fontWeight: 800, color: townCfg.text, flexShrink: 0 }}>
           📍 {order.deliveryAddress.street} {order.deliveryAddress.apt ? `(${order.deliveryAddress.apt})` : ""}
         </div>
       )}
 
       {/* Special Allergy / Instructions Warning Banner */}
       {order.specialInstructions && (
-        <div style={{ background: order.specialInstructions.toUpperCase().includes("ALLERG") ? "#7F1D1D" : "#78350F", color: "#FFFFFF", padding: "12px 20px", fontSize: 24, fontWeight: 900, borderBottom: "3px solid #EF4444", lineHeight: 1.3 }}>
+        <div style={{ background: order.specialInstructions.toUpperCase().includes("ALLERG") ? "#7F1D1D" : "#78350F", color: "#FFFFFF", padding: "1.0vh 1.4vw", fontSize: "clamp(18px, 1.2vw, 24px)", fontWeight: 900, borderBottom: "3px solid #EF4444", lineHeight: 1.3, flexShrink: 0 }}>
           ⚠️ NOTE: {order.specialInstructions}
         </div>
       )}
 
-      {/* Item List (Super Large Legibility 4K TV Typography) */}
-      <div style={{ padding: "16px 20px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Item List (Super Large Legibility 4K TV Typography with internal scroll) */}
+      <div style={{ padding: "1.2vh 1.4vw", flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
         {order.items.map((item, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 16, paddingBottom: 12, borderBottom: idx < order.items.length - 1 ? "1.5px solid rgba(250,246,239,0.08)" : "none" }}>
+          <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 14, paddingBottom: 10, borderBottom: idx < order.items.length - 1 ? "1.5px solid rgba(250,246,239,0.08)" : "none" }}>
             {/* Super Large Quantity Bubble */}
             <div
               style={{
-                width: 56,
-                height: 56,
+                width: "clamp(44px, 2.5vw, 56px)",
+                height: "clamp(44px, 2.5vw, 56px)",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #F5C56B 0%, #E8A82E 100%)",
                 color: "#080706",
-                fontSize: 32,
+                fontSize: "clamp(24px, 1.5vw, 32px)",
                 fontWeight: 900,
                 display: "flex",
                 alignItems: "center",
@@ -257,18 +258,18 @@ function TvOrderCard({ order }) {
 
             {/* Dish Name + Spice/Notes */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 32, fontWeight: 900, color: "#FAF6EF", margin: 0, lineHeight: 1.2 }}>
+              <p style={{ fontSize: "clamp(22px, 1.5vw, 32px)", fontWeight: 900, color: "#FAF6EF", margin: 0, lineHeight: 1.2 }}>
                 {item.name}
               </p>
               {(item.spice || item.note) && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                   {item.spice && (
-                    <span style={{ fontSize: 18, fontWeight: 900, padding: "3px 12px", borderRadius: 14, background: "rgba(239,68,68,0.25)", color: "#FCA5A5", border: "1.5px solid rgba(239,68,68,0.5)" }}>
+                    <span style={{ fontSize: "clamp(14px, 0.9vw, 18px)", fontWeight: 900, padding: "2px 10px", borderRadius: 12, background: "rgba(239,68,68,0.25)", color: "#FCA5A5", border: "1.5px solid rgba(239,68,68,0.5)" }}>
                       🌶️ {item.spice}
                     </span>
                   )}
                   {item.note && (
-                    <span style={{ fontSize: 20, color: "#E8A82E", fontWeight: 700 }}>
+                    <span style={{ fontSize: "clamp(15px, 1.0vw, 20px)", color: "#E8A82E", fontWeight: 700 }}>
                       ↳ {item.note}
                     </span>
                   )}
@@ -316,7 +317,7 @@ export default function TvKitchenDisplay() {
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
       flashTimerRef.current = setTimeout(() => {
         setFlashOrder(null);
-      }, 5000); // 5-second auto dismiss
+      }, 5500); // 5.5-second auto dismiss matching sound
     };
 
     let es;
@@ -381,22 +382,27 @@ export default function TvKitchenDisplay() {
     return groupedClusters[b].length - groupedClusters[a].length;
   });
 
-  // Flatten ordered list grouped by town for 1x6 grid view
+  // Flatten ordered list grouped by town for grid view
   const displayOrders = [];
   sortedGroupKeys.forEach(key => {
     displayOrders.push(...groupedClusters[key]);
   });
+
+  // Compute fluid column layout based on current active order count
+  const activeCount = displayOrders.length;
+  const gridColumns = activeCount <= 1 ? "1fr" : `repeat(${Math.min(6, activeCount)}, 1fr)`;
 
   return (
     <div
       style={{
         background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)",
         color: "#FAF6EF",
-        minHeight: "100vh",
+        height: "100vh",
+        maxHeight: "100vh",
         width: "100vw",
         overflow: "hidden",
         fontFamily: "'Inter', sans-serif",
-        padding: "16px 22px",
+        padding: "1.2vh 1.4vw",
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
@@ -426,7 +432,7 @@ export default function TvKitchenDisplay() {
           onClick={() => setFlashOrder(null)}
           style={{
             position: "fixed",
-            top: 20,
+            top: "2vh",
             left: "50%",
             transform: "translateX(-50%)",
             width: "90%",
@@ -434,14 +440,14 @@ export default function TvKitchenDisplay() {
             background: "linear-gradient(135deg, #E8A82E 0%, #C8600A 100%)",
             color: "#080706",
             borderRadius: 24,
-            padding: "20px 32px",
+            padding: "2.0vh 2.4vw",
             boxShadow: "0 20px 60px rgba(232,168,46,0.6), 0 0 0 4px #FFFFFF",
             zIndex: 1000,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             cursor: "pointer",
-            animation: "flashBanner 5s ease forwards",
+            animation: "flashBanner 5.5s ease forwards",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
@@ -450,16 +456,16 @@ export default function TvKitchenDisplay() {
               <p style={{ fontSize: 16, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "#080706", opacity: 0.85 }}>
                 New Incoming Order Received
               </p>
-              <h2 style={{ fontSize: 36, fontWeight: 900, margin: 0, color: "#080706" }}>
+              <h2 style={{ fontSize: "clamp(28px, 2.0vw, 40px)", fontWeight: 900, margin: 0, color: "#080706" }}>
                 {flashOrder.customerName} ({flashOrder.orderMode === "delivery" ? flashOrder.deliveryAddress?.city || "Delivery" : "Pickup"})
               </h2>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 40, fontWeight: 900, fontFamily: "'Inter', sans-serif" }}>
+            <span style={{ fontSize: "clamp(32px, 2.2vw, 44px)", fontWeight: 900, fontFamily: "'Inter', sans-serif" }}>
               #{flashOrder.id.slice(-4).toUpperCase()}
             </span>
-            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, opacity: 0.85 }}>Auto-dismiss in 5s</p>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, opacity: 0.85 }}>Auto-dismiss in 5.5s</p>
           </div>
         </div>
       )}
@@ -470,36 +476,37 @@ export default function TvKitchenDisplay() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "16px 30px",
+          padding: "1.2vh 1.8vw",
           background: "rgba(24,20,16,0.85)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderRadius: 22,
+          borderRadius: 20,
           border: "1.5px solid rgba(232,168,46,0.35)",
-          marginBottom: 18,
+          marginBottom: "1.2vh",
           boxShadow: "0 12px 40px rgba(0,0,0,0.75)",
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           {/* Brand Logo & Signature Typography */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <img
               src="/logo/apsara-logo.png"
               alt="Rani Mahal Logo"
-              style={{ width: 54, height: 54, objectFit: "contain", filter: "drop-shadow(0 4px 10px rgba(232,168,46,0.4))" }}
+              style={{ width: "clamp(42px, 3.0vw, 54px)", height: "clamp(42px, 3.0vw, 54px)", objectFit: "contain", filter: "drop-shadow(0 4px 10px rgba(232,168,46,0.4))" }}
             />
             <div>
-              <h1 style={{ fontFamily: "'Great Vibes', cursive", fontSize: 42, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>
+              <h1 style={{ fontFamily: "'Great Vibes', cursive", fontSize: "clamp(32px, 2.5vw, 44px)", color: "#FAF6EF", margin: 0, lineHeight: 1 }}>
                 Rani Mahal
               </h1>
-              <p style={{ fontSize: 13, color: "#E8A82E", letterSpacing: "0.22em", textTransform: "uppercase", margin: "2px 0 0", fontWeight: 700 }}>
-                Kitchen Expediter Board · 4K Live Display
+              <p style={{ fontSize: "clamp(11px, 0.8vw, 14px)", color: "#E8A82E", letterSpacing: "0.22em", textTransform: "uppercase", margin: "2px 0 0", fontWeight: 700 }}>
+                Kitchen Board · 4K Display
               </p>
             </div>
           </div>
 
           {/* Grouped Destination Cluster Badges */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {sortedGroupKeys.map(groupKey => {
               const count = groupedClusters[groupKey].length;
               const mode = groupKey === "Pickup" ? "pickup" : "delivery";
@@ -511,22 +518,22 @@ export default function TvKitchenDisplay() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 10,
-                    padding: "8px 18px",
-                    borderRadius: 24,
+                    gap: 8,
+                    padding: "6px 14px",
+                    borderRadius: 20,
                     background: cfg.bg,
-                    border: `2px solid ${cfg.border}`,
+                    border: `1.5px solid ${cfg.border}`,
                     color: cfg.text,
-                    fontSize: 18,
+                    fontSize: "clamp(14px, 1.0vw, 18px)",
                     fontWeight: 900,
-                    boxShadow: `0 0 16px ${cfg.bg}`,
+                    boxShadow: `0 0 14px ${cfg.bg}`,
                   }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     {mode === "delivery" ? (
-                      <TvDeliveryIcon size={22} color={cfg.text} />
+                      <TvDeliveryIcon size={20} color={cfg.text} />
                     ) : (
-                      <TvPickupIcon size={22} color={cfg.text} />
+                      <TvPickupIcon size={20} color={cfg.text} />
                     )}
                     <span>{groupKey}</span>
                   </span>
@@ -534,9 +541,9 @@ export default function TvKitchenDisplay() {
                     style={{
                       background: cfg.border,
                       color: "#080706",
-                      borderRadius: 12,
-                      padding: "2px 10px",
-                      fontSize: 18,
+                      borderRadius: 10,
+                      padding: "1px 8px",
+                      fontSize: "clamp(14px, 1.0vw, 18px)",
                       fontWeight: 900,
                     }}
                   >
@@ -549,7 +556,7 @@ export default function TvKitchenDisplay() {
         </div>
 
         {/* Sync Status Clock & Sound Test */}
-        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={() => {
@@ -559,13 +566,13 @@ export default function TvKitchenDisplay() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 6,
                 background: "rgba(232,168,46,0.16)",
                 border: "1.5px solid rgba(232,168,46,0.45)",
                 color: "#E8A82E",
-                padding: "6px 16px",
-                borderRadius: 24,
-                fontSize: 15,
+                padding: "5px 14px",
+                borderRadius: 20,
+                fontSize: "clamp(13px, 0.9vw, 16px)",
                 fontWeight: 800,
                 cursor: "pointer",
                 fontFamily: "'Inter', sans-serif",
@@ -576,21 +583,21 @@ export default function TvKitchenDisplay() {
             >
               🔔 Test Sound
             </button>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)", padding: "6px 16px", borderRadius: 24, color: "#4ADE80", fontSize: 16, fontWeight: 800 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 10px #4ADE80" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)", padding: "5px 14px", borderRadius: 20, color: "#4ADE80", fontSize: "clamp(13px, 0.9vw, 16px)", fontWeight: 800 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 10px #4ADE80" }} />
               LIVE 4K SYNC
             </div>
           </div>
-          <p style={{ fontSize: 14, color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
             Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </p>
         </div>
       </header>
 
-      {/* 1x6 Grid Layout for 4K 43" Screen */}
-      <main style={{ flex: 1, minHeight: 0 }}>
-        {displayOrders.length === 0 ? (
-          <div style={{ height: "calc(100vh - 150px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: "rgba(18,16,14,0.6)", borderRadius: 24, border: "2px dashed rgba(232,168,46,0.25)" }}>
+      {/* Fluid Grid Layout for 4K TV Screens */}
+      <main style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+        {activeCount === 0 ? (
+          <div style={{ height: "100%", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: "rgba(18,16,14,0.6)", borderRadius: 24, border: "2px dashed rgba(232,168,46,0.25)" }}>
             <img src="/logo/apsara-logo.png" alt="Rani Mahal" style={{ width: 80, height: 80, opacity: 0.6 }} />
             <h2 style={{ fontSize: 36, color: "#FAF6EF", fontWeight: 900, margin: 0 }}>
               All Kitchen Tickets Complete
@@ -603,13 +610,17 @@ export default function TvKitchenDisplay() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, displayOrders.length))}, 1fr)`,
-              gap: 18,
-              height: "calc(100vh - 135px)",
+              gridTemplateColumns: gridColumns,
+              gap: "1.2vw",
+              height: "100%",
+              minHeight: 0,
+              justifyContent: activeCount === 1 ? "center" : "stretch",
             }}
           >
             {displayOrders.slice(0, 6).map((order) => (
-              <TvOrderCard key={order.id} order={order} />
+              <div key={order.id} style={{ height: "100%", minHeight: 0, maxWidth: activeCount === 1 ? "750px" : "100%", margin: activeCount === 1 ? "0 auto" : "0", width: "100%" }}>
+                <TvOrderCard order={order} />
+              </div>
             ))}
           </div>
         )}
