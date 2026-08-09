@@ -16,7 +16,7 @@ import Stripe from "stripe";
 import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
-import { getStripe, syncStripeSessions } from "../lib/syncStripe.js";
+import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
@@ -57,61 +57,32 @@ async function handlePublicGet(req, res) {
     }
   }
 
-  // Session detail lookup on OrderSuccess page (with failsafe order save + email dispatch)
+  // Session detail lookup on OrderSuccess page (with atomic single-order lock)
   if (session_id) {
     try {
       let orderId = await kv.get(`session:${session_id}`);
-
-      if (!orderId) {
-        const stripe = getStripe();
-        if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
-        const session = await stripe.checkout.sessions.retrieve(session_id);
-        if (!session) return res.status(404).json({ error: "Session not found" });
-
-        let cartItems = [];
-        try {
-          const cartJson = session.metadata?.cart
-            ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
-          cartItems = JSON.parse(cartJson || "[]");
-        } catch (e) {}
-
-        let deliveryAddress = null;
-        if (session.metadata?.deliveryAddress) {
-          try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
-        }
-
-        let paymentIntent = null;
-        if (session.payment_intent) {
-          paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
-        }
-
-        const order = buildOrder({
-          paymentIntent,
-          stripeSession:       session,
-          cartItems,
-          specialInstructions: session.metadata?.specialInstructions ?? "",
-          tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
-          orderMode:           session.metadata?.orderMode ?? "pickup",
-          deliveryAddress,
-          deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
-        });
-
-        await Promise.allSettled([
-          saveOrder(order),
-          kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }),
-          sendOrderEmail(order),
-          sendCustomerReceiptEmail(order),
-          sendOrderSMS(order),
-        ]);
-
-        return res.status(200).json(order);
+      if (orderId) {
+        const order = await getOrder(orderId);
+        if (order) return res.status(200).json(order);
       }
 
-      const order = await getOrder(orderId);
-      if (!order) return res.status(404).json({ error: "Order not found" });
+      const stripe = getStripe();
+      if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+
+      let paymentIntent = null;
+      if (session.payment_intent && typeof session.payment_intent === "string") {
+        paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
+      }
+
+      const order = await getOrCreateOrderForSession(session, paymentIntent, true);
+      if (!order) return res.status(404).json({ error: "Order build failed" });
+
       return res.status(200).json(order);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      console.error("Public session lookup error:", err);
+      return res.status(500).json({ error: "Server error" });
     }
   }
 

@@ -5,8 +5,7 @@
 import Stripe from "stripe";
 import { buffer } from "micro";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder } from "../lib/orders.js";
-import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";
+import { getOrCreateOrderForSession } from "../lib/syncStripe.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -40,61 +39,25 @@ export default async function handler(req, res) {
 
   const session = event.data.object;
 
-  // ── Idempotency guard — atomic set-if-not-exists prevents race condition ──
-  const dedupKey = `webhook-processed:${session.id}`;
-  const claimed = await kv.set(dedupKey, "1", { nx: true, ex: 60 * 60 * 24 });
-  if (!claimed) {
-    console.log(`Duplicate webhook for session ${session.id} — skipping.`);
-    return res.status(200).json({ received: true, duplicate: true });
+  // Retrieve payment intent for payment method metadata
+  let paymentIntent = null;
+  if (session.payment_intent) {
+    try {
+      paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+    } catch (e) {}
   }
 
-  // Reconstruct cart from metadata
-  let cartItems = [];
-  try {
-    const cartJson = session.metadata.cart
-      ?? (session.metadata.cart_0 + (session.metadata.cart_1 ?? ""));
-    cartItems = JSON.parse(cartJson);
-  } catch (err) {
-    console.error("Failed to parse cart from metadata:", err);
-    return res.status(200).json({ received: true, error: "cart parse failed" });
+  // Atomic Single Order Creation (guarantees single order even if redirect lands at same millisecond)
+  const order = await getOrCreateOrderForSession(session, paymentIntent, true);
+  if (!order) {
+    return res.status(200).json({ received: true, error: "Order build failed" });
   }
-
-  let deliveryAddress = null;
-  if (session.metadata?.deliveryAddress) {
-    try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
-  }
-
-  // Build and save order — paymentIntent declared here so saved-card block can reference it
-  const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
-  const order = buildOrder({
-    paymentIntent,
-    stripeSession:       session,
-    cartItems,
-    specialInstructions: session.metadata?.specialInstructions ?? "",
-    tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
-    orderMode:           session.metadata?.orderMode ?? "pickup",
-    deliveryAddress:     deliveryAddress,
-    deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
-  });
-
-  // Batch core KV writes for performance — session lookup + order save
-  await Promise.all([
-    saveOrder(order),
-    kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }), // 7 days
-  ]);
-  console.log(`Order saved: ${order.id}`);
 
   // Link order to customer account (Clerk user or guest email)
   const accountId = session.metadata?.clerkUserId ?? null;
   const guestEmail = session.customer_details?.email ?? null;
   const linkId = accountId ?? (guestEmail ? `guest:${guestEmail.toLowerCase()}` : null);
   if (linkId) {
-    // Batch account linking KV writes
-    await Promise.all([
-      kv.lpush(`account-orders:${linkId}`, order.id),
-      kv.ltrim(`account-orders:${linkId}`, 0, 99),
-    ]);
-
     // Save vaulted payment method metadata (non-sensitive: brand, last4, pm token)
     if (paymentIntent?.payment_method) {
       try {
@@ -118,19 +81,6 @@ export default async function handler(req, res) {
       }
     }
   }
-
-  // Fire notifications concurrently — awaited so Vercel doesn't freeze/kill
-  // the function before the Resend/Twilio requests finish (background work
-  // after the response is sent is not guaranteed to complete on Vercel).
-  const results = await Promise.allSettled([
-    sendOrderEmail(order),
-    sendCustomerReceiptEmail(order),
-    sendOrderSMS(order),
-    notifyPrintQueue(order.id),
-  ]);
-  results.forEach((r, i) => {
-    if (r.status === "rejected") console.error(`Notification ${i} failed:`, r.reason);
-  });
 
   return res.status(200).json({ received: true, orderId: order.id });
 }
