@@ -252,6 +252,11 @@ export default function OrderSuccess() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Instantly clear saved cart from localStorage on successful order
+    try {
+      localStorage.removeItem("rani_cart_v1");
+    } catch {}
+
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
 
