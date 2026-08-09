@@ -332,36 +332,57 @@ function AccountPortalPage({
 
   // ── 3. Signed In / Ready View (Orders Found) ─────────────────────
   const activeOrder = profile.orders.find(o => o.status === "new" || o.status === "in_progress");
-  const lastOrder   = profile.orders.find(o => o.id !== activeOrder?.id) ?? null;
+  const lastOrder   = profile.orders.find(o => o.id !== activeOrder?.id) ?? profile.orders[0] ?? null;
+
+  // Calculate guest stats
+  const totalOrders = profile.orders.length;
+  const totalSpent = profile.orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  
+  // Find favorite dish from history
+  const itemCounts = {};
+  profile.orders.forEach(o => {
+    (o.items || []).forEach(i => {
+      itemCounts[i.name] = (itemCounts[i.name] || 0) + (i.qty || 1);
+    });
+  });
+  const favoriteDish = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
   return (
     <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
 
       {/* Portal Header */}
-      <header style={{ background: "#080706", borderBottom: "0.5px solid rgba(250,246,239,0.08)", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
-        <div>
-          <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: 24, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>Rani Mahal</p>
-          <p style={{ fontSize: 10, color: "#E8A82E", letterSpacing: "0.18em", textTransform: "uppercase", margin: "3px 0 0" }}>Your Account</p>
+      <header style={{ background: "rgba(18,16,14,0.85)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "0.5px solid rgba(250,246,239,0.08)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img
+            src="/logo/apsara-logo.png"
+            alt="Rani Mahal Logo"
+            style={{ width: 34, height: 34, objectFit: "contain" }}
+          />
+          <div>
+            <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: 24, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>Rani Mahal</p>
+            <p style={{ fontSize: 9.5, color: "#E8A82E", letterSpacing: "0.18em", textTransform: "uppercase", margin: "2px 0 0", fontWeight: 600 }}>Your Orders & Account</p>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={onStartOrder} style={{ background: "transparent", border: "0.5px solid rgba(250,246,239,0.15)", color: "#FAF6EF", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-            ← Menu
+          <button onClick={onStartOrder} style={{ background: "rgba(232,168,46,0.12)", border: "1px solid rgba(232,168,46,0.35)", color: "#E8A82E", fontSize: 12.5, fontWeight: 600, padding: "7px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+            ← Back to Menu
           </button>
           {isSignedIn && (
-            <button onClick={() => signOut()} style={{ background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
+            <button onClick={() => signOut()} style={{ background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", fontSize: 12, fontWeight: 600, padding: "7px 12px", borderRadius: 20, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
               🚪 Log Out
             </button>
           )}
         </div>
       </header>
 
-      <div style={{ maxWidth: 540, margin: "0 auto", padding: "16px 14px 60px" }}>
+      <div style={{ maxWidth: 540, margin: "0 auto", padding: "18px 14px 60px" }}>
+        
         {/* User Identity & Account Actions Card */}
-        <div style={{ ...S.card, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ ...S.card, marginBottom: 14, background: "linear-gradient(145deg, #181410 0%, #12100e 100%)", border: "1px solid rgba(232,168,46,0.2)", boxShadow: "0 10px 30px rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(232,168,46,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: "#E8A82E", flexShrink: 0, border: "1px solid rgba(232,168,46,0.3)" }}>
-              {(profile.profile?.name ?? activeEmail ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+            <div style={{ width: 46, height: 46, borderRadius: "50%", background: "linear-gradient(135deg, #E8A82E 0%, #B87A14 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#080706", flexShrink: 0, boxShadow: "0 4px 12px rgba(232,168,46,0.3)" }}>
+              {(profile.profile?.name ?? activeEmail ?? "?").split("@")[0].slice(0, 2).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -369,57 +390,103 @@ function AccountPortalPage({
                   {profile.profile?.name ?? activeEmail}
                 </p>
                 <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: isSignedIn ? "rgba(127,190,107,0.14)" : "rgba(232,168,46,0.12)", color: isSignedIn ? "#9CD684" : "#E8A82E", border: `0.5px solid ${isSignedIn ? "rgba(127,190,107,0.3)" : "rgba(232,168,46,0.3)"}` }}>
-                  {isSignedIn ? "✓ Signed In Account" : "Guest History"}
+                  {isSignedIn ? "✓ Account Verified" : "Guest History"}
                 </span>
               </div>
               <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2, margin: 0 }}>
-                {activeEmail ? `Email: ${activeEmail}` : `Member since ${fmtDate(profile.stats?.memberSince)}`}
+                {activeEmail ? activeEmail : `Member since ${fmtDate(profile.stats?.memberSince)}`}
               </p>
             </div>
           </div>
 
           <div style={{ flexShrink: 0 }}>
             {isSignedIn ? (
-              <button onClick={() => signOut()} style={{ padding: "8px 14px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={() => signOut()} style={{ padding: "7px 13px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 🚪 Log Out
               </button>
             ) : (
-              <button onClick={handleResetLookup} style={{ padding: "8px 14px", background: "rgba(232,168,46,0.14)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={handleResetLookup} style={{ padding: "7px 13px", background: "rgba(232,168,46,0.14)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 🔄 Switch Email
               </button>
             )}
           </div>
         </div>
 
+        {/* Guest VIP Summary Stats Bar */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <div style={{ background: "#16120e", border: "0.5px solid rgba(250,246,239,0.08)", borderRadius: 14, padding: "10px 12px", textAlign: "center" }}>
+            <p style={{ fontSize: 10, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 2px", fontWeight: 600 }}>Total Orders</p>
+            <p style={{ fontFamily: "'Fraunces',serif", fontSize: 18, color: "#FAF6EF", margin: 0, fontWeight: 600 }}>{totalOrders}</p>
+          </div>
+          <div style={{ background: "#16120e", border: "0.5px solid rgba(250,246,239,0.08)", borderRadius: 14, padding: "10px 12px", textAlign: "center" }}>
+            <p style={{ fontSize: 10, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 2px", fontWeight: 600 }}>Total Spent</p>
+            <p style={{ fontFamily: "'Fraunces',serif", fontSize: 18, color: "#E8A82E", margin: 0, fontWeight: 600 }}>{fmt(totalSpent)}</p>
+          </div>
+          <div style={{ background: "#16120e", border: "0.5px solid rgba(250,246,239,0.08)", borderRadius: 14, padding: "10px 12px", textAlign: "center", minWidth: 0 }}>
+            <p style={{ fontSize: 10, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 2px", fontWeight: 600 }}>Top Dish</p>
+            <p style={{ fontSize: 12.5, color: "#FAF6EF", margin: 0, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {favoriteDish || "—"}
+            </p>
+          </div>
+        </div>
+
         {/* Active Order Spotlight */}
         {activeOrder && (
-          <div style={{ background: "rgba(232,168,46,0.08)", border: "1px solid rgba(232,168,46,0.3)", borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ background: "rgba(232,168,46,0.08)", border: "1px solid rgba(232,168,46,0.35)", borderRadius: 16, padding: "14px 16px", marginBottom: 16, boxShadow: "0 6px 20px rgba(232,168,46,0.1)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: "#E8A82E", color: "#080706" }}>
-                {activeOrder.status === "in_progress" ? "Being Made" : "Order Received"}
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#E8A82E", color: "#080706", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {activeOrder.status === "in_progress" ? "🔥 Being Made" : "✓ Order Received"}
               </span>
               <span style={{ fontSize: 11, color: "#B8A995" }}>#{activeOrder.id.slice(-6).toUpperCase()}</span>
             </div>
-            <p style={{ fontSize: 13, color: "#FAF6EF", margin: "0 0 6px" }}>{activeOrder.items.map(i => i.name).join(", ")}</p>
-            <p style={{ fontSize: 11, color: "#E8A82E", margin: 0 }}>We'll text you when your order is ready →</p>
+            <p style={{ fontSize: 13.5, color: "#FAF6EF", margin: "0 0 6px", fontWeight: 500 }}>{activeOrder.items.map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+            <p style={{ fontSize: 11.5, color: "#E8A82E", margin: 0, fontWeight: 500 }}>We'll text updates to your phone →</p>
           </div>
         )}
 
-        {/* 1-Tap Reorder Shortcut */}
+        {/* 1-Tap Reorder Spotlight Card */}
         {lastOrder && (
-          <div style={{ ...S.card, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div>
-              <span style={S.label}>Reorder Last Order</span>
-              <p style={{ fontSize: 13, color: "#FAF6EF", margin: 0 }}>{lastOrder.items.map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+          <div style={{ ...S.card, marginBottom: 18, background: "linear-gradient(135deg, rgba(232,168,46,0.12) 0%, rgba(24,20,16,0.9) 100%)", border: "1px solid rgba(232,168,46,0.3)", padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ ...S.label, color: "#E8A82E", marginBottom: 4 }}>⚡ Instant 1-Tap Reorder</span>
+                <p style={{ fontSize: 13.5, color: "#FAF6EF", margin: 0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {lastOrder.items.map(i => `${i.qty}× ${i.name}`).join(", ")}
+                </p>
+                <p style={{ fontSize: 11.5, color: "#B8A995", marginTop: 2, margin: "2px 0 0" }}>
+                  {fmtDate(lastOrder.createdAt)} · {fmt(lastOrder.total)}
+                </p>
+              </div>
+              <button
+                onClick={() => onReorder(lastOrder)}
+                style={{
+                  padding: "9px 16px",
+                  background: "#E8A82E",
+                  color: "#080706",
+                  border: "none",
+                  borderRadius: 20,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  boxShadow: "0 4px 14px rgba(232,168,46,0.3)",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                Reorder →
+              </button>
             </div>
-            <button onClick={() => onReorder(lastOrder)} style={{ ...S.btnGold, width: "auto", padding: "8px 14px", fontSize: 12.5 }}>
-              Reorder →
-            </button>
           </div>
         )}
+
+        {/* Order History Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <p style={{ ...S.label, margin: 0 }}>Order History ({profile.orders.length})</p>
+          <span style={{ fontSize: 11, color: "#B8A995" }}>Tap order to view details</span>
+        </div>
 
         {/* Order History Cards */}
-        <p style={S.label}>Past Orders ({profile.orders.length})</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {profile.orders.map(order => (
             <OrderCard key={order.id} order={order} onReorder={onReorder} cloudImages={cloudImages} />
