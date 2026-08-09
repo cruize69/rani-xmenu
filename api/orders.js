@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     return handlePublicGet(req, res);
   }
 
-  if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET) {
+  const secret = req.headers["x-manager-secret"] || req.query.secret;
+  if (secret !== process.env.MANAGER_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -190,6 +191,43 @@ async function syncStripeSessions() {
 // ── GET: list-by-date, or single order via ?id= ───────────────────
 async function handleGet(req, res) {
   try {
+    // Server-Sent Events (SSE) stream support for real-time kitchen & manager screens
+    if (req.query.stream === "true" || req.query.stream === "1") {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      const targetDate = req.query.date ?? new Date().toISOString().slice(0, 10);
+      res.write(`data: ${JSON.stringify({ type: "connected", timestamp: Date.now() })}\n\n`);
+
+      let lastHash = "";
+      const sendUpdate = async () => {
+        try {
+          const orders = await getOrdersByDate(targetDate);
+          const summary = buildDailySummary(orders);
+          const hash = orders.map(o => `${o.id}:${o.status}:${o.updatedAt}`).join("|");
+          if (hash !== lastHash) {
+            lastHash = hash;
+            res.write(`data: ${JSON.stringify({ type: "orders_update", orders, summary, date: targetDate, timestamp: Date.now() })}\n\n`);
+          } else {
+            res.write(`: heartbeat ${Date.now()}\n\n`);
+          }
+        } catch (e) {}
+      };
+
+      await sendUpdate();
+      const timer = setInterval(sendUpdate, 2500);
+
+      req.on("close", () => {
+        clearInterval(timer);
+        res.end();
+      });
+      return;
+    }
+
     // Auto-sync missing paid Stripe sessions into KV
     await syncStripeSessions();
 

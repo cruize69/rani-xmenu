@@ -185,33 +185,41 @@ export default function KitchenDisplay() {
   const prevIds = useRef(new Set());
 
 
-  // Live polling for today's kitchen orders
-  const fetchOrders = useCallback(async () => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const data = await apiFetch(`/api/orders?date=${today}`);
-      const fetchedOrders = data.orders || [];
-
-      // Detect newly arrived order for flash alert overlay
-      if (prevIds.current.size > 0) {
-        const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
-        if (newArr.length > 0) {
-          setFlash(newArr[0].id.slice(-4).toUpperCase());
-        }
-      }
-      prevIds.current = new Set(fetchedOrders.map(o => o.id));
-      setOrders(fetchedOrders);
-      setLastPoll(new Date());
-    } catch (err) {
-      console.error("Kitchen fetch error:", err);
-    }
-  }, []);
-
+  // Server-Sent Events (SSE) stream for real-time pushes (zero polling overhead)
   useEffect(() => {
-    fetchOrders();
-    const t = setInterval(fetchOrders, 5000);
-    return () => clearInterval(t);
-  }, [fetchOrders]);
+    const secret = getManagerSecret();
+    const today = new Date().toISOString().slice(0, 10);
+    const streamUrl = `/api/orders?stream=true&date=${today}&secret=${encodeURIComponent(secret)}`;
+    
+    let es;
+    try {
+      es = new EventSource(streamUrl);
+
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "orders_update") {
+            const fetchedOrders = data.orders || [];
+            if (prevIds.current.size > 0) {
+              const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
+              if (newArr.length > 0) {
+                setFlash(newArr[0].id.slice(-4).toUpperCase());
+              }
+            }
+            prevIds.current = new Set(fetchedOrders.map(o => o.id));
+            setOrders(fetchedOrders);
+            setLastPoll(new Date());
+          }
+        } catch (e) {}
+      };
+    } catch (e) {
+      console.error("SSE stream error:", e);
+    }
+
+    return () => {
+      if (es) es.close();
+    };
+  }, []);
 
   const advance = async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "done" } : o));

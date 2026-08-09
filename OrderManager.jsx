@@ -533,35 +533,46 @@ export default function OrderManager() {
   const [newOrderIds,  setNewOrderIds]  = useState(new Set());
   const prevOrderIds = useRef(new Set());
 
-  const load = useCallback(async (showLoader = false) => {
-    if (showLoader) setLoading(true);
+  // Server-Sent Events (SSE) stream for real-time manager pushes
+  useEffect(() => {
+    const secret = getManagerSecret();
+    const streamUrl = `/api/orders?stream=true&date=${date}&secret=${encodeURIComponent(secret)}`;
+    
+    let es;
+    setLoading(true);
     try {
-      const data = await apiFetch(`/api/orders${date ? `?date=${date}` : ""}`);
-      const fetchedOrders = data.orders || [];
+      es = new EventSource(streamUrl);
 
-      // Track newly arrived order IDs
-      if (prevOrderIds.current.size > 0) {
-        const newIds = new Set(fetchedOrders.map(o => o.id).filter(id => !prevOrderIds.current.has(id)));
-        setNewOrderIds(newIds);
-      }
-      prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "orders_update") {
+            const fetchedOrders = data.orders || [];
+            if (prevOrderIds.current.size > 0) {
+              const newIds = new Set(fetchedOrders.map(o => o.id).filter(id => !prevOrderIds.current.has(id)));
+              setNewOrderIds(newIds);
+            }
+            prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+            setOrders(fetchedOrders);
+            setSummary(data.summary || null);
+            setLastRefresh(new Date());
+            setError(null);
+            setLoading(false);
+          }
+        } catch (e) {}
+      };
 
-      setOrders(fetchedOrders);
-      setSummary(data.summary || null);
-      setLastRefresh(new Date());
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
+      es.onerror = () => {
+        setLoading(false);
+      };
+    } catch (e) {
       setLoading(false);
     }
-  }, [date]);
 
-  useEffect(() => {
-    load(true);
-    const interval = setInterval(() => load(false), POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [load]);
+    return () => {
+      if (es) es.close();
+    };
+  }, [date]);
 
   const handleStatusChange = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
