@@ -45,7 +45,6 @@ const orderIdsKey = (id)    => `account-orders:${id}`;
 async function findOrdersForEmail(targetEmail) {
   if (!targetEmail) return [];
   const cleanEmail = targetEmail.toLowerCase().trim();
-  const handle = cleanEmail.split("@")[0]; // e.g. "riyadhjuwel"
   const indexKey = `account-orders:guest:${cleanEmail}`;
 
   const indexedIds = (await kv.lrange(indexKey, 0, 49)) || [];
@@ -61,9 +60,8 @@ async function findOrdersForEmail(targetEmail) {
     for (const order of dayOrders) {
       if (order?.customerEmail) {
         const orderEmail = order.customerEmail.toLowerCase().trim();
-        const orderHandle = orderEmail.split("@")[0];
-        // Match exact email OR matching user handle (e.g. riyadhjuwel@me.com & riyadhjuwel@gmail.com)
-        if (orderEmail === cleanEmail || (handle && handle.length >= 5 && orderHandle === handle)) {
+        // Strict exact email match ONLY (e.g. riyadhjuwel@gmail.com !== riyadhjuwel@me.com)
+        if (orderEmail === cleanEmail) {
           if (!foundIds.has(order.id)) {
             foundIds.add(order.id);
             await kv.lpush(indexKey, order.id);
