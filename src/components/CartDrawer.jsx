@@ -296,11 +296,11 @@ export function CheckoutGate({
                 src="/logo/apsara-square.png" 
                 alt="Rani Mahal" 
                 style={{ 
-                  width: 28, 
-                  height: 28, 
-                  borderRadius: "50%", 
-                  objectFit: "cover", 
-                  border: "1px solid rgba(232,168,46,0.4)",
+                  width: 32, 
+                  height: 32, 
+                  borderRadius: 6, 
+                  objectFit: "contain", 
+                  mixBlendMode: "screen",
                   flexShrink: 0 
                 }} 
               />

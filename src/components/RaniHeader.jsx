@@ -25,10 +25,9 @@ export function RaniHeader({
             style={{ 
               width: 44, 
               height: 44, 
-              borderRadius: "50%", 
-              objectFit: "cover",
-              border: "1px solid rgba(232,168,46,0.45)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.4), 0 0 10px rgba(232,168,46,0.12)",
+              borderRadius: 8, 
+              objectFit: "contain",
+              mixBlendMode: "screen",
               flexShrink: 0 
             }} 
           />
