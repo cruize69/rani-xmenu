@@ -21,17 +21,17 @@ const S = {
 };
 
 // ── Item Thumbnail ──────────────────────────────────────────────────
-function ItemThumb({ imageUrl, size = 52, alt = "" }) {
+function ItemThumb({ imageUrl, size = 68, alt = "" }) {
   return (
     <div style={{
       width: size,
       height: size,
-      borderRadius: 12,
+      borderRadius: 14,
       flexShrink: 0,
       overflow: "hidden",
       background: "#1c1814",
-      border: "1.5px solid rgba(232,168,46,0.3)",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+      border: "2px solid #181410",
+      boxShadow: "0 6px 16px rgba(0,0,0,0.65), 0 0 10px rgba(232,168,46,0.15)",
       backgroundImage: imageUrl ? `url(${imageUrl})` : "none",
       backgroundSize: "cover",
       backgroundPosition: "center"
@@ -79,23 +79,62 @@ function OrderCard({ order, onReorder, cloudImages }) {
             {fmtDate(order.createdAt)} · #{order.id.slice(-6).toUpperCase()}
           </p>
           
-          {/* Prominent High-Visibility Dish Image Previews */}
+          {/* Prominent High-Visibility Deck of Cards Image Previews */}
           {!expanded && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, overflowX: "auto", paddingBottom: 2 }}>
-              {order.items.slice(0, 5).map((item, i) => (
-                <div key={i} style={{ position: "relative" }}>
-                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={52} />
+            <div style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 4, height: 72 }}>
+              {order.items.slice(0, 4).map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    position: "relative",
+                    marginLeft: i === 0 ? 0 : -26,
+                    zIndex: 10 - i,
+                    transition: "transform 0.2s ease",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-4px) scale(1.05)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0) scale(1)"}
+                >
+                  <ItemThumb imageUrl={item.baseId ? cloudImages?.[item.baseId] : null} size={68} />
                   {item.qty > 1 && (
-                    <span style={{ position: "absolute", top: -4, right: -4, background: "#E8A82E", color: "#080706", fontSize: 10, fontWeight: 800, borderRadius: 10, padding: "1px 5px", boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>
+                    <span style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      background: "linear-gradient(135deg, #E8A82E 0%, #B87A14 100%)",
+                      color: "#080706",
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      borderRadius: 10,
+                      padding: "2px 6px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.8)",
+                      border: "1px solid rgba(8,7,6,0.6)",
+                      zIndex: 20,
+                    }}>
                       ×{item.qty}
                     </span>
                   )}
                 </div>
               ))}
-              {order.items.length > 5 && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#E8A82E", background: "rgba(232,168,46,0.12)", padding: "4px 8px", borderRadius: 8, border: "0.5px solid rgba(232,168,46,0.3)" }}>
-                  +{order.items.length - 5} more
-                </span>
+              {order.items.length > 4 && (
+                <div style={{
+                  marginLeft: -26,
+                  zIndex: 5,
+                  width: 68,
+                  height: 68,
+                  borderRadius: 14,
+                  background: "linear-gradient(135deg, rgba(232,168,46,0.25) 0%, rgba(18,16,14,0.95) 100%)",
+                  border: "2px solid #E8A82E",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.7)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#E8A82E",
+                  flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1 }}>+{order.items.length - 4}</span>
+                  <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>more</span>
+                </div>
               )}
             </div>
           )}
