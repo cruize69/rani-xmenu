@@ -359,7 +359,7 @@ export default function RaniMahal() {
   }
 
   return (
-    <div style={{ background:"#080706", minHeight:"100vh", color:"#FAF6EF" }}>
+    <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", color: "#FAF6EF" }}>
       <style>{css}</style>
 
       {/* Header */}
