@@ -203,7 +203,7 @@ function AccountPortalPage({
 
           {/* Primary Actions when No Orders Found */}
           {isNotFound && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, marginBottom: 20 }}>
               <button
                 onClick={onStartOrder}
                 style={{

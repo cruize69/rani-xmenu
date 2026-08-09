@@ -367,7 +367,7 @@ export function CheckoutGate({
 
               {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:14 }}>{error}</p>}
 
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, maxWidth:320, margin:"0 auto" }}>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, maxWidth:320, margin:"6px auto 0" }}>
                 {CLERK_ENABLED && (
                   <ClerkSignInButton
                     style={{
