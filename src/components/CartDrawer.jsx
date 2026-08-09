@@ -509,7 +509,9 @@ export function CartDrawer({
   const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));
   const entries = Object.values(cart);
   const isDelivery = orderMode === "delivery";
-  const isBelowMin = isDelivery && subtotal < DELIVERY_CONFIG.MINIMUM_ORDER;
+  const zone = isDelivery ? getDeliveryZoneForZip(deliveryAddress?.zip) : null;
+  const zoneMin = zone?.minOrder || DELIVERY_CONFIG.DEFAULT_MINIMUM;
+  const isBelowMin = isDelivery && subtotal < zoneMin;
 
   if (!drawerOpen) return null;
 

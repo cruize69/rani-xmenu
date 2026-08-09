@@ -71,7 +71,7 @@ export default async function handler(req, res) {
       const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
       const zoneMin = zone?.minOrder || 50.00;
       if (subtotal < zoneMin) {
-        return res.status(400).json({ error: `Delivery to ${deliveryAddress?.city || "your area"} (${zone?.name || "Zone"}) requires a minimum food subtotal of $${zoneMin.toFixed(2)}.` });
+        return res.status(400).json({ error: `Delivery to ${deliveryAddress?.city || "your area"} requires a minimum food subtotal of $${zoneMin.toFixed(2)}.` });
       }
     }
 

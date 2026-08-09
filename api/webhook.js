@@ -40,15 +40,13 @@ export default async function handler(req, res) {
 
   const session = event.data.object;
 
-  // ── Idempotency guard — Stripe may retry webhooks on network failures ──
+  // ── Idempotency guard — atomic set-if-not-exists prevents race condition ──
   const dedupKey = `webhook-processed:${session.id}`;
-  const alreadyProcessed = await kv.get(dedupKey);
-  if (alreadyProcessed) {
+  const claimed = await kv.set(dedupKey, "1", { nx: true, ex: 60 * 60 * 24 });
+  if (!claimed) {
     console.log(`Duplicate webhook for session ${session.id} — skipping.`);
     return res.status(200).json({ received: true, duplicate: true });
   }
-  // Claim the key immediately before doing any work (24h TTL)
-  await kv.set(dedupKey, "1", { ex: 60 * 60 * 24 });
 
   // Reconstruct cart from metadata
   let cartItems = [];

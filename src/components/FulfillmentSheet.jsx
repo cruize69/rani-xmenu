@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
-import { isZipInDeliveryZone, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
+import { isZipInDeliveryZone, getDeliveryZoneForZip } from "../utils/deliveryConfig.js";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 
 export function PickupIcon({ size = 18, color = "#E8A82E" }) {

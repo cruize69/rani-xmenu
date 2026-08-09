@@ -2,7 +2,7 @@ import React from "react";
 import { isZipInDeliveryZone, lookupTownByZip } from "../utils/deliveryConfig.js";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 
-// Shared input style token — identical everywhere
+// Shared input style token — 16px font size prevents iOS Safari zoom on focus
 const input = {
   display: "block",
   width: "100%",
@@ -11,7 +11,7 @@ const input = {
   border: "1px solid rgba(250,246,239,0.15)",
   background: "#1c1814",
   color: "#FAF6EF",
-  fontSize: 15,
+  fontSize: 16,
   outline: "none",
   fontFamily: "'Inter', sans-serif",
   boxSizing: "border-box",
@@ -20,7 +20,7 @@ const input = {
   minHeight: 48,
 };
 
-const label = {
+const labelStyle = {
   display: "block",
   fontSize: 11,
   fontWeight: 600,
@@ -82,7 +82,7 @@ export function UniversalDeliveryForm({
 
       {/* Street — full-width autocomplete */}
       <div>
-        <label style={label}>Street Address *</label>
+        <label htmlFor="delivery-street" style={labelStyle}>Street Address *</label>
         <AddressAutocomplete
           street={street}
           setStreet={(val) => update({ street: val })}
@@ -95,27 +95,31 @@ export function UniversalDeliveryForm({
             setDeliveryAddress?.({ street: selected.street, apt, city: selected.city, zip: selected.zip, notes });
           }}
           placeholder="Street address (e.g. 150 Boston Post Rd)"
-          style={{ fontSize: 15, padding: "13px 14px", minHeight: 48 }}
+          style={{ fontSize: 16, padding: "13px 14px", minHeight: 48 }}
         />
       </div>
 
       {/* Apt + City row */}
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1 }}>
-          <label style={label}>Apt / Suite</label>
+          <label htmlFor="delivery-apt" style={labelStyle}>Apt / Suite</label>
           <input
+            id="delivery-apt"
             type="text"
             placeholder="Apt 4B (optional)"
+            autoComplete="address-line2"
             value={apt}
             onChange={(e) => update({ apt: e.target.value })}
             style={input}
           />
         </div>
         <div style={{ flex: 1.6 }}>
-          <label style={label}>City</label>
+          <label htmlFor="delivery-city" style={labelStyle}>City</label>
           <input
+            id="delivery-city"
             type="text"
             placeholder="Mamaroneck"
+            autoComplete="address-level2"
             value={city}
             onChange={(e) => update({ city: e.target.value })}
             style={input}
@@ -126,12 +130,14 @@ export function UniversalDeliveryForm({
       {/* ZIP + Driver Notes row */}
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ width: 110, flexShrink: 0 }}>
-          <label style={label}>ZIP *</label>
+          <label htmlFor="delivery-zip" style={labelStyle}>ZIP *</label>
           <input
+            id="delivery-zip"
             type="text"
             placeholder="10543"
             maxLength={5}
             inputMode="numeric"
+            autoComplete="postal-code"
             value={zip}
             onChange={(e) => update({ zip: e.target.value })}
             style={{
@@ -145,10 +151,12 @@ export function UniversalDeliveryForm({
           />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <label style={label}>Driver Notes</label>
+          <label htmlFor="delivery-notes" style={labelStyle}>Driver Notes</label>
           <input
+            id="delivery-notes"
             type="text"
             placeholder="Gate code, leave at door… (optional)"
+            autoComplete="off"
             value={notes}
             onChange={(e) => update({ notes: e.target.value })}
             style={input}

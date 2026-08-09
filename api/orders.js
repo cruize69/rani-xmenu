@@ -16,6 +16,7 @@ import Stripe from "stripe";
 import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
+import { getStripe, syncStripeSessions } from "../lib/syncStripe.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
     return handlePublicGet(req, res);
   }
 
-  const secret = req.headers["x-manager-secret"] || req.query.secret;
+  const secret = req.headers["x-manager-secret"];
   if (secret !== process.env.MANAGER_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -62,11 +63,8 @@ async function handlePublicGet(req, res) {
       let orderId = await kv.get(`session:${session_id}`);
 
       if (!orderId) {
-        const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
-                                process.env.STRIPE_LIVE_SECRET_KEY || 
-                                process.env.STRIPE_KEY || 
-                                process.env.STRIPE_SECRET;
-        const stripe = new Stripe(stripeSecretKey);
+        const stripe = getStripe();
+        if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
         const session = await stripe.checkout.sessions.retrieve(session_id);
         if (!session) return res.status(404).json({ error: "Session not found" });
 
@@ -116,76 +114,8 @@ async function handlePublicGet(req, res) {
       return res.status(500).json({ error: err.message });
     }
   }
-}
 
-// ── Automatic Stripe Reconciliation ──────────────────────────────
-async function syncStripeSessions() {
-  try {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
-                            process.env.STRIPE_LIVE_SECRET_KEY || 
-                            process.env.STRIPE_KEY || 
-                            process.env.STRIPE_SECRET;
-    if (!stripeSecretKey) return;
-    const stripe = new Stripe(stripeSecretKey);
-
-    const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-    for (const session of sessions.data) {
-      if (session.payment_status !== "paid") continue;
-      
-      const stripeAmt = session.amount_total ? parseFloat((session.amount_total / 100).toFixed(2)) : null;
-      let orderId = await kv.get(`session:${session.id}`);
-
-      if (!orderId) {
-        let cartItems = [];
-        try {
-          const cartJson = session.metadata?.cart
-            ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
-          cartItems = JSON.parse(cartJson || "[]");
-        } catch (e) {}
-
-        let deliveryAddress = null;
-        if (session.metadata?.deliveryAddress) {
-          try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
-        }
-
-        let paymentIntent = null;
-        if (session.payment_intent) {
-          paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
-        }
-
-        const createdAt = session.created ? new Date(session.created * 1000) : new Date();
-
-        const order = buildOrder({
-          paymentIntent,
-          stripeSession:       session,
-          cartItems,
-          specialInstructions: session.metadata?.specialInstructions ?? "",
-          tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
-          orderMode:           session.metadata?.orderMode ?? "pickup",
-          deliveryAddress,
-          deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
-        });
-
-        // Enforce exact Stripe gross total match
-        if (stripeAmt) order.total = stripeAmt;
-        order.createdAt = createdAt.toISOString();
-        order.updatedAt = createdAt.toISOString();
-        order.date      = createdAt.toISOString().slice(0, 10);
-
-        await saveOrder(order);
-        await kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 365 });
-      } else if (stripeAmt) {
-        // Enforce exact Stripe total on pre-existing KV orders
-        const existingOrder = await kv.get(`order:${orderId}`);
-        if (existingOrder && existingOrder.total !== stripeAmt) {
-          existingOrder.total = stripeAmt;
-          await saveOrder(existingOrder);
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Stripe sync error:", err);
-  }
+  return res.status(400).json({ error: "Missing session_id or status_id" });
 }
 
 // ── GET: list-by-date, or single order via ?id= ───────────────────
@@ -228,8 +158,8 @@ async function handleGet(req, res) {
       return;
     }
 
-    // Auto-sync missing paid Stripe sessions into KV
-    await syncStripeSessions();
+    // Auto-sync missing paid Stripe sessions into KV asynchronously (non-blocking)
+    syncStripeSessions().catch(err => console.error("Async syncStripeSessions error:", err));
 
     if (req.query.id) {
       const order = await getOrder(req.query.id);
@@ -359,6 +289,9 @@ async function handleRefund(req, res) {
   if (!order.stripePaymentId) {
     return res.status(400).json({ error: "No Stripe payment ID on this order" });
   }
+
+  const stripe = getStripe();
+  if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
 
   const logEntry = {
     type,

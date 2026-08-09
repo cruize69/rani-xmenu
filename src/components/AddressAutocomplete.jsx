@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { isZipInDeliveryZone, lookupTownByZip, cleanTownName } from "../utils/deliveryConfig.js";
+import { isZipInDeliveryZone, cleanTownName } from "../utils/deliveryConfig.js";
 
 // Curated Westchester County & Fairfield County local street dataset
 const POPULAR_WESTCHESTER_STREETS = [
@@ -68,8 +68,10 @@ export function AddressAutocomplete({
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
@@ -111,14 +113,14 @@ export function AddressAutocomplete({
     setSuggestions(localMatches);
     setShowDropdown(true);
 
-    // 2. Debounced Remote Search (300ms) for verified addresses
+    // 2. Debounced Remote Search (300ms) for verified addresses across NY & CT
     setLoading(true);
     debounceTimerRef.current = setTimeout(async () => {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       try {
-        const searchQ = `${val}, NY`;
+        const searchQ = val.trim();
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=us&viewbox=-73.95,41.25,-73.45,40.85&bounded=1&q=${encodeURIComponent(searchQ)}`,
           {
@@ -203,7 +205,7 @@ export function AddressAutocomplete({
             border: "1px solid rgba(250,246,239,0.18)",
             background: "#1c1814",
             color: "#FAF6EF",
-            fontSize: 15,
+            fontSize: 16,
             outline: "none",
             boxSizing: "border-box",
             fontFamily: "'Inter', sans-serif",
@@ -249,6 +251,10 @@ export function AddressAutocomplete({
               <div
                 key={idx}
                 onClick={() => handleSelect(item)}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  handleSelect(item);
+                }}
                 style={{
                   padding: "11px 14px",
                   borderBottom: idx < suggestions.length - 1 ? "1px solid rgba(250,246,239,0.06)" : "none",
@@ -263,7 +269,7 @@ export function AddressAutocomplete({
               >
                 <div>
                   <p style={{ fontSize: 13.5, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
-                    📍 {item.street}
+                    <span aria-hidden="true">📍</span> {item.street}
                   </p>
                   <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0" }}>
                     {displayCity}, {item.state || "NY"} {item.zip ? item.zip : ""}
