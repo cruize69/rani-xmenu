@@ -65,39 +65,56 @@ function playChime() {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    // Grubhub Signature Ascending 4-Note Chime Arpeggio: G5 -> C6 -> E6 -> G6
-    const playNote = (startTime, freq, duration = 0.3, volume = 0.7) => {
+    const t = ctx.currentTime;
+
+    // ── 1. Royal Elephant Trumpet Roar (FM Brass Growl + Pitch Bend) ──
+    const mod = ctx.createOscillator();
+    const modGain = ctx.createGain();
+    mod.type = "sawtooth";
+    mod.frequency.setValueAtTime(32, t); // 32Hz rapid growl
+    modGain.gain.setValueAtTime(85, t);
+
+    const carrier = ctx.createOscillator();
+    const carrierGain = ctx.createGain();
+    carrier.type = "sawtooth";
+    carrier.frequency.setValueAtTime(180, t);
+    carrier.frequency.exponentialRampToValueAtTime(460, t + 0.18); // Pitch sweep up
+    carrier.frequency.linearRampToValueAtTime(320, t + 0.45);      // Pitch bend down
+
+    carrierGain.gain.setValueAtTime(0.001, t);
+    carrierGain.gain.linearRampToValueAtTime(0.75, t + 0.08);
+    carrierGain.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+
+    mod.connect(carrier.frequency);
+    carrier.connect(carrierGain);
+    carrierGain.connect(ctx.destination);
+
+    mod.start(t);
+    carrier.start(t);
+    mod.stop(t + 0.48);
+    carrier.stop(t + 0.48);
+
+    // ── 2. Brass Thali Plate Metallic Clash (CLANGGG-RING!) ─────────
+    const thaliTime = t + 0.22; // Clashes right as the elephant roar reaches peak!
+    const metalFreqs = [1480, 2240, 3150, 4820, 6300, 7850];
+
+    metalFreqs.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      osc.type = idx % 2 === 0 ? "sine" : "triangle";
+      osc.frequency.setValueAtTime(freq, thaliTime);
 
-      // Triangle waveform for crisp brassy kitchen notification sound
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, startTime);
-
-      gain.gain.setValueAtTime(volume, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      const vol = 0.55 / (idx + 1);
+      gain.gain.setValueAtTime(vol, thaliTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, thaliTime + (0.65 + idx * 0.12));
 
       osc.connect(gain);
       gain.connect(ctx.destination);
-
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-    };
-
-    const playGrubhubArpeggio = (baseTime) => {
-      // G5 (783.99 Hz) → C6 (1046.50 Hz) → E6 (1318.51 Hz) → G6 (1567.98 Hz)
-      playNote(baseTime + 0.00, 783.99,  0.25, 0.65);
-      playNote(baseTime + 0.09, 1046.50, 0.25, 0.70);
-      playNote(baseTime + 0.18, 1318.51, 0.30, 0.75);
-      playNote(baseTime + 0.27, 1567.98, 0.55, 0.85); // High G6 sustain bell ring
-    };
-
-    const t = ctx.currentTime;
-    // Double Grubhub Arpeggio Sequence for high kitchen audibility
-    playGrubhubArpeggio(t);
-    playGrubhubArpeggio(t + 0.65);
+      osc.start(thaliTime);
+      osc.stop(thaliTime + (0.65 + idx * 0.12));
+    });
   } catch (e) {
-    console.error("Grubhub audio chime error:", e);
+    console.error("Elephant & Thali chime error:", e);
   }
 }
 
