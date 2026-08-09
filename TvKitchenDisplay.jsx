@@ -60,59 +60,69 @@ function getAudioContext() {
   return globalAudioCtx;
 }
 
+function playSingleRoarAndClash(ctx, startTime, isGrandFinale = false) {
+  // ── 1. Royal Elephant Trumpet Roar ─────────────────────────────
+  const mod = ctx.createOscillator();
+  const modGain = ctx.createGain();
+  mod.type = "sawtooth";
+  mod.frequency.setValueAtTime(34, startTime);
+  modGain.gain.setValueAtTime(90, startTime);
+
+  const carrier = ctx.createOscillator();
+  const carrierGain = ctx.createGain();
+  carrier.type = "sawtooth";
+  carrier.frequency.setValueAtTime(180, startTime);
+  carrier.frequency.exponentialRampToValueAtTime(isGrandFinale ? 520 : 460, startTime + 0.20);
+  carrier.frequency.linearRampToValueAtTime(300, startTime + 0.50);
+
+  carrierGain.gain.setValueAtTime(0.001, startTime);
+  carrierGain.gain.linearRampToValueAtTime(0.8, startTime + 0.09);
+  carrierGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.52);
+
+  mod.connect(carrier.frequency);
+  carrier.connect(carrierGain);
+  carrierGain.connect(ctx.destination);
+
+  mod.start(startTime);
+  carrier.start(startTime);
+  mod.stop(startTime + 0.52);
+  carrier.stop(startTime + 0.52);
+
+  // ── 2. Heavy Brass Thali Metallic Clash (CLANGGG!) ──────────────
+  const thaliTime = startTime + 0.22;
+  const metalFreqs = isGrandFinale
+    ? [1240, 1480, 2240, 3150, 4820, 6300, 7850, 9200]
+    : [1480, 2240, 3150, 4820, 6300, 7850];
+
+  const decayDuration = isGrandFinale ? 1.6 : 0.75;
+
+  metalFreqs.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = idx % 2 === 0 ? "sine" : "triangle";
+    osc.frequency.setValueAtTime(freq, thaliTime);
+
+    const vol = (isGrandFinale ? 0.65 : 0.55) / (idx + 1);
+    gain.gain.setValueAtTime(vol, thaliTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, thaliTime + (decayDuration + idx * 0.12));
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(thaliTime);
+    osc.stop(thaliTime + (decayDuration + idx * 0.12));
+  });
+}
+
 function playChime() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
 
     const t = ctx.currentTime;
-
-    // ── 1. Royal Elephant Trumpet Roar (FM Brass Growl + Pitch Bend) ──
-    const mod = ctx.createOscillator();
-    const modGain = ctx.createGain();
-    mod.type = "sawtooth";
-    mod.frequency.setValueAtTime(32, t); // 32Hz rapid growl
-    modGain.gain.setValueAtTime(85, t);
-
-    const carrier = ctx.createOscillator();
-    const carrierGain = ctx.createGain();
-    carrier.type = "sawtooth";
-    carrier.frequency.setValueAtTime(180, t);
-    carrier.frequency.exponentialRampToValueAtTime(460, t + 0.18); // Pitch sweep up
-    carrier.frequency.linearRampToValueAtTime(320, t + 0.45);      // Pitch bend down
-
-    carrierGain.gain.setValueAtTime(0.001, t);
-    carrierGain.gain.linearRampToValueAtTime(0.75, t + 0.08);
-    carrierGain.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
-
-    mod.connect(carrier.frequency);
-    carrier.connect(carrierGain);
-    carrierGain.connect(ctx.destination);
-
-    mod.start(t);
-    carrier.start(t);
-    mod.stop(t + 0.48);
-    carrier.stop(t + 0.48);
-
-    // ── 2. Brass Thali Plate Metallic Clash (CLANGGG-RING!) ─────────
-    const thaliTime = t + 0.22; // Clashes right as the elephant roar reaches peak!
-    const metalFreqs = [1480, 2240, 3150, 4820, 6300, 7850];
-
-    metalFreqs.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = idx % 2 === 0 ? "sine" : "triangle";
-      osc.frequency.setValueAtTime(freq, thaliTime);
-
-      const vol = 0.55 / (idx + 1);
-      gain.gain.setValueAtTime(vol, thaliTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, thaliTime + (0.65 + idx * 0.12));
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(thaliTime);
-      osc.stop(thaliTime + (0.65 + idx * 0.12));
-    });
+    // 5.5-Second Extended Royal Kitchen Alert: 3 Consecutive Elephant Roars & Thali Clashes
+    playSingleRoarAndClash(ctx, t, false);          // Burst 1 (0.0s)
+    playSingleRoarAndClash(ctx, t + 1.65, false);   // Burst 2 (1.65s)
+    playSingleRoarAndClash(ctx, t + 3.30, true);    // Grand Finale Burst 3 (3.30s -> rings out to 5.5s!)
   } catch (e) {
     console.error("Elephant & Thali chime error:", e);
   }
