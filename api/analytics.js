@@ -52,8 +52,11 @@ async function syncStripeSessions() {
     const sessions = await stripe.checkout.sessions.list({ limit: 100 });
     for (const session of sessions.data) {
       if (session.payment_status !== "paid") continue;
-      const exists = await kv.get(`session:${session.id}`);
-      if (!exists) {
+      
+      const stripeAmt = session.amount_total ? parseFloat((session.amount_total / 100).toFixed(2)) : null;
+      let orderId = await kv.get(`session:${session.id}`);
+
+      if (!orderId) {
         let cartItems = [];
         try {
           const cartJson = session.metadata?.cart
@@ -84,13 +87,21 @@ async function syncStripeSessions() {
           deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
         });
 
-        // Match original Stripe payment timestamp
+        // Enforce exact Stripe gross total match
+        if (stripeAmt) order.total = stripeAmt;
         order.createdAt = createdAt.toISOString();
         order.updatedAt = createdAt.toISOString();
         order.date      = createdAt.toISOString().slice(0, 10);
 
         await saveOrder(order);
         await kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 365 });
+      } else if (stripeAmt) {
+        // Enforce exact Stripe total on pre-existing KV orders
+        const existingOrder = await kv.get(`order:${orderId}`);
+        if (existingOrder && existingOrder.total !== stripeAmt) {
+          existingOrder.total = stripeAmt;
+          await saveOrder(existingOrder);
+        }
       }
     }
   } catch (err) {
