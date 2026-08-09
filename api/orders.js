@@ -117,9 +117,71 @@ async function handlePublicGet(req, res) {
   }
 }
 
+// ── Automatic Stripe Reconciliation ──────────────────────────────
+async function syncStripeSessions() {
+  try {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
+                            process.env.STRIPE_LIVE_SECRET_KEY || 
+                            process.env.STRIPE_KEY || 
+                            process.env.STRIPE_SECRET;
+    if (!stripeSecretKey) return;
+    const stripe = new Stripe(stripeSecretKey);
+
+    const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+    for (const session of sessions.data) {
+      if (session.payment_status !== "paid") continue;
+      const exists = await kv.get(`session:${session.id}`);
+      if (!exists) {
+        let cartItems = [];
+        try {
+          const cartJson = session.metadata?.cart
+            ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
+          cartItems = JSON.parse(cartJson || "[]");
+        } catch (e) {}
+
+        let deliveryAddress = null;
+        if (session.metadata?.deliveryAddress) {
+          try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
+        }
+
+        let paymentIntent = null;
+        if (session.payment_intent) {
+          paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
+        }
+
+        const createdAt = session.created ? new Date(session.created * 1000) : new Date();
+
+        const order = buildOrder({
+          paymentIntent,
+          stripeSession:       session,
+          cartItems,
+          specialInstructions: session.metadata?.specialInstructions ?? "",
+          tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
+          orderMode:           session.metadata?.orderMode ?? "pickup",
+          deliveryAddress,
+          deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
+        });
+
+        // Match original Stripe payment timestamp
+        order.createdAt = createdAt.toISOString();
+        order.updatedAt = createdAt.toISOString();
+        order.date      = createdAt.toISOString().slice(0, 10);
+
+        await saveOrder(order);
+        await kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 365 });
+      }
+    }
+  } catch (err) {
+    console.error("Stripe sync error:", err);
+  }
+}
+
 // ── GET: list-by-date, or single order via ?id= ───────────────────
 async function handleGet(req, res) {
   try {
+    // Auto-sync missing paid Stripe sessions into KV
+    await syncStripeSessions();
+
     if (req.query.id) {
       const order = await getOrder(req.query.id);
       if (!order) return res.status(404).json({ error: "Order not found" });
