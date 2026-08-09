@@ -167,7 +167,7 @@ function TvOrderCard({ order }) {
         position: "relative",
       }}
     >
-      {/* Destination Town Header Banner */}
+      {/* Destination Town Header Banner + Dedicated Order # Badge */}
       <div
         style={{
           background: townCfg.tagBg,
@@ -191,31 +191,28 @@ function TvOrderCard({ order }) {
           </span>
         </div>
 
-        {/* Urgency / Elapsed Timer Badge */}
-        <div
+        {/* Dedicated Order # Tag */}
+        <span
           style={{
-            background: isUrgent ? "#EF4444" : isFresh ? "rgba(8,7,6,0.9)" : "rgba(8,7,6,0.85)",
-            color: isUrgent ? "#FFFFFF" : isFresh ? "#4ADE80" : townCfg.border,
-            padding: "4px 14px",
-            borderRadius: 24,
-            fontSize: "clamp(16px, 1.0vw, 22px)",
+            background: "#080706",
+            color: "#E8A82E",
+            padding: "4px 12px",
+            borderRadius: 12,
+            fontSize: "clamp(18px, 1.2vw, 24px)",
             fontWeight: 900,
-            letterSpacing: "0.04em",
-            animation: isUrgent ? "pulseWarning 1.5s infinite" : "none",
+            letterSpacing: "0.08em",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.4)",
           }}
         >
-          {mins < 1 ? "JUST NOW" : `${mins} MIN AGO`} {isUrgent ? "⚠" : ""}
-        </div>
-      </div>
-
-      {/* Customer Name & Order ID Bar */}
-      <div style={{ padding: "1.2vh 1.4vw 1.0vh", background: "rgba(255,255,255,0.04)", borderBottom: "1.5px solid rgba(250,246,239,0.12)", display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
-        <h2 style={{ fontSize: "clamp(24px, 1.8vw, 36px)", fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {order.customerName}
-        </h2>
-        <span style={{ fontSize: "clamp(18px, 1.2vw, 24px)", fontWeight: 900, color: "#E8A82E", letterSpacing: "0.1em", flexShrink: 0 }}>
           #{order.id.slice(-4).toUpperCase()}
         </span>
+      </div>
+
+      {/* Dedicated Customer Name Row */}
+      <div style={{ padding: "1.2vh 1.4vw 0.8vh", background: "rgba(255,255,255,0.04)", borderBottom: "1.5px solid rgba(250,246,239,0.12)", flexShrink: 0 }}>
+        <h2 style={{ fontSize: "clamp(28px, 2.0vw, 42px)", fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {order.customerName}
+        </h2>
       </div>
 
       {/* Delivery Street Address banner if applicable */}
@@ -278,6 +275,38 @@ function TvOrderCard({ order }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Card Footer: Time Ago Banner & Urgency Caution */}
+      <div
+        style={{
+          background: isUrgent
+            ? "#EF4444"
+            : isFresh
+            ? "rgba(34,197,94,0.18)"
+            : "rgba(232,168,46,0.14)",
+          borderTop: `2px solid ${isUrgent ? "#EF4444" : isFresh ? "#22C55E" : "rgba(232,168,46,0.4)"}`,
+          color: isUrgent ? "#FFFFFF" : isFresh ? "#4ADE80" : "#F5C56B",
+          padding: "1.0vh 1.4vw",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          fontWeight: 900,
+          fontSize: "clamp(16px, 1.1vw, 22px)",
+          letterSpacing: "0.04em",
+          flexShrink: 0,
+          animation: isUrgent ? "pulseWarning 1.5s infinite" : "none",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span>⏱️</span>
+          <span>{mins < 1 ? "JUST NOW" : `${mins} MIN AGO`}</span>
+        </div>
+        {isUrgent && (
+          <span style={{ background: "#7F1D1D", color: "#FFFFFF", padding: "2px 10px", borderRadius: 12, fontSize: "clamp(14px, 0.9vw, 18px)" }}>
+            ⚠️ URGENT
+          </span>
+        )}
       </div>
     </div>
   );
@@ -488,7 +517,7 @@ export default function TvKitchenDisplay() {
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
           {/* Brand Logo & Signature Typography */}
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <img
@@ -506,8 +535,8 @@ export default function TvKitchenDisplay() {
             </div>
           </div>
 
-          {/* Grouped Destination Cluster Badges */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Grouped Destination Cluster Badges with Spaced Padding */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             {sortedGroupKeys.map(groupKey => {
               const count = groupedClusters[groupKey].length;
               const mode = groupKey === "Pickup" ? "pickup" : "delivery";
@@ -519,22 +548,22 @@ export default function TvKitchenDisplay() {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
-                    padding: "6px 14px",
-                    borderRadius: 20,
+                    gap: 10,
+                    padding: "8px 18px",
+                    borderRadius: 24,
                     background: cfg.bg,
-                    border: `1.5px solid ${cfg.border}`,
+                    border: `2px solid ${cfg.border}`,
                     color: cfg.text,
-                    fontSize: "clamp(14px, 1.0vw, 18px)",
+                    fontSize: "clamp(15px, 1.0vw, 19px)",
                     fontWeight: 900,
-                    boxShadow: `0 0 14px ${cfg.bg}`,
+                    boxShadow: `0 0 16px ${cfg.bg}`,
                   }}
                 >
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                     {mode === "delivery" ? (
-                      <TvDeliveryIcon size={20} color={cfg.text} />
+                      <TvDeliveryIcon size={22} color={cfg.text} />
                     ) : (
-                      <TvPickupIcon size={20} color={cfg.text} />
+                      <TvPickupIcon size={22} color={cfg.text} />
                     )}
                     <span>{groupKey}</span>
                   </span>
@@ -542,9 +571,9 @@ export default function TvKitchenDisplay() {
                     style={{
                       background: cfg.border,
                       color: "#080706",
-                      borderRadius: 10,
-                      padding: "1px 8px",
-                      fontSize: "clamp(14px, 1.0vw, 18px)",
+                      borderRadius: 12,
+                      padding: "2px 10px",
+                      fontSize: "clamp(15px, 1.0vw, 19px)",
                       fontWeight: 900,
                     }}
                   >
@@ -556,37 +585,38 @@ export default function TvKitchenDisplay() {
           </div>
         </div>
 
-        {/* Sync Status Clock & Sound Test */}
+        {/* Sync Status Clock, Minimal Icon-Only Sound Button, & Glowing Status Light */}
         <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
               onClick={() => {
                 getAudioContext();
                 playChime();
               }}
+              title="Test Kitchen Sound Alert"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 6,
-                background: "rgba(232,168,46,0.16)",
+                justifyContent: "center",
+                width: 38,
+                height: 38,
+                borderRadius: "50%",
+                background: "rgba(232,168,46,0.18)",
                 border: "1.5px solid rgba(232,168,46,0.45)",
                 color: "#E8A82E",
-                padding: "5px 14px",
-                borderRadius: 20,
-                fontSize: "clamp(13px, 0.9vw, 16px)",
-                fontWeight: 800,
+                fontSize: 18,
                 cursor: "pointer",
-                fontFamily: "'Inter', sans-serif",
                 transition: "transform 0.15s ease",
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.04)"}
+              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
               onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
             >
-              🔔 Test Sound
+              🔔
             </button>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)", padding: "5px 14px", borderRadius: 20, color: "#4ADE80", fontSize: "clamp(13px, 0.9vw, 16px)", fontWeight: 800 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 10px #4ADE80" }} />
-              LIVE 4K SYNC
+            
+            {/* Glowing Live Sync Status Light Only */}
+            <div title="System Active & Synced" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)" }}>
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 12px #4ADE80" }} />
             </div>
           </div>
           <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
