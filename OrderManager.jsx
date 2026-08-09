@@ -55,14 +55,29 @@ function RefundModal({ order, onClose, onSuccess }) {
   const submit = async (type) => {
     setLoading(true); setError(null);
     try {
-      // In production: await apiFetch("/api/orders", { method:"POST", body:JSON.stringify({ action:"refund", ... }) })
-      // For preview — simulate API response
-      await new Promise(r => setTimeout(r, 900));
       const amountRefunded = type === "full" ? remaining
-        : type === "item" ? (order.items.find(i=>i.name===itemName)?.price ?? 0) * (order.items.find(i=>i.name===itemName)?.qty ?? 1)
+        : type === "item" ? itemRefundAmount
         : type === "void" ? order.total
         : Number(amount);
-      setResult({ type, amountRefunded, stripeRefundId:"re_preview_" + Date.now().toString(36) });
+
+      const res = await apiFetch("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "refund",
+          orderId: order.id,
+          type,
+          amount: amountRefunded,
+          reason,
+          itemName: type === "item" ? itemName : undefined,
+          staffName: staff
+        })
+      });
+
+      setResult({
+        type,
+        amountRefunded,
+        stripeRefundId: res.stripeRefundId || ("re_" + Date.now().toString(36))
+      });
       onSuccess(order.id, type, amountRefunded);
     } catch (err) {
       setError(err.message);
@@ -521,12 +536,25 @@ export default function OrderManager() {
   const load = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
     try {
-      // Production: const data = await apiFetch(`/api/orders${date ? `?date=${date}` : ""}`);
-      // Preview uses mock data — simulate a brief delay
-      await new Promise(r => setTimeout(r, 300));
-      setLastRefresh(new Date()); setError(null);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      const data = await apiFetch(`/api/orders${date ? `?date=${date}` : ""}`);
+      const fetchedOrders = data.orders || [];
+
+      // Track newly arrived order IDs
+      if (prevOrderIds.current.size > 0) {
+        const newIds = new Set(fetchedOrders.map(o => o.id).filter(id => !prevOrderIds.current.has(id)));
+        setNewOrderIds(newIds);
+      }
+      prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+
+      setOrders(fetchedOrders);
+      setSummary(data.summary || null);
+      setLastRefresh(new Date());
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }, [date]);
 
   useEffect(() => {
@@ -537,12 +565,27 @@ export default function OrderManager() {
 
   const handleStatusChange = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    // Production: await apiFetch("/api/orders", { method:"PATCH", body:JSON.stringify({id,status}) });
+    try {
+      await apiFetch("/api/orders", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status }),
+      });
+    } catch (err) {
+      console.error("Status update error:", err);
+      load(false);
+    }
   };
 
   const handlePrint = async (id) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, printed:true } : o));
-    // Production: await apiFetch("/api/orders", { method:"POST", body:JSON.stringify({ action:"reprint", id }) });
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, printed: true } : o));
+    try {
+      await apiFetch("/api/orders", {
+        method: "POST",
+        body: JSON.stringify({ action: "reprint", id }),
+      });
+    } catch (err) {
+      console.error("Print queue error:", err);
+    }
   };
 
   const filtered = orders.filter(o => {

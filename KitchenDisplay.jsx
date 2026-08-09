@@ -1,4 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { getManagerSecret } from "./lib/managerAuth.js";
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "x-manager-secret": getManagerSecret(),
+      ...(options.headers ?? {}),
+    },
+  });
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  return res.json();
+}
 
 // ── Config ───────────────────────────────────────────────────────
 const STAGES = {
@@ -171,24 +185,58 @@ export default function KitchenDisplay() {
   const prevIds = useRef(new Set());
 
 
-  // Poll for new orders
-  useEffect(() => {
-    const t = setInterval(() => setLastPoll(new Date()), 10000);
-    return () => clearInterval(t);
+  // Live polling for today's kitchen orders
+  const fetchOrders = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const data = await apiFetch(`/api/orders?date=${today}`);
+      const fetchedOrders = data.orders || [];
+
+      // Detect newly arrived order for flash alert overlay
+      if (prevIds.current.size > 0) {
+        const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
+        if (newArr.length > 0) {
+          setFlash(newArr[0].id.slice(-4).toUpperCase());
+        }
+      }
+      prevIds.current = new Set(fetchedOrders.map(o => o.id));
+      setOrders(fetchedOrders);
+      setLastPoll(new Date());
+    } catch (err) {
+      console.error("Kitchen fetch error:", err);
+    }
   }, []);
 
-  const advance = (id) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id !== id) return o;
-      const next = STAGES[o.status]?.next;
-      return next ? { ...o, status: next } : o;
-    }));
+  useEffect(() => {
+    fetchOrders();
+    const t = setInterval(fetchOrders, 5000);
+    return () => clearInterval(t);
+  }, [fetchOrders]);
+
+  const advance = async (id) => {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "done" } : o));
+    try {
+      await apiFetch("/api/orders", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status: "done" }),
+      });
+    } catch (err) {
+      console.error("Advance status error:", err);
+      fetchOrders();
+    }
   };
 
-  const undo = (id) => {
-    setOrders(prev => prev.map(o =>
-      o.id === id ? { ...o, status: "cooking" } : o
-    ));
+  const undo = async (id) => {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "new" } : o));
+    try {
+      await apiFetch("/api/orders", {
+        method: "PATCH",
+        body: JSON.stringify({ id, status: "new" }),
+      });
+    } catch (err) {
+      console.error("Undo status error:", err);
+      fetchOrders();
+    }
   };
 
   const active = orders.filter(o => o.status !== "done");
