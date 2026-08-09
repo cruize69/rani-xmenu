@@ -189,14 +189,14 @@ function AccountPortalPage({
               src="/logo/apsara-square.png"
               alt="Rani Mahal Logo"
               style={{
-                width: 54,
-                height: 54,
+                width: 56,
+                height: 56,
                 borderRadius: "50%",
                 objectFit: "cover",
-                border: "1px solid rgba(232,168,46,0.45)",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.5), 0 0 12px rgba(232,168,46,0.2)",
+                border: "1.5px solid #E8A82E",
                 margin: "0 auto 14px",
                 display: "block",
+                background: "transparent",
               }}
             />
             <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
