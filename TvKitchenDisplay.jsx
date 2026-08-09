@@ -1,6 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
-import { PickupIcon, DeliveryIcon } from "./src/components/FulfillmentSheet.jsx";
+
+// ── Custom High-Visibility 4K TV Vector Icons ─────────────────────
+function TvPickupIcon({ size = 32, color = "#080706" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
+function TvDeliveryIcon({ size = 32, color = "#080706" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="15" height="13" rx="2" />
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+      <circle cx="5.5" cy="18.5" r="2.5" fill={color} />
+      <circle cx="18.5" cy="18.5" r="2.5" fill={color} />
+    </svg>
+  );
+}
 
 // ── Town / Destination Color Palette for 4K Visual Grouping ───────
 const TOWN_COLORS = {
@@ -25,6 +46,24 @@ function getTownConfig(city, mode) {
   return match ? TOWN_COLORS[match] : DEFAULT_TOWN_COLOR;
 }
 
+// ── Web Audio Chime for New Orders ────────────────────────────────
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.6);
+  } catch (e) {}
+}
+
 // ── Elapsed Time Hook ──────────────────────────────────────────────
 function useElapsedMins(createdAt) {
   const [mins, setMins] = useState(0);
@@ -42,16 +81,19 @@ function TvOrderCard({ order }) {
   const mins = useElapsedMins(order.createdAt);
   const city = order.orderMode === "delivery" ? (order.deliveryAddress?.city || "Delivery") : "Pickup";
   const townCfg = getTownConfig(city, order.orderMode);
+  
+  // Timer Urgency Stages: <5m Fresh, 5-15m Active, >15m Urgent
   const isUrgent = mins >= 15 && order.status === "new";
+  const isFresh = mins < 5;
 
   return (
     <div
       style={{
-        background: "linear-gradient(180deg, #1a1612 0%, #120e0b 100%)",
+        background: "linear-gradient(180deg, #1c1814 0%, #120e0b 100%)",
         borderRadius: 22,
         border: `4px solid ${townCfg.border}`,
         boxShadow: isUrgent
-          ? "0 0 45px rgba(239,68,68,0.55), 0 12px 36px rgba(0,0,0,0.85)"
+          ? "0 0 50px rgba(239,68,68,0.65), 0 12px 36px rgba(0,0,0,0.85)"
           : `0 0 30px ${townCfg.bg}, 0 12px 36px rgba(0,0,0,0.85)`,
         display: "flex",
         flexDirection: "column",
@@ -75,25 +117,26 @@ function TvOrderCard({ order }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {order.orderMode === "delivery" ? (
-            <DeliveryIcon size={32} color="#080706" />
+            <TvDeliveryIcon size={32} color="#080706" />
           ) : (
-            <PickupIcon size={32} color="#080706" />
+            <TvPickupIcon size={32} color="#080706" />
           )}
           <span style={{ fontSize: 28, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-            {order.orderMode === "delivery" ? city : "PICKUP AT STORE"}
+            {order.orderMode === "delivery" ? city : "PICKUP"}
           </span>
         </div>
 
         {/* Urgency / Elapsed Timer Badge */}
         <div
           style={{
-            background: isUrgent ? "#EF4444" : "rgba(8,7,6,0.88)",
-            color: isUrgent ? "#FFFFFF" : townCfg.border,
+            background: isUrgent ? "#EF4444" : isFresh ? "rgba(8,7,6,0.9)" : "rgba(8,7,6,0.85)",
+            color: isUrgent ? "#FFFFFF" : isFresh ? "#4ADE80" : townCfg.border,
             padding: "6px 16px",
             borderRadius: 24,
             fontSize: 22,
             fontWeight: 900,
             letterSpacing: "0.04em",
+            animation: isUrgent ? "pulseWarning 1.5s infinite" : "none",
           }}
         >
           {mins < 1 ? "JUST NOW" : `${mins} MIN AGO`} {isUrgent ? "⚠" : ""}
@@ -179,12 +222,38 @@ function TvOrderCard({ order }) {
 export default function TvKitchenDisplay() {
   const [orders, setOrders] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
+  const [flashOrder, setFlashOrder] = useState(null);
 
-  // Real-time SSE Sync with 5s Polling Fallback
+  const prevOrderIdsRef = useRef(new Set());
+  const flashTimerRef = useRef(null);
+
+  // Real-time SSE Sync + Auto Flash Notification Trigger
   useEffect(() => {
     const secret = getManagerSecret();
     const today = new Date().toISOString().slice(0, 10);
     const streamUrl = `/api/orders?stream=true&date=${today}&secret=${encodeURIComponent(secret)}`;
+
+    const processOrders = (newOrders) => {
+      if (prevOrderIdsRef.current.size > 0) {
+        const freshIncoming = newOrders.find(o => !prevOrderIdsRef.current.has(o.id) && o.status === "new");
+        if (freshIncoming) {
+          triggerNewOrderAlert(freshIncoming);
+        }
+      }
+      prevOrderIdsRef.current = new Set(newOrders.map(o => o.id));
+      setOrders(newOrders);
+      setLastSync(new Date());
+    };
+
+    const triggerNewOrderAlert = (order) => {
+      setFlashOrder(order);
+      playChime();
+
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => {
+        setFlashOrder(null);
+      }, 5000); // 5-second auto dismiss
+    };
 
     let es;
     try {
@@ -193,8 +262,7 @@ export default function TvKitchenDisplay() {
         try {
           const data = JSON.parse(e.data);
           if (data.type === "orders_update") {
-            setOrders(data.orders || []);
-            setLastSync(new Date());
+            processOrders(data.orders || []);
           }
         } catch (err) {}
       };
@@ -208,8 +276,7 @@ export default function TvKitchenDisplay() {
         });
         if (res.ok) {
           const data = await res.json();
-          setOrders(Array.isArray(data) ? data : data.orders || []);
-          setLastSync(new Date());
+          processOrders(Array.isArray(data) ? data : data.orders || []);
         }
       } catch (err) {}
     }, 10000);
@@ -217,6 +284,7 @@ export default function TvKitchenDisplay() {
     return () => {
       if (es) es.close();
       clearInterval(interval);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
 
@@ -247,7 +315,7 @@ export default function TvKitchenDisplay() {
   return (
     <div
       style={{
-        background: "#080706",
+        background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)",
         color: "#FAF6EF",
         minHeight: "100vh",
         width: "100vw",
@@ -257,37 +325,102 @@ export default function TvKitchenDisplay() {
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
+        position: "relative",
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@400;600;700;800;900&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: rgba(232,168,46,0.4); border-radius: 4px; }
+        @keyframes pulseWarning {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.02); }
+        }
+        @keyframes flashBanner {
+          0% { transform: translateY(-100%); opacity: 0; }
+          15% { transform: translateY(0); opacity: 1; }
+          85% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(-100%); opacity: 0; }
+        }
       `}</style>
 
-      {/* 4K TV Header Summary Bar */}
+      {/* Optimized New Order High-Visibility Flash Overlay Banner */}
+      {flashOrder && (
+        <div
+          onClick={() => setFlashOrder(null)}
+          style={{
+            position: "fixed",
+            top: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "90%",
+            maxWidth: 1200,
+            background: "linear-gradient(135deg, #E8A82E 0%, #C8600A 100%)",
+            color: "#080706",
+            borderRadius: 24,
+            padding: "20px 32px",
+            boxShadow: "0 20px 60px rgba(232,168,46,0.6), 0 0 0 4px #FFFFFF",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            cursor: "pointer",
+            animation: "flashBanner 5s ease forwards",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <span style={{ fontSize: 42 }}>🔔</span>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "#080706", opacity: 0.85 }}>
+                New Incoming Order Received
+              </p>
+              <h2 style={{ fontSize: 36, fontWeight: 900, margin: 0, color: "#080706" }}>
+                {flashOrder.customerName} ({flashOrder.orderMode === "delivery" ? flashOrder.deliveryAddress?.city || "Delivery" : "Pickup"})
+              </h2>
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: 40, fontWeight: 900, fontFamily: "'Inter', sans-serif" }}>
+              #{flashOrder.id.slice(-4).toUpperCase()}
+            </span>
+            <p style={{ fontSize: 13, fontWeight: 700, margin: 0, opacity: 0.85 }}>Auto-dismiss in 5s</p>
+          </div>
+        </div>
+      )}
+
+      {/* Brand-Consistent Luxury 4K TV Header Bar */}
       <header
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 28px",
-          background: "linear-gradient(90deg, #1c1814 0%, #12100e 100%)",
-          borderRadius: 20,
-          border: "2px solid rgba(232,168,46,0.35)",
+          padding: "16px 30px",
+          background: "rgba(24,20,16,0.85)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderRadius: 22,
+          border: "1.5px solid rgba(232,168,46,0.35)",
           marginBottom: 18,
-          boxShadow: "0 10px 36px rgba(0,0,0,0.7)",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.75)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div>
-            <h1 style={{ fontSize: 32, fontWeight: 900, color: "#E8A82E", margin: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              📺 Rani Mahal 4K Kitchen Board
-            </h1>
-            <p style={{ fontSize: 16, color: "#B8A995", margin: 0, fontWeight: 600 }}>
-              Live Order Destination Grouping · Hands-Free Auto Display
-            </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+          {/* Brand Logo & Signature Typography */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <img
+              src="/logo/apsara-logo.png"
+              alt="Rani Mahal Logo"
+              style={{ width: 54, height: 54, objectFit: "contain", filter: "drop-shadow(0 4px 10px rgba(232,168,46,0.4))" }}
+            />
+            <div>
+              <h1 style={{ fontFamily: "'Great Vibes', cursive", fontSize: 42, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>
+                Rani Mahal
+              </h1>
+              <p style={{ fontSize: 13, color: "#E8A82E", letterSpacing: "0.22em", textTransform: "uppercase", margin: "2px 0 0", fontWeight: 700 }}>
+                Kitchen Expediter Board · 4K Live Display
+              </p>
+            </div>
           </div>
 
           {/* Grouped Destination Cluster Badges */}
@@ -316,9 +449,9 @@ export default function TvKitchenDisplay() {
                 >
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                     {mode === "delivery" ? (
-                      <DeliveryIcon size={20} color={cfg.text} />
+                      <TvDeliveryIcon size={22} color={cfg.text} />
                     ) : (
-                      <PickupIcon size={20} color={cfg.text} />
+                      <TvPickupIcon size={22} color={cfg.text} />
                     )}
                     <span>{groupKey}</span>
                   </span>
@@ -355,13 +488,13 @@ export default function TvKitchenDisplay() {
       {/* 1x6 Grid Layout for 4K 43" Screen */}
       <main style={{ flex: 1, minHeight: 0 }}>
         {displayOrders.length === 0 ? (
-          <div style={{ height: "calc(100vh - 150px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: "#12100e", borderRadius: 24, border: "2px dashed rgba(250,246,239,0.15)" }}>
-            <span style={{ fontSize: 68 }}>👨‍🍳</span>
+          <div style={{ height: "calc(100vh - 150px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: "rgba(18,16,14,0.6)", borderRadius: 24, border: "2px dashed rgba(232,168,46,0.25)" }}>
+            <img src="/logo/apsara-logo.png" alt="Rani Mahal" style={{ width: 80, height: 80, opacity: 0.6 }} />
             <h2 style={{ fontSize: 36, color: "#FAF6EF", fontWeight: 900, margin: 0 }}>
               All Kitchen Tickets Complete
             </h2>
             <p style={{ fontSize: 20, color: "#B8A995", margin: 0, fontWeight: 600 }}>
-              Standing by for incoming dinner rush orders…
+              Standing by for incoming orders…
             </p>
           </div>
         ) : (
@@ -373,7 +506,7 @@ export default function TvKitchenDisplay() {
               height: "calc(100vh - 135px)",
             }}
           >
-            {displayOrders.slice(0, 6).map((order, idx) => (
+            {displayOrders.slice(0, 6).map((order) => (
               <TvOrderCard key={order.id} order={order} />
             ))}
           </div>
