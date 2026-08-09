@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useUser, useAuth, useClerk } from "@clerk/clerk-react";
+import { PickupIcon, DeliveryIcon } from "./src/components/FulfillmentSheet.jsx";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
@@ -71,8 +72,13 @@ function OrderCard({ order, onReorder, cloudImages }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
             <span style={sc}>{order.status === "done" ? "✓ " : ""}{sc.label}</span>
-            <span style={{ fontSize: 11, color: "#E8A82E", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
-              {order.orderMode === "delivery" ? "🚗 Delivery" : "🛍️ Pickup"}
+            <span style={{ fontSize: 11, color: "#E8A82E", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              {order.orderMode === "delivery" ? (
+                <DeliveryIcon size={14} color="#E8A82E" />
+              ) : (
+                <PickupIcon size={14} color="#E8A82E" />
+              )}
+              <span>{order.orderMode === "delivery" ? "Delivery" : "Pickup"}</span>
             </span>
           </div>
           <p style={{ fontSize: 12, color: "#B8A995", margin: 0, fontWeight: 500 }}>
