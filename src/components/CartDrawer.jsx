@@ -343,26 +343,65 @@ export function CheckoutGate({
 
         <div style={{ padding:"16px 20px 32px" }}>
           {step === "choice" && (
-            <>
-              <div style={{ background:"#1c1814", border:"0.5px solid rgba(250,246,239,0.1)", borderRadius:12, padding:"1rem 1.25rem", marginBottom:16 }}>
-                <p style={{ fontSize:14, fontWeight:600, color:"#FAF6EF", margin:"0 0 4px" }}>Continue as guest</p>
-                <p style={{ fontSize:13, color:"#B8A995", margin:"0 0 14px", lineHeight:1.55 }}>No account needed. Your receipt goes to your email.</p>
-                <button style={{ width:"100%", padding:"12px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} onClick={() => setStep("guest-email")}>
-                  Continue as guest
+            <div style={{ background:"#161310", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:16, padding:"24px 20px", textAlign:"center", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
+              <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(232,168,46,0.12)", border:"1px solid rgba(232,168,46,0.3)", color:"#E8A82E", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", fontSize:20 }}>
+                🛍️
+              </div>
+              <h3 style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"#FAF6EF", margin:"0 0 6px", fontWeight:500 }}>
+                How would you like to checkout?
+              </h3>
+              <p style={{ fontSize:13, color:"#B8A995", margin:"0 0 20px", lineHeight:1.5 }}>
+                Sign in to save your order history & reorder in 1 tap, or proceed as a guest.
+              </p>
+
+              {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:14 }}>{error}</p>}
+
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
+                {CLERK_ENABLED && (
+                  <ClerkSignInButton
+                    style={{
+                      padding:"11px 26px",
+                      background:"#E8A82E",
+                      color:"#080706",
+                      border:"none",
+                      borderRadius:24,
+                      fontSize:13.5,
+                      fontWeight:600,
+                      cursor:"pointer",
+                      fontFamily:"'Inter',sans-serif",
+                      boxShadow:"0 4px 14px rgba(232,168,46,0.25)",
+                      display:"inline-flex",
+                      alignItems:"center",
+                      gap:8,
+                      transition:"transform 0.15s ease",
+                    }}
+                    disabled={loading}
+                    onSignedIn={clerkUserId => goToStripe({ clerkUserId })}
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setStep("guest-email")}
+                  style={{
+                    padding:"10px 22px",
+                    background:"transparent",
+                    color:"#FAF6EF",
+                    border:"1px solid rgba(250,246,239,0.2)",
+                    borderRadius:24,
+                    fontSize:13,
+                    fontWeight:500,
+                    cursor:"pointer",
+                    fontFamily:"'Inter',sans-serif",
+                    transition:"all 0.15s ease",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor="#E8A82E"; e.currentTarget.style.color="#E8A82E"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(250,246,239,0.2)"; e.currentTarget.style.color="#FAF6EF"; }}
+                >
+                  Continue as Guest →
                 </button>
               </div>
-              {CLERK_ENABLED && (
-                <>
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-                    <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
-                    <p style={{ fontSize:11, color:"#B8A995", margin:0, whiteSpace:"nowrap" }}>or sign in to save your order history</p>
-                    <div style={{ flex:1, height:"0.5px", background:"rgba(250,246,239,0.1)" }} />
-                  </div>
-                  {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:8 }}>{error}</p>}
-                  <ClerkSignInButton style={socialBtn} disabled={loading} onSignedIn={clerkUserId => goToStripe({ clerkUserId })} />
-                </>
-              )}
-            </>
+            </div>
           )}
 
           {step === "guest-email" && (
