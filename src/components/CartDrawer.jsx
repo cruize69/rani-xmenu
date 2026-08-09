@@ -6,6 +6,7 @@ import { QuickAddCard } from "./MenuItemCard.jsx";
 import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
 import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
+import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
@@ -187,28 +188,9 @@ export function CheckoutGate({
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   const [step,       setStep]       = useState("choice");
   const [guestEmail, setGuestEmail] = useState("");
-  const addr = deliveryAddress || {};
-  const [street,     setStreet]     = useState(addr.street || "");
-  const [apt,        setApt]        = useState(addr.apt || "");
-  const [city,       setCity]       = useState(addr.city || "Mamaroneck");
-  const [zip,        setZip]        = useState(addr.zip || "10543");
-  const [notes,      setNotes]      = useState(addr.notes || "");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [returning,  setReturning]  = useState(null);
-
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (!initializedRef.current) {
-      const d = deliveryAddress || {};
-      if (d.street) setStreet(d.street);
-      if (d.apt)    setApt(d.apt);
-      if (d.city)   setCity(d.city);
-      if (d.zip)    setZip(d.zip);
-      if (d.notes)  setNotes(d.notes);
-      initializedRef.current = true;
-    }
-  }, [deliveryAddress]);
 
   const checkReturnAbortRef = useRef(null);
 
@@ -219,31 +201,38 @@ export function CheckoutGate({
     checkReturnAbortRef.current = new AbortController();
     try {
       const res = await fetch(`/api/account/profile?email=${encodeURIComponent(emailToCheck)}`, {
-        signal: checkReturnAbortRef.current.signal,
+        signal: checkReturnAbortRef.current.signal
       });
-      if (!res.ok) { setReturning(null); return; }
-      const data = await res.json();
-      setReturning(data?.orders?.length > 0
-        ? { totalOrders: data.stats?.totalOrders ?? data.orders.length, favoriteName: data.favorites?.[0]?.name ?? null }
-        : null);
-    } catch (e) {
-      if (e.name !== "AbortError") setReturning(null);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile && data.profile.totalOrders > 0) {
+          setReturning(data.profile);
+        } else {
+          setReturning(null);
+        }
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") setReturning(null);
     }
   };
 
   const validateDelivery = () => {
     if (orderMode !== "delivery") return true;
-    if (!street.trim()) { setError("Please enter your street address for delivery."); return false; }
-    if (!city.trim()) { setError("Please enter your city."); return false; }
-    if (!zip.trim()) { setError("Please enter your 5-digit ZIP code."); return false; }
-    if (!isZipInDeliveryZone(zip)) {
+    const addr = deliveryAddress || {};
+    const streetStr = addr.street || "";
+    const cityStr = addr.city || "";
+    const zipStr = addr.zip || "";
+    if (!streetStr.trim()) { setError("Please enter your street address for delivery."); return false; }
+    if (!cityStr.trim()) { setError("Please enter your city."); return false; }
+    if (!zipStr.trim()) { setError("Please enter your 5-digit ZIP code."); return false; }
+    if (!isZipInDeliveryZone(zipStr)) {
       setError("Delivery is currently available for Westchester & Greenwich/Stamford areas.");
       return false;
     }
-    const zone = getDeliveryZoneForZip(zip);
+    const zone = getDeliveryZoneForZip(zipStr);
     const requiredMin = zone?.minOrder || 50.00;
     if (subtotal < requiredMin) {
-      setError(`Delivery to ${city || "your area"} (${zone?.name || "Zone"}) requires a minimum food subtotal of $${requiredMin.toFixed(2)}.`);
+      setError(`Delivery to ${cityStr || "your area"} (${zone?.name || "Zone"}) requires a minimum food subtotal of $${requiredMin.toFixed(2)}.`);
       return false;
     }
     return true;
@@ -253,7 +242,7 @@ export function CheckoutGate({
     setLoading(true); setError(null);
     if (!validateDelivery()) { setLoading(false); return; }
     try {
-      const fullDeliveryAddress = orderMode === "delivery" ? { street, apt, city, zip, notes } : null;
+      const fullDeliveryAddress = orderMode === "delivery" ? deliveryAddress : null;
       if (setDeliveryAddress && fullDeliveryAddress) setDeliveryAddress(fullDeliveryAddress);
 
       const res = await fetch("/api/create-checkout", {
@@ -433,47 +422,14 @@ export function CheckoutGate({
             <>
               <button onClick={() => { setStep("choice"); setError(null); }} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back</button>
 
-              {/* Delivery Destination Card — Unified 1 Universal Truth */}
+              {/* Universal Delivery Address Form — 1 Universal Truth */}
               {orderMode === "delivery" && (
-                <div style={{ marginBottom:16 }}>
-                  {addr.street ? (
-                    <div style={{ background:"#1c1814", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:14, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <p style={{ fontSize:11, fontWeight:600, color:"#E8A82E", letterSpacing:"0.1em", textTransform:"uppercase", margin:"0 0 3px" }}>
-                          🚗 Delivery Address
-                        </p>
-                        <p style={{ fontSize:13.5, fontWeight:600, color:"#FAF6EF", margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          {addr.street}{addr.apt ? `, ${addr.apt}` : ""}, {addr.city} {addr.zip || ""}
-                        </p>
-                        {addr.notes && (
-                          <p style={{ fontSize:12, color:"#B8A995", fontStyle:"italic", margin:"3px 0 0" }}>
-                            "{addr.notes}"
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={onOpenFulfillmentSheet}
-                        style={{ background:"rgba(232,168,46,0.12)", border:"0.5px solid rgba(232,168,46,0.35)", color:"#E8A82E", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600, cursor:"pointer", flexShrink:0 }}
-                      >
-                        Edit Address
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ background:"rgba(217,72,44,0.1)", border:"1px solid rgba(217,72,44,0.35)", borderRadius:14, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                      <div>
-                        <p style={{ fontSize:13, fontWeight:600, color:"#F0846A", margin:"0 0 2px" }}>Delivery Address Needed</p>
-                        <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>Please enter your street address for delivery.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={onOpenFulfillmentSheet}
-                        style={{ background:"#E8A82E", color:"#080706", border:"none", borderRadius:20, padding:"8px 16px", fontSize:12.5, fontWeight:600, cursor:"pointer", flexShrink:0 }}
-                      >
-                        Set Address →
-                      </button>
-                    </div>
-                  )}
+                <div style={{ marginBottom: 18, background: "#161310", border: "0.5px solid rgba(232,168,46,0.25)", borderRadius: 14, padding: "16px" }}>
+                  <UniversalDeliveryForm
+                    deliveryAddress={deliveryAddress}
+                    setDeliveryAddress={setDeliveryAddress}
+                    setError={setError}
+                  />
                 </div>
               )}
 
