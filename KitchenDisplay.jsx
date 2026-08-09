@@ -52,7 +52,7 @@ function ElapsedBadge({ createdAt, status }) {
 
 // ── Order ticket ─────────────────────────────────────────────────
 function Ticket({ order, onAdvance, onUndo }) {
-  const stage = STAGES[order.status];
+  const stage = STAGES[order.status] ?? STAGES.done;
   const isNew    = order.status === "new";
   const isDone   = order.status === "done";
 
@@ -60,7 +60,7 @@ function Ticket({ order, onAdvance, onUndo }) {
     <div style={{
       background: isDone ? "#F5F0E8" : "#FFFFFF",
       borderRadius:16,
-      border: isNew ? "2.5px solid #C8600A" : isCooking ? "2.5px solid #1A6B3A" : "1px solid rgba(0,0,0,0.12)",
+      border: isNew ? "2.5px solid #C8600A" : "1px solid rgba(0,0,0,0.12)",
       boxShadow: isDone ? "none" : isNew ? "0 4px 20px rgba(200,96,10,0.18)" : "0 2px 12px rgba(0,0,0,0.08)",
       opacity: isDone ? 0.65 : 1,
       transition:"all 0.25s",
@@ -69,7 +69,7 @@ function Ticket({ order, onAdvance, onUndo }) {
       overflow:"hidden",
     }}>
       {/* Ticket header */}
-      <div style={{ background: isNew ? "#C8600A" : isCooking ? "#1A6B3A" : "#8A7560", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+      <div style={{ background: isNew ? "#C8600A" : "#1A6B3A", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
         <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
             <span style={{ fontSize:26, fontWeight:900, color:"#FFFFFF", lineHeight:1, letterSpacing:"-0.01em" }}>
@@ -230,7 +230,6 @@ export default function KitchenDisplay() {
       });
     } catch (err) {
       console.error("Advance status error:", err);
-      fetchOrders();
     }
   };
 
@@ -243,7 +242,6 @@ export default function KitchenDisplay() {
       });
     } catch (err) {
       console.error("Undo status error:", err);
-      fetchOrders();
     }
   };
 
@@ -251,8 +249,8 @@ export default function KitchenDisplay() {
   const done   = orders.filter(o => o.status === "done");
   const shown  = filter === "active" ? active : filter === "done" ? done : orders;
 
-  const newCount     = orders.filter(o => o.status === "new").length;
-  const cookingCount = orders.filter(o => o.status === "cooking").length;
+  const newCount  = orders.filter(o => o.status === "new").length;
+  const doneCount = orders.filter(o => o.status === "done").length;
 
   return (
     <div style={{ background:"#1A1008", minHeight:"100vh", fontFamily:"'Inter',sans-serif", userSelect:"none" }}>
@@ -276,9 +274,9 @@ export default function KitchenDisplay() {
                 {newCount} NEW
               </span>
             )}
-            {cookingCount > 0 && (
+            {doneCount > 0 && (
               <span style={{ background:"#1A6B3A", color:"#FFFFFF", fontSize:12, fontWeight:700, padding:"4px 12px", borderRadius:20 }}>
-                {cookingCount} COOKING
+                {doneCount} READY
               </span>
             )}
           </div>
