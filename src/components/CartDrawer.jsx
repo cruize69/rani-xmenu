@@ -184,10 +184,11 @@ export function CheckoutGate({
   onCancel,
   onGuestIdentified,
   onViewAccount,
+  guestEmail = "",
+  setGuestEmail,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   const [step,       setStep]       = useState("choice");
-  const [guestEmail, setGuestEmail] = useState("");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [returning,  setReturning]  = useState(null);
@@ -501,6 +502,8 @@ export function CartDrawer({
   deliveryAddress = {},
   deliveryFee = 0,
   onOpenFulfillmentSheet,
+  guestEmail = "",
+  setGuestEmail,
   handleCheckout,
 }) {
   const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));

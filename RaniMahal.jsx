@@ -412,6 +412,8 @@ export default function RaniMahal() {
           setOrderMode={setOrderMode}
           deliveryAddress={deliveryAddress}
           setDeliveryAddress={setDeliveryAddress}
+          guestEmail={guestEmail}
+          setGuestEmail={(email) => { setGuestEmail(email); saveGuestEmail(email); }}
           onCancel={() => { setShowCheckoutGate(false); setDrawerOpen(true); }}
           onGuestIdentified={email => { setGuestEmail(email); saveGuestEmail(email); }}
           onViewAccount={() => { setShowCheckoutGate(false); setView("account"); }}
