@@ -65,31 +65,38 @@ function playChime() {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    const now = ctx.currentTime;
+    const playPulse = (startTime, freq1, freq2) => {
+      // Primary High Triangle Tone (pierces kitchen ambient noise)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "triangle";
+      osc1.frequency.setValueAtTime(freq1, startTime);
+      gain1.gain.setValueAtTime(0.75, startTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(startTime);
+      osc1.stop(startTime + 0.35);
 
-    // Tone 1: D5 (587.33 Hz)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = "sine";
-    osc1.frequency.setValueAtTime(587.33, now);
-    gain1.gain.setValueAtTime(0.4, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.4);
+      // High Accent Harmonic Sine Bell
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(freq2, startTime);
+      gain2.gain.setValueAtTime(0.55, startTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(startTime);
+      osc2.stop(startTime + 0.4);
+    };
 
-    // Tone 2: A5 (880 Hz) - 120ms staggered bell chime
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(880, now + 0.12);
-    gain2.gain.setValueAtTime(0.5, now + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.12);
-    osc2.stop(now + 0.7);
+    const t = ctx.currentTime;
+    // High-Impact Commercial Kitchen Double-Burst (DING-DING! ... DING-DING!)
+    playPulse(t, 880, 1318.5);        // Burst 1: High A5/E6
+    playPulse(t + 0.16, 1174.66, 1760); // Burst 1 High: D6/A6
+    playPulse(t + 0.45, 880, 1318.5);  // Burst 2: High A5/E6
+    playPulse(t + 0.61, 1174.66, 1760); // Burst 2 High: D6/A6
   } catch (e) {
     console.error("Audio chime error:", e);
   }
