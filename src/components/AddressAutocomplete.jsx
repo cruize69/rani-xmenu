@@ -256,7 +256,7 @@ export function AddressAutocomplete({
               >
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
-                    {item.street}
+                    📍 {item.street}
                   </p>
                   <p style={{ fontSize: 12, color: "#B8A995", margin: "2px 0 0" }}>
                     {displayCity ? `${displayCity}, ` : ""}{item.state || "NY"} {item.zip ? item.zip : ""}
