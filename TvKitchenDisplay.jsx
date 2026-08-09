@@ -65,40 +65,39 @@ function playChime() {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    const playPulse = (startTime, freq1, freq2) => {
-      // Primary High Triangle Tone (pierces kitchen ambient noise)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = "triangle";
-      osc1.frequency.setValueAtTime(freq1, startTime);
-      gain1.gain.setValueAtTime(0.75, startTime);
-      gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(startTime);
-      osc1.stop(startTime + 0.35);
+    // Grubhub Signature Ascending 4-Note Chime Arpeggio: G5 -> C6 -> E6 -> G6
+    const playNote = (startTime, freq, duration = 0.3, volume = 0.7) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-      // High Accent Harmonic Sine Bell
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(freq2, startTime);
-      gain2.gain.setValueAtTime(0.55, startTime);
-      gain2.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(startTime);
-      osc2.stop(startTime + 0.4);
+      // Triangle waveform for crisp brassy kitchen notification sound
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(volume, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    const playGrubhubArpeggio = (baseTime) => {
+      // G5 (783.99 Hz) → C6 (1046.50 Hz) → E6 (1318.51 Hz) → G6 (1567.98 Hz)
+      playNote(baseTime + 0.00, 783.99,  0.25, 0.65);
+      playNote(baseTime + 0.09, 1046.50, 0.25, 0.70);
+      playNote(baseTime + 0.18, 1318.51, 0.30, 0.75);
+      playNote(baseTime + 0.27, 1567.98, 0.55, 0.85); // High G6 sustain bell ring
     };
 
     const t = ctx.currentTime;
-    // High-Impact Commercial Kitchen Double-Burst (DING-DING! ... DING-DING!)
-    playPulse(t, 880, 1318.5);        // Burst 1: High A5/E6
-    playPulse(t + 0.16, 1174.66, 1760); // Burst 1 High: D6/A6
-    playPulse(t + 0.45, 880, 1318.5);  // Burst 2: High A5/E6
-    playPulse(t + 0.61, 1174.66, 1760); // Burst 2 High: D6/A6
+    // Double Grubhub Arpeggio Sequence for high kitchen audibility
+    playGrubhubArpeggio(t);
+    playGrubhubArpeggio(t + 0.65);
   } catch (e) {
-    console.error("Audio chime error:", e);
+    console.error("Grubhub audio chime error:", e);
   }
 }
 
