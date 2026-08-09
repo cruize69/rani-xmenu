@@ -1,8 +1,60 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
+
+function AccountClaimCard({ email }) {
+  let isSignedIn = false;
+  let user = null;
+  let clerk = null;
+
+  try {
+    const u = useUser();
+    isSignedIn = u.isSignedIn;
+    user = u.user;
+    clerk = useClerk();
+  } catch {}
+
+  if (isSignedIn && user) {
+    return (
+      <div style={{ background: "#F5E6C8", border: "0.5px solid rgba(200,133,58,0.3)", borderRadius: 14, padding: "16px 20px", marginBottom: 20, textAlign: "center" }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#0F0800", margin: "0 0 4px" }}>
+          ✓ Order saved to your Rani Mahal account history!
+        </p>
+        <a href="/account" style={{ fontSize: 12, fontWeight: 600, color: "#C8853A", textDecoration: "underline" }}>
+          View order history in Account →
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#0F0800", borderRadius: 16, padding: "20px 22px", marginBottom: 20, border: "1px solid rgba(200,133,58,0.4)", color: "#F5E6C8" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 20 }}>✨</span>
+        <h4 style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "#FFFFFF", margin: 0 }}>
+          Save order history & earn rewards
+        </h4>
+      </div>
+      <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
+        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to track orders live, save payment details, and reorder your favorites in seconds next time.
+      </p>
+      <button
+        onClick={() => {
+          if (clerk) {
+            clerk.openSignUp({ initialValues: { emailAddress: email } });
+          } else {
+            window.location.href = `/account?email=${encodeURIComponent(email || "")}`;
+          }
+        }}
+        style={{ width: "100%", padding: "12px 18px", background: "#C8853A", color: "#0F0800", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <span>Create Account / Claim Order →</span>
+      </button>
+    </div>
+  );
+}
 
 // Maps backend status → customer-facing stage index (2 stages: Received and Ready)
 const STATUS_TO_STAGE = { new: 0, in_progress: 0, done: 1 };
@@ -373,6 +425,9 @@ export default function OrderSuccess() {
             </div>
           </div>
         </div>
+
+        {/* ── Account Save / Claim Card ── */}
+        <AccountClaimCard email={order.customerEmail} />
 
         {/* ── Footer CTA ── */}
         <div style={{ textAlign:"center", marginBottom:32 }}>

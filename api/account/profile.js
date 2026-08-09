@@ -52,22 +52,38 @@ export default async function handler(req, res) {
 
   // ── GET profile ──────────────────────────────────────────────
   if (req.method === "GET") {
-    const [rawProfile, orderIds, rawSavedCard] = await Promise.all([
+    // For signed-in users, also check for past guest orders under their email address
+    let userEmail = identity.email ?? req.query?.email ?? null;
+    if (identity.type === "user" && !userEmail) {
+      try {
+        const u = await clerk.users.getUser(identity.userId);
+        userEmail = u.emailAddresses?.find(e => e.id === u.primaryEmailAddressId)?.emailAddress ?? u.emailAddresses?.[0]?.emailAddress ?? null;
+      } catch {}
+    }
+
+    const primaryIdsKey = orderIdsKey(accountId);
+    const guestIdsKey   = userEmail ? orderIdsKey(`guest:${userEmail.toLowerCase().trim()}`) : null;
+
+    const [rawProfile, primaryIds, guestIds, rawSavedCard] = await Promise.all([
       kv.get(profileKey(accountId)),
-      kv.lrange(orderIdsKey(accountId), 0, 49), // last 50 orders
+      kv.lrange(primaryIdsKey, 0, 49),
+      guestIdsKey ? kv.lrange(guestIdsKey, 0, 49) : Promise.resolve([]),
       kv.get(`saved-card:${accountId}`),
     ]);
+
+    // Merge unique order IDs (primary + guest)
+    const combinedIds = Array.from(new Set([...(primaryIds ?? []), ...(guestIds ?? [])]));
 
     // @vercel/kv auto-deserializes JSON values, so a hit is already an
     // object — only parse when it comes back as a raw string.
     const profile = typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile ?? null);
     const savedCard = typeof rawSavedCard === "string" ? JSON.parse(rawSavedCard) : (rawSavedCard ?? null);
 
-    // Fetch full order objects and sanitize sensitive customer fields for guest response
+    // Fetch full order objects and sanitize sensitive customer fields for guest view
     let orders = [];
-    if (orderIds?.length) {
+    if (combinedIds?.length) {
       const fetched = await Promise.all(
-        orderIds.map(id => kv.get(`order:${id}`))
+        combinedIds.map(id => kv.get(`order:${id}`))
       );
       orders = fetched
         .filter(Boolean)
