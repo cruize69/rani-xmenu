@@ -210,7 +210,7 @@ function TvOrderCard({ order }) {
 
       {/* Dedicated Customer Name Row */}
       <div style={{ padding: "1.2vh 1.4vw 0.8vh", background: "rgba(255,255,255,0.04)", borderBottom: "1.5px solid rgba(250,246,239,0.12)", flexShrink: 0 }}>
-        <h2 style={{ fontSize: "clamp(28px, 2.0vw, 42px)", fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <h2 style={{ fontSize: "clamp(26px, 1.8vw, 38px)", fontWeight: 900, color: "#FAF6EF", margin: 0, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {order.customerName}
         </h2>
       </div>
@@ -229,52 +229,74 @@ function TvOrderCard({ order }) {
         </div>
       )}
 
-      {/* Item List (Super Large Legibility 4K TV Typography with internal scroll) */}
+      {/* Item List with Full Item Modifiers Display (Super Large 4K Legibility) */}
       <div style={{ padding: "1.2vh 1.4vw", flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-        {order.items.map((item, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 14, paddingBottom: 10, borderBottom: idx < order.items.length - 1 ? "1.5px solid rgba(250,246,239,0.08)" : "none" }}>
-            {/* Super Large Quantity Bubble */}
-            <div
-              style={{
-                width: "clamp(44px, 2.5vw, 56px)",
-                height: "clamp(44px, 2.5vw, 56px)",
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #F5C56B 0%, #E8A82E 100%)",
-                color: "#080706",
-                fontSize: "clamp(24px, 1.5vw, 32px)",
-                fontWeight: 900,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                boxShadow: "0 6px 14px rgba(0,0,0,0.6)",
-              }}
-            >
-              {item.qty}
-            </div>
+        {order.items.map((item, idx) => {
+          // Normalize modifiers / options / custom choices
+          const rawMods = item.modifiers || item.options || item.choices || item.selectedOptions || item.customizations || [];
+          const modifierList = Array.isArray(rawMods)
+            ? rawMods.map(m => typeof m === "string" ? m : m.name || m.label || m.title || String(m))
+            : typeof rawMods === "string" && rawMods.trim().length > 0
+            ? [rawMods]
+            : [];
 
-            {/* Dish Name + Spice/Notes */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "clamp(22px, 1.5vw, 32px)", fontWeight: 900, color: "#FAF6EF", margin: 0, lineHeight: 1.2 }}>
-                {item.name}
-              </p>
-              {(item.spice || item.note) && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-                  {item.spice && (
-                    <span style={{ fontSize: "clamp(14px, 0.9vw, 18px)", fontWeight: 900, padding: "2px 10px", borderRadius: 12, background: "rgba(239,68,68,0.25)", color: "#FCA5A5", border: "1.5px solid rgba(239,68,68,0.5)" }}>
-                      🌶️ {item.spice}
-                    </span>
-                  )}
-                  {item.note && (
-                    <span style={{ fontSize: "clamp(15px, 1.0vw, 20px)", color: "#E8A82E", fontWeight: 700 }}>
-                      ↳ {item.note}
-                    </span>
-                  )}
-                </div>
-              )}
+          return (
+            <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 12, paddingBottom: 10, borderBottom: idx < order.items.length - 1 ? "1.5px solid rgba(250,246,239,0.08)" : "none" }}>
+              {/* Super Large Quantity Bubble */}
+              <div
+                style={{
+                  width: "clamp(40px, 2.3vw, 52px)",
+                  height: "clamp(40px, 2.3vw, 52px)",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #F5C56B 0%, #E8A82E 100%)",
+                  color: "#080706",
+                  fontSize: "clamp(22px, 1.4vw, 30px)",
+                  fontWeight: 900,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  boxShadow: "0 6px 14px rgba(0,0,0,0.6)",
+                }}
+              >
+                {item.qty}
+              </div>
+
+              {/* Dish Name + Spice/Notes/Modifiers */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: "clamp(20px, 1.3vw, 28px)", fontWeight: 900, color: "#FAF6EF", margin: 0, lineHeight: 1.2 }}>
+                  {item.name}
+                </p>
+
+                {/* Modifiers & Customization Tags */}
+                {((item.spice || item.note || item.instructions || modifierList.length > 0)) && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+                    {/* Spice Badge */}
+                    {item.spice && (
+                      <span style={{ fontSize: "clamp(13px, 0.85vw, 16px)", fontWeight: 900, padding: "2px 8px", borderRadius: 10, background: "rgba(239,68,68,0.25)", color: "#FCA5A5", border: "1px solid rgba(239,68,68,0.5)" }}>
+                        🌶️ {item.spice}
+                      </span>
+                    )}
+
+                    {/* Special Note / Customization */}
+                    {(item.note || item.instructions) && (
+                      <span style={{ fontSize: "clamp(13px, 0.85vw, 16px)", color: "#F5C56B", fontWeight: 800, background: "rgba(232,168,46,0.14)", padding: "2px 8px", borderRadius: 10, border: "1px solid rgba(232,168,46,0.35)" }}>
+                        ↳ {item.note || item.instructions}
+                      </span>
+                    )}
+
+                    {/* Item Modifiers List */}
+                    {modifierList.map((modText, mIdx) => (
+                      <span key={mIdx} style={{ fontSize: "clamp(13px, 0.85vw, 16px)", fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: "rgba(59,130,246,0.2)", color: "#93C5FD", border: "1px solid rgba(59,130,246,0.4)" }}>
+                        + {modText}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Card Footer: Time Ago Banner & Urgency Caution */}
@@ -317,6 +339,7 @@ export default function TvKitchenDisplay() {
   const [orders, setOrders] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
   const [flashOrder, setFlashOrder] = useState(null);
+  const [pageIndex, setPageIndex] = useState(0);
 
   const prevOrderIdsRef = useRef(new Set());
   const flashTimerRef = useRef(null);
@@ -417,9 +440,29 @@ export default function TvKitchenDisplay() {
     displayOrders.push(...groupedClusters[key]);
   });
 
-  // Compute fluid column layout based on current active order count
   const activeCount = displayOrders.length;
-  const gridColumns = activeCount <= 1 ? "1fr" : `repeat(${Math.min(6, activeCount)}, minmax(0, 1fr))`;
+  const totalPages = Math.ceil(activeCount / 6);
+
+  // Auto-Cycle Page Rotation for > 6 Orders (every 10 seconds)
+  useEffect(() => {
+    if (totalPages <= 1) {
+      setPageIndex(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setPageIndex(prev => (prev + 1) % totalPages);
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [totalPages]);
+
+  // Current page sliced orders
+  const safePageIndex = Math.min(pageIndex, Math.max(0, totalPages - 1));
+  const currentPageOrders = displayOrders.slice(safePageIndex * 6, (safePageIndex + 1) * 6);
+  const currentCount = currentPageOrders.length;
+
+  // Compute fluid column layout based on current page order count
+  const gridColumns = currentCount <= 1 ? "1fr" : `repeat(${Math.min(6, currentCount)}, minmax(0, 1fr))`;
 
   return (
     <div
@@ -585,47 +628,91 @@ export default function TvKitchenDisplay() {
           </div>
         </div>
 
-        {/* Sync Status Clock, Minimal Icon-Only Sound Button, & Glowing Status Light */}
-        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={() => {
-                getAudioContext();
-                playChime();
-              }}
-              title="Test Kitchen Sound Alert"
+        {/* Header Right: Smart Page Rotation Controller for >6 Orders + Sync Status Clock */}
+        <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 16 }}>
+          {/* Smart Page Rotation Control Pill (if > 6 orders active) */}
+          {totalPages > 1 && (
+            <div
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
+                gap: 12,
                 background: "rgba(232,168,46,0.18)",
-                border: "1.5px solid rgba(232,168,46,0.45)",
-                color: "#E8A82E",
-                fontSize: 18,
-                cursor: "pointer",
-                transition: "transform 0.15s ease",
+                border: "2px solid #E8A82E",
+                borderRadius: 24,
+                padding: "6px 16px",
+                color: "#FAF6EF",
+                boxShadow: "0 0 20px rgba(232,168,46,0.3)",
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
-              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
             >
-              🔔
-            </button>
-            
-            {/* Glowing Live Sync Status Light Only */}
-            <div title="System Active & Synced" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)" }}>
-              <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 12px #4ADE80" }} />
+              <button
+                onClick={() => setPageIndex(prev => (prev - 1 + totalPages) % totalPages)}
+                style={{ background: "none", border: "none", color: "#E8A82E", fontSize: 18, cursor: "pointer", fontWeight: 900 }}
+                title="Previous Orders Page"
+              >
+                ◀
+              </button>
+
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ fontSize: "clamp(14px, 0.9vw, 17px)", fontWeight: 900, color: "#E8A82E", letterSpacing: "0.06em" }}>
+                  PAGE {safePageIndex + 1} OF {totalPages}
+                </span>
+                <span style={{ fontSize: "clamp(11px, 0.7vw, 13px)", color: "#B8A995", fontWeight: 700 }}>
+                  ({activeCount} ACTIVE ORDERS)
+                </span>
+              </div>
+
+              <button
+                onClick={() => setPageIndex(prev => (prev + 1) % totalPages)}
+                style={{ background: "none", border: "none", color: "#E8A82E", fontSize: 18, cursor: "pointer", fontWeight: 900 }}
+                title="Next Orders Page"
+              >
+                ▶
+              </button>
             </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                onClick={() => {
+                  getAudioContext();
+                  playChime();
+                }}
+                title="Test Kitchen Sound Alert"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 38,
+                  height: 38,
+                  borderRadius: "50%",
+                  background: "rgba(232,168,46,0.18)",
+                  border: "1.5px solid rgba(232,168,46,0.45)",
+                  color: "#E8A82E",
+                  fontSize: 18,
+                  cursor: "pointer",
+                  transition: "transform 0.15s ease",
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+              >
+                🔔
+              </button>
+              
+              {/* Glowing Live Sync Status Light Only */}
+              <div title="System Active & Synced" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)" }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 12px #4ADE80" }} />
+              </div>
+            </div>
+            <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+              Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </p>
           </div>
-          <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-            Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </p>
         </div>
       </header>
 
-      {/* Fluid Grid Layout for 4K TV Screens */}
+      {/* Fluid Grid Layout for 4K TV Screens with Auto-Cycling Pages */}
       <main style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
         {activeCount === 0 ? (
           <div style={{ height: "100%", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: "rgba(18,16,14,0.6)", borderRadius: 24, border: "2px dashed rgba(232,168,46,0.25)" }}>
@@ -647,11 +734,11 @@ export default function TvKitchenDisplay() {
               minHeight: 0,
               minWidth: 0,
               width: "100%",
-              justifyContent: activeCount === 1 ? "center" : "stretch",
+              justifyContent: currentCount === 1 ? "center" : "stretch",
             }}
           >
-            {displayOrders.slice(0, 6).map((order) => (
-              <div key={order.id} style={{ height: "100%", minHeight: 0, minWidth: 0, maxWidth: activeCount === 1 ? "750px" : "100%", margin: activeCount === 1 ? "0 auto" : "0", width: "100%", overflow: "hidden" }}>
+            {currentPageOrders.map((order) => (
+              <div key={order.id} style={{ height: "100%", minHeight: 0, minWidth: 0, maxWidth: currentCount === 1 ? "750px" : "100%", margin: currentCount === 1 ? "0 auto" : "0", width: "100%", overflow: "hidden" }}>
                 <TvOrderCard order={order} />
               </div>
             ))}
