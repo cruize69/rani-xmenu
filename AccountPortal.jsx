@@ -289,13 +289,9 @@ function AccountPortalPage({
           <button onClick={onStartOrder} style={{ background: "transparent", border: "0.5px solid rgba(250,246,239,0.15)", color: "#FAF6EF", fontSize: 12, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
             ← Menu
           </button>
-          {isSignedIn ? (
+          {isSignedIn && (
             <button onClick={() => signOut()} style={{ background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
               🚪 Log Out
-            </button>
-          ) : (
-            <button onClick={handleResetLookup} style={{ background: "rgba(232,168,46,0.12)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}>
-              🔄 Switch Email
             </button>
           )}
         </div>
