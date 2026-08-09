@@ -26,6 +26,7 @@ const ROUTES = {
   "/manager":   () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":   () => <StaffGate><KitchenDisplay /></StaffGate>,
   "/images":    () => <StaffGate><ImageManager /></StaffGate>,
+  "/sales":     () => <StaffGate><SalesDashboard /></StaffGate>,
   "/dashboard": () => <StaffGate><SalesDashboard /></StaffGate>,
 };
 
