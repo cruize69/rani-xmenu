@@ -117,9 +117,14 @@ async function fetchOrderRange(days) {
 // ── Aggregators ───────────────────────────────────────────────────
 function buildOverview(orders) {
   const active   = orders.filter(o => o.status !== "refunded");
-  const revenue  = active.reduce((s, o) => s + (o.subtotal + o.tax), 0);
+  const revenue  = active.reduce((s, o) => s + (o.total ?? (o.subtotal + o.tax + o.tip)), 0);
   const count    = active.length;
   const avgOrder = count ? revenue / count : 0;
+
+  // Detailed breakdowns
+  const netFood      = active.reduce((s, o) => s + o.subtotal, 0);
+  const taxCollected = active.reduce((s, o) => s + o.tax, 0);
+  const tipCollected = active.reduce((s, o) => s + (o.tip || 0), 0);
 
   // Repeat customers
   const emailCounts = {};
@@ -141,7 +146,7 @@ function buildOverview(orders) {
   const accountOrders = active.filter(o => o.clerkUserId).length;
   const accountRate   = count ? Math.round((accountOrders / count) * 100) : 0;
 
-  return { revenue, count, avgOrder, repeatRate, avgItems, smsRate, accountRate };
+  return { revenue, netFood, taxCollected, tipCollected, count, avgOrder, repeatRate, avgItems, smsRate, accountRate };
 }
 
 function buildRevenueSeries(orders, days) {
@@ -149,7 +154,7 @@ function buildRevenueSeries(orders, days) {
   const active = orders.filter(o => o.status !== "refunded");
   active.forEach(o => {
     const d = o.createdAt.slice(0, 10);
-    map[d] = (map[d] ?? 0) + o.subtotal + o.tax;
+    map[d] = (map[d] ?? 0) + (o.total ?? (o.subtotal + o.tax + o.tip));
   });
 
   // Fill gaps with 0
