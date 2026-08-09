@@ -113,13 +113,15 @@ function sendToPrinter(buffer) {
 
       socket.connect(CONFIG.printer.port, CONFIG.printer.host, () => {
         socket.write(buffer, () => {
-          socket.end();
-          resolve();
+          setTimeout(() => {
+            socket.end();
+            resolve();
+          }, 400);
         });
       });
 
-      socket.on("timeout", () => { socket.destroy(); reject(new Error("Printer timeout")); });
-      socket.on("error", reject);
+      socket.on("timeout", () => { socket.destroy(); reject(new Error(`Printer timeout connecting to ${CONFIG.printer.host}:${CONFIG.printer.port}`)); });
+      socket.on("error", (err) => { socket.destroy(); reject(err); });
 
     } else {
       // USB printing — write directly to device file
