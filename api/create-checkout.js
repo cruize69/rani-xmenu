@@ -12,6 +12,10 @@ import crypto from "crypto";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 
+const MAX_QTY_PER_LINE = 25;
+const STRIPE_PCT = 0.029;
+const STRIPE_FLAT = 0.30;
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -32,6 +36,7 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
+    const { items, specialInstructions, clerkUserId, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress } = req.body || {};
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "No items in cart" });
