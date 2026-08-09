@@ -145,15 +145,19 @@ export default async function handler(req, res) {
     return res.status(200).json({
       type:      identity.type,
       profile:   { name: profile?.name ?? null, email: identity.email ?? null },
-      savedCard,
+      savedCard: identity.type === "user" ? savedCard : null,
       orders,
       favorites,
       stats: buildStats(orders),
     });
   }
 
-  // ── POST — create/update profile ─────────────────────────────
+  // ── POST — create/update profile (verified signed-in accounts only) ──
   if (req.method === "POST") {
+    if (identity.type !== "user") {
+      return res.status(403).json({ error: "Only verified signed-in accounts can update account settings." });
+    }
+
     const { name, email, preferences } = req.body;
 
     const existing = await kv.get(profileKey(accountId));
