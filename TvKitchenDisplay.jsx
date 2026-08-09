@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
+import { PickupIcon, DeliveryIcon } from "./src/components/FulfillmentSheet.jsx";
 
 // ── Town / Destination Color Palette for 4K Visual Grouping ───────
 const TOWN_COLORS = {
@@ -73,9 +74,11 @@ function TvOrderCard({ order }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 32, lineHeight: 1 }}>
-            {order.orderMode === "delivery" ? "🚗" : "🛍️"}
-          </span>
+          {order.orderMode === "delivery" ? (
+            <DeliveryIcon size={32} color="#080706" />
+          ) : (
+            <PickupIcon size={32} color="#080706" />
+          )}
           <span style={{ fontSize: 28, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             {order.orderMode === "delivery" ? city : "PICKUP AT STORE"}
           </span>
@@ -311,7 +314,14 @@ export default function TvKitchenDisplay() {
                     boxShadow: `0 0 16px ${cfg.bg}`,
                   }}
                 >
-                  <span>{mode === "delivery" ? "🚗" : "🛍️"} {groupKey}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    {mode === "delivery" ? (
+                      <DeliveryIcon size={20} color={cfg.text} />
+                    ) : (
+                      <PickupIcon size={20} color={cfg.text} />
+                    )}
+                    <span>{groupKey}</span>
+                  </span>
                   <span
                     style={{
                       background: cfg.border,
