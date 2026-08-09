@@ -46,22 +46,53 @@ function getTownConfig(city, mode) {
   return match ? TOWN_COLORS[match] : DEFAULT_TOWN_COLOR;
 }
 
-// ── Web Audio Chime for New Orders ────────────────────────────────
+// ── Web Audio Chime for New Orders (with Browser Autoplay Unlock) ─
+let globalAudioCtx = null;
+
+function getAudioContext() {
+  if (!globalAudioCtx && typeof window !== "undefined") {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
+    globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
 function playChime() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
-  } catch (e) {}
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // Tone 1: D5 (587.33 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.4);
+
+    // Tone 2: A5 (880 Hz) - 120ms staggered bell chime
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.5, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.7);
+  } catch (e) {
+    console.error("Audio chime error:", e);
+  }
 }
 
 // ── Elapsed Time Hook ──────────────────────────────────────────────
@@ -288,6 +319,17 @@ export default function TvKitchenDisplay() {
     };
   }, []);
 
+  // Document interaction unlock listener for browser AudioContext autoplay policy
+  useEffect(() => {
+    const unlock = () => getAudioContext();
+    window.addEventListener("click", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("click", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
   // Filter only ACTIVE orders (new or in_progress)
   const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded");
 
@@ -473,13 +515,40 @@ export default function TvKitchenDisplay() {
           </div>
         </div>
 
-        {/* Sync Status Clock */}
-        <div style={{ textAlign: "right" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)", padding: "6px 16px", borderRadius: 24, color: "#4ADE80", fontSize: 16, fontWeight: 800 }}>
-            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 10px #4ADE80" }} />
-            LIVE 4K SYNC
+        {/* Sync Status Clock & Sound Test */}
+        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => {
+                getAudioContext();
+                playChime();
+              }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: "rgba(232,168,46,0.16)",
+                border: "1.5px solid rgba(232,168,46,0.45)",
+                color: "#E8A82E",
+                padding: "6px 16px",
+                borderRadius: 24,
+                fontSize: 15,
+                fontWeight: 800,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+                transition: "transform 0.15s ease",
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.04)"}
+              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+            >
+              🔔 Test Sound
+            </button>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)", padding: "6px 16px", borderRadius: 24, color: "#4ADE80", fontSize: 16, fontWeight: 800 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 10px #4ADE80" }} />
+              LIVE 4K SYNC
+            </div>
           </div>
-          <p style={{ fontSize: 14, color: "#B8A995", marginTop: 4, margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          <p style={{ fontSize: 14, color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
             Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </p>
         </div>
