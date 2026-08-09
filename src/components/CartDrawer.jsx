@@ -451,10 +451,27 @@ export function CheckoutGate({
                     </button>
                   </div>
                 )}
-                {error && <p style={{ fontSize:13, color:"#F0846A", marginBottom:10, background:"rgba(240,132,106,0.1)", padding:"8px 12px", borderRadius:8, border:"0.5px solid rgba(240,132,106,0.3)" }}>{error}</p>}
-                <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
-                  {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}
-                </button>
+                {error && (
+                  error.includes("minimum food subtotal") ? (
+                    <div style={{ background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
+                      <p style={{ fontSize:13, color:"#E8A82E", fontWeight:500, margin:"0 0 10px", lineHeight:1.5 }}>{error}</p>
+                      <button
+                        type="button"
+                        onClick={onCancel}
+                        style={{ width:"100%", padding:"11px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                      >
+                        ← Add More Items
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize:13, color:"#F0846A", marginBottom:10, background:"rgba(240,132,106,0.1)", padding:"8px 12px", borderRadius:8, border:"0.5px solid rgba(240,132,106,0.3)" }}>{error}</p>
+                  )
+                )}
+                {!(error && error.includes("minimum food subtotal")) && (
+                  <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
+                    {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}
+                  </button>
+                )}
               </form>
             </>
           )}
