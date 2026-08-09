@@ -21,7 +21,7 @@ const VALID_STATUSES = Object.values(ORDER_STATUS);
 
 export default async function handler(req, res) {
   // Public customer routes on OrderSuccess page (no auth required)
-  if (req.method === "GET" && (req.query.session_id || req.query.status_id || req.query.test_staff_email)) {
+  if (req.method === "GET" && (req.query.session_id || req.query.status_id)) {
     return handlePublicGet(req, res);
   }
 
@@ -37,42 +37,7 @@ export default async function handler(req, res) {
 
 // ── Public GET: customer session lookup & status tracking ──────────
 async function handlePublicGet(req, res) {
-  const { session_id, status_id, test_staff_email } = req.query;
-
-  if (test_staff_email) {
-    const testOrder = {
-      id: "order_" + Date.now().toString(36).toUpperCase(),
-      customerName: "Riyadh Juwel",
-      customerEmail: "riyadhjuwel@me.com",
-      orderMode: "delivery",
-      deliveryAddress: {
-        street: "123 Forest Ave",
-        apt: "Suite 4B",
-        city: "Mamaroneck",
-        zip: "10543",
-        notes: "Ring doorbell twice, leave on front porch please"
-      },
-      status: "new",
-      items: [
-        { name: "Saffron Lamb Biryani", price: 24.95, qty: 2, spice: "Medium", note: "Extra raita on the side" },
-        { name: "Chicken Tikka Masala", price: 19.95, qty: 2, spice: "Spicy", note: "Well done naan bread" },
-        { name: "Fresh Garlic Naan", price: 4.95, qty: 4, spice: null, note: "Piping hot buttered" },
-        { name: "Mango Lassi", price: 5.50, qty: 2, spice: null, note: "" }
-      ],
-      subtotal: 120.60,
-      deliveryFee: 0.00,
-      tax: 10.10,
-      tip: 21.70,
-      total: 152.40,
-      createdAt: new Date().toISOString()
-    };
-    try {
-      await sendOrderEmail(testOrder);
-      return res.status(200).json({ success: true, sentToStaff: true, subject: `🚗 DELIVERY [Mamaroneck] — Riyadh Juwel (#${testOrder.id.slice(-6).toUpperCase()}) — $152.40` });
-    } catch (e) {
-      return res.status(500).json({ error: e.message });
-    }
-  }
+  const { session_id, status_id } = req.query;
 
   // Status polling on OrderSuccess page
   if (status_id) {
