@@ -1,13 +1,14 @@
-// api/order-by-session.js
-// GET /api/order-by-session?session_id=cs_xxx
-// Called by OrderSuccess page on load to retrieve full order details
-// Uses the Stripe session ID from the success URL redirect
-
 import Stripe from "stripe";
 import { kv } from "@vercel/kv";
-import { getOrder } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrder } from "../lib/orders.js";
+import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS } from "../lib/notifications.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
+                        process.env.STRIPE_LIVE_SECRET_KEY || 
+                        process.env.STRIPE_KEY || 
+                        process.env.STRIPE_SECRET;
+
+const stripe = new Stripe(stripeSecretKey);
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -19,27 +20,53 @@ export default async function handler(req, res) {
 
   try {
     // Look up order ID mapped from Stripe session
-    // Stored by webhook when order is created
-    const orderId = await kv.get(`session:${session_id}`);
+    let orderId = await kv.get(`session:${session_id}`);
 
     if (!orderId) {
-      // Fallback: search Stripe session directly (slower, use as last resort)
+      // Fallback: search Stripe session directly & build order if webhook hasn't processed yet
       const session = await stripe.checkout.sessions.retrieve(session_id);
       if (!session) return res.status(404).json({ error: "Session not found" });
 
-      // The webhook may still be processing — return minimal data from Stripe
-      return res.status(200).json({
-        id:            session.id,
-        customerName:  session.customer_details?.name  ?? "Guest",
-        customerEmail: session.customer_details?.email ?? null,
-        createdAt:     new Date(session.created * 1000).toISOString(),
-        status:        "new",
-        items:         JSON.parse(session.metadata?.cart ?? "[]"),
+      let cartItems = [];
+      try {
+        const cartJson = session.metadata?.cart
+          ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
+        cartItems = JSON.parse(cartJson || "[]");
+      } catch (e) {
+        console.error("Fallback cart parse error:", e);
+      }
+
+      let deliveryAddress = null;
+      if (session.metadata?.deliveryAddress) {
+        try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
+      }
+
+      let paymentIntent = null;
+      if (session.payment_intent) {
+        paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
+      }
+
+      const order = buildOrder({
+        paymentIntent,
+        stripeSession:       session,
+        cartItems,
         specialInstructions: session.metadata?.specialInstructions ?? "",
-        subtotal:      (session.amount_subtotal ?? 0) / 100,
-        tax:           (session.total_details?.amount_tax ?? 0) / 100,
-        total:         (session.amount_total ?? 0) / 100,
+        tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
+        orderMode:           session.metadata?.orderMode ?? "pickup",
+        deliveryAddress,
+        deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
       });
+
+      // Save order to KV & fire customer + staff email notifications
+      await Promise.allSettled([
+        saveOrder(order),
+        kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }),
+        sendOrderEmail(order),
+        sendCustomerReceiptEmail(order),
+        sendOrderSMS(order),
+      ]);
+
+      return res.status(200).json(order);
     }
 
     const order = await getOrder(orderId);
