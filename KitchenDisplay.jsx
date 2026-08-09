@@ -188,36 +188,47 @@ export default function KitchenDisplay() {
   // Server-Sent Events (SSE) stream for real-time pushes (zero polling overhead)
   useEffect(() => {
     const secret = getManagerSecret();
-    const today = new Date().toISOString().slice(0, 10);
-    const streamUrl = `/api/orders?stream=true&date=${today}&secret=${encodeURIComponent(secret)}`;
+    const streamUrl = `/api/orders?stream=true&secret=${encodeURIComponent(secret)}`;
     
     let es;
-    try {
-      es = new EventSource(streamUrl);
+    let reconnectTimer;
 
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "orders_update") {
-            const fetchedOrders = data.orders || [];
-            if (prevIds.current.size > 0) {
-              const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
-              if (newArr.length > 0) {
-                setFlash(newArr[0].id.slice(-4).toUpperCase());
+    const connectSSE = () => {
+      try {
+        es = new EventSource(streamUrl);
+
+        es.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "orders_update") {
+              const fetchedOrders = data.orders || [];
+              if (prevIds.current.size > 0) {
+                const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
+                if (newArr.length > 0) {
+                  setFlash(newArr[0].id.slice(-4).toUpperCase());
+                }
               }
+              prevIds.current = new Set(fetchedOrders.map(o => o.id));
+              setOrders(fetchedOrders);
+              setLastPoll(new Date());
             }
-            prevIds.current = new Set(fetchedOrders.map(o => o.id));
-            setOrders(fetchedOrders);
-            setLastPoll(new Date());
-          }
-        } catch (e) {}
-      };
-    } catch (e) {
-      console.error("SSE stream error:", e);
-    }
+          } catch (e) {}
+        };
+
+        es.onerror = () => {
+          if (es) es.close();
+          reconnectTimer = setTimeout(connectSSE, 3000);
+        };
+      } catch (e) {
+        console.error("SSE stream error:", e);
+      }
+    };
+
+    connectSSE();
 
     return () => {
       if (es) es.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, []);
 
@@ -245,7 +256,7 @@ export default function KitchenDisplay() {
     }
   };
 
-  const active = orders.filter(o => o.status !== "done");
+  const active = orders.filter(o => o.status !== "done" && o.status !== "refunded");
   const done   = orders.filter(o => o.status === "done");
   const shown  = filter === "active" ? active : filter === "done" ? done : orders;
 

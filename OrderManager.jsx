@@ -525,7 +525,7 @@ function TopItems({ items }) {
 export default function OrderManager() {
   const [orders,       setOrders]       = useState([]);
   const [summary,      setSummary]      = useState(null);
-  const [date,         setDate]         = useState(new Date().toISOString().slice(0, 10));
+  const [date,         setDate]         = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }));
   const [filter,       setFilter]       = useState("active");
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState(null);
@@ -533,44 +533,69 @@ export default function OrderManager() {
   const [newOrderIds,  setNewOrderIds]  = useState(new Set());
   const prevOrderIds = useRef(new Set());
 
+  const load = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const data = await apiFetch(`/api/orders?date=${date}`);
+      const fetchedOrders = data.orders || [];
+      setOrders(fetchedOrders);
+      setSummary(data.summary || null);
+      setLastRefresh(new Date());
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      if (showSpinner) setLoading(false);
+    }
+  }, [date]);
+
   // Server-Sent Events (SSE) stream for real-time manager pushes
   useEffect(() => {
     const secret = getManagerSecret();
     const streamUrl = `/api/orders?stream=true&date=${date}&secret=${encodeURIComponent(secret)}`;
     
     let es;
+    let reconnectTimer;
     setLoading(true);
-    try {
-      es = new EventSource(streamUrl);
 
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "orders_update") {
-            const fetchedOrders = data.orders || [];
-            if (prevOrderIds.current.size > 0) {
-              const newIds = new Set(fetchedOrders.map(o => o.id).filter(id => !prevOrderIds.current.has(id)));
-              setNewOrderIds(newIds);
+    const connectSSE = () => {
+      try {
+        es = new EventSource(streamUrl);
+
+        es.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "orders_update") {
+              const fetchedOrders = data.orders || [];
+              if (prevOrderIds.current.size > 0) {
+                const newIds = new Set(fetchedOrders.map(o => o.id).filter(id => !prevOrderIds.current.has(id)));
+                setNewOrderIds(newIds);
+              }
+              prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
+              setOrders(fetchedOrders);
+              setSummary(data.summary || null);
+              setLastRefresh(new Date());
+              setError(null);
+              setLoading(false);
             }
-            prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
-            setOrders(fetchedOrders);
-            setSummary(data.summary || null);
-            setLastRefresh(new Date());
-            setError(null);
-            setLoading(false);
-          }
-        } catch (e) {}
-      };
+          } catch (e) {}
+        };
 
-      es.onerror = () => {
+        es.onerror = () => {
+          setLoading(false);
+          if (es) es.close();
+          reconnectTimer = setTimeout(connectSSE, 3000);
+        };
+      } catch (e) {
         setLoading(false);
-      };
-    } catch (e) {
-      setLoading(false);
-    }
+      }
+    };
+
+    connectSSE();
 
     return () => {
       if (es) es.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, [date]);
 
@@ -600,7 +625,7 @@ export default function OrderManager() {
   };
 
   const filtered = orders.filter(o => {
-    if (filter === "active")   return o.status === "new" || o.status === "in_progress";
+    if (filter === "active")   return o.status !== "done" && o.status !== "refunded";
     if (filter === "done")     return o.status === "done";
     if (filter === "refunded") return o.status === "refunded";
     return true;

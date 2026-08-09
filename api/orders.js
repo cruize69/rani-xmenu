@@ -14,7 +14,7 @@
 
 import Stripe from "stripe";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
 
@@ -101,7 +101,7 @@ async function handleGet(req, res) {
         "X-Accel-Buffering": "no",
       });
 
-      const targetDate = req.query.date ?? new Date().toISOString().slice(0, 10);
+      const targetDate = req.query.date ?? getNYDateString();
       res.write(`data: ${JSON.stringify({ type: "connected", timestamp: Date.now() })}\n\n`);
 
       let lastHash = "";
@@ -109,7 +109,8 @@ async function handleGet(req, res) {
         try {
           const orders = await getOrdersByDate(targetDate);
           const summary = buildDailySummary(orders);
-          const hash = orders.map(o => `${o.id}:${o.status}:${o.updatedAt}`).join("|");
+          // Comprehensive change hash ensuring ANY change (status, printed, refund, items) triggers a stream update
+          const hash = orders.map(o => `${o.id}:${o.status}:${o.printed}:${o.refundedTotal ?? 0}:${o.updatedAt}`).join("|");
           if (hash !== lastHash) {
             lastHash = hash;
             res.write(`data: ${JSON.stringify({ type: "orders_update", orders, summary, date: targetDate, timestamp: Date.now() })}\n\n`);
@@ -138,7 +139,7 @@ async function handleGet(req, res) {
       return res.status(200).json(order);
     }
 
-    const date    = req.query.date ?? new Date().toISOString().slice(0, 10);
+    const date    = req.query.date ?? getNYDateString();
     const orders  = await getOrdersByDate(date);
     const summary = buildDailySummary(orders);
 

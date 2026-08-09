@@ -373,34 +373,32 @@ export default function TvKitchenDisplay() {
     };
 
     let es;
-    try {
-      es = new EventSource(streamUrl);
-      es.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.type === "orders_update") {
-            processOrders(data.orders || []);
-          }
-        } catch (err) {}
-      };
-    } catch (err) {}
-
-    // Polling fallback every 10s
-    const interval = setInterval(async () => {
+    let reconnectTimer;
+    
+    const connectSSE = () => {
       try {
-        const res = await fetch(`/api/orders?date=${today}`, {
-          headers: { "x-manager-secret": secret },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          processOrders(Array.isArray(data) ? data : data.orders || []);
-        }
+        es = new EventSource(streamUrl);
+        es.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.type === "orders_update") {
+              processOrders(data.orders || []);
+            }
+          } catch (err) {}
+        };
+        es.onerror = () => {
+          if (es) es.close();
+          // Auto-reconnect SSE after 3 seconds on error
+          reconnectTimer = setTimeout(connectSSE, 3000);
+        };
       } catch (err) {}
-    }, 10000);
+    };
+
+    connectSSE();
 
     return () => {
       if (es) es.close();
-      clearInterval(interval);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
