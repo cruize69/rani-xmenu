@@ -206,25 +206,28 @@ function LiveTracker({ orderId, initialStatus }) {
   // Real polling — fires in production when session_id is in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (!params.get("session_id") || !polling) return;
+    if (!params.get("session_id") || !polling || !orderId) return;
     const poll = async () => {
       try {
         const res = await fetch(`/api/orders?status_id=${orderId}`);
         if (!res.ok) return;
         const data = await res.json();
         const newStage = STATUS_TO_STAGE[data.status] ?? 0;
-        if (newStage !== stage) {
-          setPrevStage(stage);
-          setStage(newStage);
-          setLastUpdate(new Date(data.updatedAt));
-          if (newStage === 1) { setPolling(false); }
-        }
+        setStage(currentStage => {
+          if (newStage !== currentStage) {
+            setPrevStage(currentStage);
+            setLastUpdate(new Date(data.updatedAt));
+            if (newStage === 1) { setPolling(false); }
+            return newStage;
+          }
+          return currentStage;
+        });
       } catch (err) { console.error("Poll error:", err); }
     };
     poll();
     intervalRef.current = setInterval(poll, 5000);
     return () => clearInterval(intervalRef.current);
-  }, [orderId, stage, polling]);
+  }, [orderId, polling]);
 
   const isReady = stage === 1;
 

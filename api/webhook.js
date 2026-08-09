@@ -2,18 +2,20 @@
 // Receives Stripe webhook events
 // Vercel config: { api: { bodyParser: false } } required for signature verification
 
-import Stripe from "stripe";
 import { buffer } from "micro";
 import { kv } from "@vercel/kv";
-import { getOrCreateOrderForSession } from "../lib/syncStripe.js";
+import { getOrCreateOrderForSession, getStripe } from "../lib/syncStripe.js";
 
 export const config = { api: { bodyParser: false } };
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Method Not Allowed");
+  }
+
+  const stripe = getStripe();
+  if (!stripe) {
+    return res.status(500).send("Stripe not configured");
   }
 
   // Verify Stripe signature
@@ -83,14 +85,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ received: true, orderId: order.id });
-}
-
-/**
- * Push order ID to a print queue list in KV.
- * The local print bridge polls this list every 5 seconds.
- */
-async function notifyPrintQueue(orderId) {
-  await kv.lpush("print_queue", orderId);
-  // Expire after 1 hour (in case bridge is offline, don't build up forever)
-  await kv.expire("print_queue", 3600);
 }

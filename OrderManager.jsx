@@ -624,17 +624,19 @@ export default function OrderManager() {
     }
   };
 
-  const filtered = orders.filter(o => {
-    if (filter === "active")   return o.status !== "done" && o.status !== "refunded";
-    if (filter === "done")     return o.status === "done";
-    if (filter === "refunded") return o.status === "refunded";
-    return true;
-  });
-
-  const newCount      = orders.filter(o => o.status === "new").length;
-  const inProgCount   = orders.filter(o => o.status === "in_progress").length;
-  const refundedCount = orders.filter(o => o.status === "refunded").length;
-  const totalRefunded = orders.reduce((s, o) => s + (o.refundedTotal ?? 0), 0);
+  const { filtered, newCount, inProgCount, refundedCount, totalRefunded } = useMemo(() => {
+    const list = orders.filter(o => {
+      if (filter === "active")   return o.status !== "done" && o.status !== "refunded";
+      if (filter === "done")     return o.status === "done";
+      if (filter === "refunded") return o.status === "refunded";
+      return true;
+    });
+    const nc = orders.filter(o => o.status === "new").length;
+    const ipc = orders.filter(o => o.status === "in_progress").length;
+    const rc = orders.filter(o => o.status === "refunded").length;
+    const tr = orders.reduce((s, o) => s + (o.refundedTotal ?? 0), 0);
+    return { filtered: list, newCount: nc, inProgCount: ipc, refundedCount: rc, totalRefunded: tr };
+  }, [orders, filter]);
 
   return (
     <div style={{ background:"#F0EBE1", minHeight:"100vh", fontFamily:"'Inter',sans-serif" }}>

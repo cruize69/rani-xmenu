@@ -232,7 +232,7 @@ export default function KitchenDisplay() {
     };
   }, []);
 
-  const advance = async (id) => {
+  const advance = useCallback(async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "done" } : o));
     try {
       await apiFetch("/api/orders", {
@@ -242,9 +242,9 @@ export default function KitchenDisplay() {
     } catch (err) {
       console.error("Advance status error:", err);
     }
-  };
+  }, []);
 
-  const undo = async (id) => {
+  const undo = useCallback(async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "new" } : o));
     try {
       await apiFetch("/api/orders", {
@@ -254,14 +254,16 @@ export default function KitchenDisplay() {
     } catch (err) {
       console.error("Undo status error:", err);
     }
-  };
+  }, []);
 
-  const active = orders.filter(o => o.status !== "done" && o.status !== "refunded");
-  const done   = orders.filter(o => o.status === "done");
-  const shown  = filter === "active" ? active : filter === "done" ? done : orders;
-
-  const newCount  = orders.filter(o => o.status === "new").length;
-  const doneCount = orders.filter(o => o.status === "done").length;
+  const { active, done, shown, newCount, doneCount } = useMemo(() => {
+    const act  = orders.filter(o => o.status !== "done" && o.status !== "refunded");
+    const dn   = orders.filter(o => o.status === "done");
+    const sh   = filter === "active" ? act : filter === "done" ? dn : orders;
+    const nc   = orders.filter(o => o.status === "new").length;
+    const dc   = orders.filter(o => o.status === "done").length;
+    return { active: act, done: dn, shown: sh, newCount: nc, doneCount: dc };
+  }, [orders, filter]);
 
   return (
     <div style={{ background:"#1A1008", minHeight:"100vh", fontFamily:"'Inter',sans-serif", userSelect:"none" }}>

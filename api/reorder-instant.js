@@ -4,14 +4,13 @@
 // PCI-DSS COMPLIANT: Uses Stripe PaymentIntents API with off_session=true and
 // vaulted payment_method tokens. No cardholder data ever touches server storage.
 
-import Stripe from "stripe";
 import { createClerkClient } from "@clerk/backend";
 import { kv } from "@vercel/kv";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { buildOrder, saveOrder } from "../lib/orders.js";
 import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";
+import { getStripe } from "../lib/syncStripe.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 const STRIPE_PCT = 0.029;
@@ -90,6 +89,9 @@ export default async function handler(req, res) {
     const ccFee             = parseFloat((((grossBeforeCc + STRIPE_FLAT) / (1 - STRIPE_PCT)) - grossBeforeCc).toFixed(2));
     const finalTotal        = grossBeforeCc + ccFee;
 
+    const stripe = getStripe();
+    if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
+
     // Execute off-session PaymentIntent charge
     let paymentIntent;
     try {
@@ -127,7 +129,6 @@ export default async function handler(req, res) {
     });
 
     await saveOrder(newOrder);
-    await kv.lpush(`account-orders:${accountId}`, newOrder.id);
 
     // Awaited (not fire-and-forget) — Vercel can freeze/kill the function
     // before an un-awaited async call finishes once the response is sent.

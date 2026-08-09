@@ -5,7 +5,8 @@
 
 import Stripe from "stripe";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder, getOrdersByDate } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrdersByDate, getNYDateString } from "../lib/orders.js";
+import { syncStripeSessions } from "../lib/syncStripe.js";
 
 export default async function handler(req, res) {
   if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET) {
@@ -38,91 +39,27 @@ export default async function handler(req, res) {
   }
 }
 
-
-// ── Automatic Stripe Reconciliation ──────────────────────────────
-async function syncStripeSessions() {
-  try {
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
-                            process.env.STRIPE_LIVE_SECRET_KEY || 
-                            process.env.STRIPE_KEY || 
-                            process.env.STRIPE_SECRET;
-    if (!stripeSecretKey) return;
-    const stripe = new Stripe(stripeSecretKey);
-
-    const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-    for (const session of sessions.data) {
-      if (session.payment_status !== "paid") continue;
-      
-      const stripeAmt = session.amount_total ? parseFloat((session.amount_total / 100).toFixed(2)) : null;
-      let orderId = await kv.get(`session:${session.id}`);
-
-      if (!orderId) {
-        let cartItems = [];
-        try {
-          const cartJson = session.metadata?.cart
-            ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
-          cartItems = JSON.parse(cartJson || "[]");
-        } catch (e) {}
-
-        let deliveryAddress = null;
-        if (session.metadata?.deliveryAddress) {
-          try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
-        }
-
-        let paymentIntent = null;
-        if (session.payment_intent) {
-          paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
-        }
-
-        const createdAt = session.created ? new Date(session.created * 1000) : new Date();
-
-        const order = buildOrder({
-          paymentIntent,
-          stripeSession:       session,
-          cartItems,
-          specialInstructions: session.metadata?.specialInstructions ?? "",
-          tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
-          orderMode:           session.metadata?.orderMode ?? "pickup",
-          deliveryAddress,
-          deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
-        });
-
-        // Enforce exact Stripe gross total match
-        if (stripeAmt) order.total = stripeAmt;
-        order.createdAt = createdAt.toISOString();
-        order.updatedAt = createdAt.toISOString();
-        order.date      = createdAt.toISOString().slice(0, 10);
-
-        await saveOrder(order);
-        await kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 365 });
-      } else if (stripeAmt) {
-        // Enforce exact Stripe total on pre-existing KV orders
-        const existingOrder = await kv.get(`order:${orderId}`);
-        if (existingOrder && existingOrder.total !== stripeAmt) {
-          existingOrder.total = stripeAmt;
-          await saveOrder(existingOrder);
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Stripe sync error in analytics:", err);
-  }
-}
-
 // ── Data fetchers ─────────────────────────────────────────────────
 async function fetchOrderRange(days) {
-  await syncStripeSessions();
+  syncStripeSessions().catch(err => console.error("Stripe sync error in analytics:", err));
 
-  const allOrders = [];
   const today = new Date();
+  const datePromises = [];
+
   for (let i = 0; i < days; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const dayOrders = await getOrdersByDate(dateStr);
-    allOrders.push(...dayOrders);
+    const dateStr = getNYDateString(d);
+    datePromises.push(getOrdersByDate(dateStr, false));
   }
-  return allOrders;
+
+  const results = await Promise.all(datePromises);
+  const orderMap = new Map();
+  results.flat().forEach(order => {
+    if (order && order.id) orderMap.set(order.id, order);
+  });
+
+  return Array.from(orderMap.values());
 }
 
 // ── Aggregators ───────────────────────────────────────────────────

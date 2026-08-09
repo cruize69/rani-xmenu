@@ -28,11 +28,8 @@ export default async function handler(req, res) {
                             process.env.STRIPE_SECRET;
 
     if (!stripeSecretKey) {
-      const detectedStripeVars = Object.keys(process.env).filter(k => k.toUpperCase().includes("STRIPE"));
-      const debugMsg = detectedStripeVars.length > 0 
-        ? `Found environment variables: [${detectedStripeVars.join(", ")}]. Please rename to STRIPE_SECRET_KEY in Vercel.` 
-        : `No Stripe environment variables found on server. Ensure Production environment is checked in Vercel settings and click Redeploy.`;
-      return res.status(500).json({ error: `Stripe Secret Key is not configured. ${debugMsg}` });
+      console.error("Stripe Secret Key missing in process.env");
+      return res.status(500).json({ error: "Stripe Secret Key is not configured. Please check server settings." });
     }
 
     const stripe = new Stripe(stripeSecretKey);
@@ -148,11 +145,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Encode cart as metadata on the session (max 500 chars per value)
+    // Encode cart as metadata on the session (max 500 bytes per value)
     const cartJson = JSON.stringify(validatedItems);
-    const metaCart = cartJson.length <= 500
+    const cartByteLen = Buffer.byteLength(cartJson, "utf8");
+    const metaCart = cartByteLen <= 500
       ? { cart: cartJson }
-      : { cart_0: cartJson.slice(0, 500), cart_1: cartJson.slice(500) };
+      : { cart_0: cartJson.slice(0, 450), cart_1: cartJson.slice(450) };
 
     const idempotencyKey = crypto
       .createHash("sha256")

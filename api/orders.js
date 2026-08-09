@@ -107,7 +107,7 @@ async function handleGet(req, res) {
       let lastHash = "";
       const sendUpdate = async () => {
         try {
-          const orders = await getOrdersByDate(targetDate);
+          const orders = await getOrdersByDate(targetDate, true);
           const summary = buildDailySummary(orders);
           // Comprehensive change hash ensuring ANY change (status, printed, refund, items) triggers a stream update
           const hash = orders.map(o => `${o.id}:${o.status}:${o.printed}:${o.refundedTotal ?? 0}:${o.updatedAt}`).join("|");
@@ -181,9 +181,8 @@ async function handleUpdate(req, res) {
     // Awaited (not fire-and-forget) — Vercel can freeze/kill the function
     // before an un-awaited async call finishes once the response is sent.
     if (status && STATUS_SMS[status]) {
-      const raw = await kv.get(`notify:${id}`).catch(() => null);
-      if (raw) {
-        const { phone } = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const phone = updated.customerPhone;
+      if (phone) {
         await sendCustomerSMS(phone, STATUS_SMS[status](updated))
           .catch(err => console.error("Customer SMS failed:", err));
       }
@@ -200,7 +199,7 @@ async function handleUpdate(req, res) {
     return res.status(200).json({ order: updated });
   } catch (err) {
     console.error("Update order error:", err);
-    return res.status(404).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
 

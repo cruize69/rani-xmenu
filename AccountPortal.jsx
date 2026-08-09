@@ -253,7 +253,7 @@ function AccountPortalPage({
 
     loadAccount();
     return () => { active = false; };
-  }, [guestEmail, searchedEmail, isSignedIn, searchCount]);
+  }, [guestEmail, searchedEmail, isSignedIn, searchCount, getToken]);
 
   const handleResetLookup = () => {
     setSearchedEmail("");

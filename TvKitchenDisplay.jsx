@@ -414,32 +414,31 @@ export default function TvKitchenDisplay() {
     };
   }, []);
 
-  // Filter only ACTIVE orders (new or in_progress)
-  const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded");
+  // Filter & Group ACTIVE orders (new or in_progress) by Destination Town / Mode
+  const { displayOrders, activeCount, totalPages } = useMemo(() => {
+    const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded");
+    const groupedClusters = {};
+    activeOrders.forEach(o => {
+      const groupKey = o.orderMode === "delivery" ? (o.deliveryAddress?.city || "Other Delivery") : "Pickup";
+      if (!groupedClusters[groupKey]) groupedClusters[groupKey] = [];
+      groupedClusters[groupKey].push(o);
+    });
 
-  // Group active orders by Destination Town / Mode
-  const groupedClusters = {};
-  activeOrders.forEach(o => {
-    const groupKey = o.orderMode === "delivery" ? (o.deliveryAddress?.city || "Other Delivery") : "Pickup";
-    if (!groupedClusters[groupKey]) groupedClusters[groupKey] = [];
-    groupedClusters[groupKey].push(o);
-  });
+    const sortedGroupKeys = Object.keys(groupedClusters).sort((a, b) => {
+      if (a === "Pickup") return 1;
+      if (b === "Pickup") return -1;
+      return groupedClusters[b].length - groupedClusters[a].length;
+    });
 
-  // Sort groups: Delivery destinations with multiple orders first, then single orders, then Pickup
-  const sortedGroupKeys = Object.keys(groupedClusters).sort((a, b) => {
-    if (a === "Pickup") return 1;
-    if (b === "Pickup") return -1;
-    return groupedClusters[b].length - groupedClusters[a].length;
-  });
+    const list = [];
+    sortedGroupKeys.forEach(key => {
+      list.push(...groupedClusters[key]);
+    });
 
-  // Flatten ordered list grouped by town for grid view
-  const displayOrders = [];
-  sortedGroupKeys.forEach(key => {
-    displayOrders.push(...groupedClusters[key]);
-  });
-
-  const activeCount = displayOrders.length;
-  const totalPages = Math.ceil(activeCount / 6);
+    const ac = list.length;
+    const tp = Math.ceil(ac / 6);
+    return { displayOrders: list, activeCount: ac, totalPages: tp };
+  }, [orders]);
 
   // Auto-Cycle Page Rotation for > 6 Orders (every 10 seconds)
   useEffect(() => {

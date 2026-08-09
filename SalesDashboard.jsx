@@ -311,25 +311,29 @@ function CRMTab({ customers }) {
   const [sortDir,     setSortDir]     = useState("desc");
   const [viewContact, setViewContact] = useState(null);
 
-  const segCounts = Object.keys(SEGMENTS).reduce((acc, key) => {
-    acc[key] = key === "all" ? customers.length : customers.filter(c => c.segment === key).length;
-    return acc;
-  }, {});
+  const segCounts = useMemo(() => {
+    return Object.keys(SEGMENTS).reduce((acc, key) => {
+      acc[key] = key === "all" ? customers.length : customers.filter(c => c.segment === key).length;
+      return acc;
+    }, {});
+  }, [customers]);
 
-  const filtered = customers
-    .filter(c => activeSeg === "all" || c.segment === activeSeg)
-    .filter(c => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (c.fullName ?? "").toLowerCase().includes(q) ||
-             (c.email    ?? "").toLowerCase().includes(q) ||
-             (c.favDish  ?? "").toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      const av = a[sortBy] ?? 0;
-      const bv = b[sortBy] ?? 0;
-      return sortDir === "desc" ? (bv > av ? 1 : -1) : (av > bv ? 1 : -1);
-    });
+  const filtered = useMemo(() => {
+    return customers
+      .filter(c => activeSeg === "all" || c.segment === activeSeg)
+      .filter(c => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (c.fullName ?? "").toLowerCase().includes(q) ||
+               (c.email    ?? "").toLowerCase().includes(q) ||
+               (c.favDish  ?? "").toLowerCase().includes(q);
+      })
+      .sort((a, b) => {
+        const av = a[sortBy] ?? 0;
+        const bv = b[sortBy] ?? 0;
+        return sortDir === "desc" ? (bv > av ? 1 : -1) : (av > bv ? 1 : -1);
+      });
+  }, [customers, activeSeg, search, sortBy, sortDir]);
 
   const toggleSelect = (email) => {
     setSelected(prev => {

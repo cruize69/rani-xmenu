@@ -295,6 +295,14 @@ export default function RaniMahal() {
     });
   }, [updateCart]);
 
+  const showNotice = useCallback((msg) => {
+    clearTimeout(noticeTimer.current);
+    setNotice(msg);
+    noticeTimer.current = setTimeout(() => setNotice(null), 6000);
+  }, []);
+
+  const dismissNotice = () => { setNotice(null); clearTimeout(noticeTimer.current); };
+
   const reorderFromOrder = useCallback((order) => {
     if (!order?.items?.length) return;
     const next = {};
@@ -312,15 +320,7 @@ export default function RaniMahal() {
     if (skipped > 0) {
       showNotice(`Heads up — ${skipped} item${skipped>1?"s":""} from that order ${skipped>1?"aren't":"isn't"} on the menu anymore, so ${skipped>1?"they were":"it was"} left out.`);
     }
-  }, []);
-
-  const showNotice = (msg) => {
-    clearTimeout(noticeTimer.current);
-    setNotice(msg);
-    noticeTimer.current = setTimeout(() => setNotice(null), 6000);
-  };
-
-  const dismissNotice = () => { setNotice(null); clearTimeout(noticeTimer.current); };
+  }, [showNotice]);
 
   const quickAddFavorite = (baseId) => {
     adjustQty(baseId, 1);
@@ -335,15 +335,19 @@ export default function RaniMahal() {
     setShowCheckoutGate(true);
   };
 
-  const entries     = Object.values(cart);
-  const itemCount   = entries.reduce((s,v)=>s+v.qty, 0);
-  const subtotal    = entries.reduce((s,v)=>s+v.price*v.qty, 0);
-  const deliveryFee = orderMode === "delivery" ? calcDeliveryFee(subtotal) : 0;
-  const tax         = subtotal * TAX;
-  const tip         = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : subtotal * tipPct;
-  const ccFee       = itemCount > 0 ? parseFloat(((subtotal + deliveryFee + tax + tip + 0.30) / (1 - 0.029) - (subtotal + deliveryFee + tax + tip)).toFixed(2)) : 0;
-  const total       = subtotal + deliveryFee + tax + tip + ccFee;
-  const section     = SECTIONS.find(s=>s.id===activeSection);
+  const { entries, itemCount, subtotal, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
+    const entriesList = Object.values(cart);
+    const count       = entriesList.reduce((s,v)=>s+v.qty, 0);
+    const sub         = entriesList.reduce((s,v)=>s+v.price*v.qty, 0);
+    const fee         = orderMode === "delivery" ? calcDeliveryFee(sub) : 0;
+    const taxAmt      = sub * TAX;
+    const tipAmt      = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : sub * tipPct;
+    const cardFee     = count > 0 ? parseFloat(((sub + fee + taxAmt + tipAmt + 0.30) / (1 - 0.029) - (sub + fee + taxAmt + tipAmt)).toFixed(2)) : 0;
+    const totalAmt    = sub + fee + taxAmt + tipAmt + cardFee;
+    return { entries: entriesList, itemCount: count, subtotal: sub, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
+  }, [cart, orderMode, tipPct, tipCustom]);
+
+  const section = SECTIONS.find(s=>s.id===activeSection);
 
   if (view === "account") {
     return (
