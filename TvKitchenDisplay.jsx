@@ -390,7 +390,7 @@ export default function TvKitchenDisplay() {
 
   // Compute fluid column layout based on current active order count
   const activeCount = displayOrders.length;
-  const gridColumns = activeCount <= 1 ? "1fr" : `repeat(${Math.min(6, activeCount)}, 1fr)`;
+  const gridColumns = activeCount <= 1 ? "1fr" : `repeat(${Math.min(6, activeCount)}, minmax(0, 1fr))`;
 
   return (
     <div
@@ -399,7 +399,8 @@ export default function TvKitchenDisplay() {
         color: "#FAF6EF",
         height: "100vh",
         maxHeight: "100vh",
-        width: "100vw",
+        width: "100%",
+        maxWidth: "100%",
         overflow: "hidden",
         fontFamily: "'Inter', sans-serif",
         padding: "1.2vh 1.4vw",
@@ -611,14 +612,16 @@ export default function TvKitchenDisplay() {
             style={{
               display: "grid",
               gridTemplateColumns: gridColumns,
-              gap: "1.2vw",
+              gap: "1.0vw",
               height: "100%",
               minHeight: 0,
+              minWidth: 0,
+              width: "100%",
               justifyContent: activeCount === 1 ? "center" : "stretch",
             }}
           >
             {displayOrders.slice(0, 6).map((order) => (
-              <div key={order.id} style={{ height: "100%", minHeight: 0, maxWidth: activeCount === 1 ? "750px" : "100%", margin: activeCount === 1 ? "0 auto" : "0", width: "100%" }}>
+              <div key={order.id} style={{ height: "100%", minHeight: 0, minWidth: 0, maxWidth: activeCount === 1 ? "750px" : "100%", margin: activeCount === 1 ? "0 auto" : "0", width: "100%", overflow: "hidden" }}>
                 <TvOrderCard order={order} />
               </div>
             ))}
