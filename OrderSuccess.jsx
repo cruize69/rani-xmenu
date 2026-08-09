@@ -4,30 +4,22 @@ const FONT_LINK = "https://fonts.googleapis.com/css2?family=Playfair+Display:ita
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
-// ── Status machine ───────────────────────────────────────────────
-// Maps backend status → customer-facing stage index
-const STATUS_TO_STAGE = { new: 0, in_progress: 1, done: 2 };
+// Maps backend status → customer-facing stage index (2 stages: Received and Ready)
+const STATUS_TO_STAGE = { new: 0, in_progress: 0, done: 1 };
 
 const STAGES = [
   {
     key:   "received",
     label: "Order Received",
     icon:  "✓",
-    desc:  "We've got your order and it's in the queue.",
-    color: "#1A6B3A",
-  },
-  {
-    key:   "preparing",
-    label: "Being Prepared",
-    icon:  "🍳",
-    desc:  "Our kitchen is cooking your order fresh right now.",
-    color: "#C8600A",
+    desc:  "Your order is confirmed and being prepared fresh in our kitchen.",
+    color: "#E8A82E",
   },
   {
     key:   "ready",
     label: "Ready for Pickup",
     icon:  "🎉",
-    desc:  "Your order is ready! Come on in.",
+    desc:  "Your order is ready! Come on in or watch for delivery.",
     color: "#1A6B3A",
   },
 ];
@@ -152,7 +144,7 @@ function LiveTracker({ orderId, initialStatus }) {
           setPrevStage(stage);
           setStage(newStage);
           setLastUpdate(new Date(data.updatedAt));
-          if (newStage === 2) { setPolling(false); }
+          if (newStage === 1) { setPolling(false); }
         }
       } catch (err) { console.error("Poll error:", err); }
     };
@@ -161,7 +153,7 @@ function LiveTracker({ orderId, initialStatus }) {
     return () => clearInterval(intervalRef.current);
   }, [orderId, stage, polling]);
 
-  const isReady = stage === 2;
+  const isReady = stage === 1;
 
   return (
     <>

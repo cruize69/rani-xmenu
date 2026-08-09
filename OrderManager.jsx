@@ -7,10 +7,9 @@ const API_BASE       = ""; // same-origin — /api/* is served by this deploymen
 const POLL_INTERVAL  = 10_000;
 
 const STATUS = {
-  new:         { label:"New",         color:"#C8600A", bg:"#FEF3E8", next:"in_progress", nextLabel:"Start Order",  nextColor:"#C8853A" },
-  in_progress: { label:"In Progress", color:"#1A6B3A", bg:"#E8F5EC", next:"done",        nextLabel:"Mark Done",    nextColor:"#1A6B3A" },
-  done:        { label:"Done",        color:"#8A7560", bg:"#F5F0E8", next:null,           nextLabel:null,           nextColor:null },
-  refunded:    { label:"Refunded",    color:"#9B2626", bg:"#FEF0F0", next:null,           nextLabel:null,           nextColor:null },
+  new:      { label:"Received", color:"#C8600A", bg:"#FEF3E8", next:"done", nextLabel:"Mark Ready", nextColor:"#1A6B3A" },
+  done:     { label:"Ready",    color:"#1A6B3A", bg:"#E8F5EC", next:null,   nextLabel:null,       nextColor:null },
+  refunded: { label:"Refunded", color:"#9B2626", bg:"#FEF0F0", next:null,   nextLabel:null,       nextColor:null },
 };
 
 const REFUND_REASONS = [

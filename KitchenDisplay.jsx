@@ -2,9 +2,8 @@ import { useState, useEffect, useRef } from "react";
 
 // ── Config ───────────────────────────────────────────────────────
 const STAGES = {
-  new:     { label:"NEW",     bg:"#C8600A", text:"#FFFFFF", next:"cooking", nextLabel:"START COOKING", nextBg:"#1A6B3A" },
-  cooking: { label:"COOKING", bg:"#1A6B3A", text:"#FFFFFF", next:"done",    nextLabel:"MARK READY",    nextBg:"#8A7560" },
-  done:    { label:"READY",   bg:"#8A7560", text:"#FFFFFF", next:null,      nextLabel:null,             nextBg:null },
+  new:  { label:"RECEIVED", bg:"#C8600A", text:"#FFFFFF", next:"done", nextLabel:"MARK READY", nextBg:"#1A6B3A" },
+  done: { label:"READY",    bg:"#1A6B3A", text:"#FFFFFF", next:null,   nextLabel:null,       nextBg:null },
 };
 
 const SPICE_COLORS = {
@@ -27,13 +26,12 @@ function useElapsed(createdAt) {
 
 function ElapsedBadge({ createdAt, status }) {
   const mins = useElapsed(createdAt);
-  const urgent = status === "new" && mins >= 5;
-  const warning = status === "cooking" && mins >= 20;
-  const color = urgent || warning ? "#9B2626" : "#8A7560";
-  const bg    = urgent || warning ? "#FEF0F0" : "rgba(0,0,0,0.06)";
+  const urgent = status === "new" && mins >= 15;
+  const color = urgent ? "#9B2626" : "#8A7560";
+  const bg    = urgent ? "#FEF0F0" : "rgba(0,0,0,0.06)";
   return (
     <span style={{ fontSize:16, fontWeight:700, color, background:bg, padding:"4px 12px", borderRadius:20, letterSpacing:"0.04em" }}>
-      {mins < 1 ? "Just now" : `${mins}m ago`}{(urgent || warning) ? " ⚠" : ""}
+      {mins < 1 ? "Just now" : `${mins}m ago`}{urgent ? " ⚠" : ""}
     </span>
   );
 }
@@ -42,7 +40,6 @@ function ElapsedBadge({ createdAt, status }) {
 function Ticket({ order, onAdvance, onUndo }) {
   const stage = STAGES[order.status];
   const isNew    = order.status === "new";
-  const isCooking= order.status === "cooking";
   const isDone   = order.status === "done";
 
   return (
