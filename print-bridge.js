@@ -109,14 +109,16 @@ function sendToPrinter(buffer) {
     if (CONFIG.printer.type === "tcp") {
       // LAN printing via RAW TCP socket
       const socket = new net.Socket();
+      socket.setNoDelay(true);
       socket.setTimeout(5000);
 
       socket.connect(CONFIG.printer.port, CONFIG.printer.host, () => {
         socket.write(buffer, () => {
           setTimeout(() => {
             socket.end();
+            socket.destroy();
             resolve();
-          }, 400);
+          }, 500);
         });
       });
 
