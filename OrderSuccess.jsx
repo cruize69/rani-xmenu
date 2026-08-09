@@ -144,7 +144,7 @@ function LiveTracker({ orderId, initialStatus }) {
     if (!params.get("session_id") || !polling) return;
     const poll = async () => {
       try {
-        const res = await fetch(`/api/order-status?id=${orderId}`);
+        const res = await fetch(`/api/orders?status_id=${orderId}`);
         if (!res.ok) return;
         const data = await res.json();
         const newStage = STATUS_TO_STAGE[data.status] ?? 0;
@@ -266,7 +266,7 @@ export default function OrderSuccess() {
       return;
     }
 
-    fetch(`/api/order-by-session?session_id=${sessionId}`)
+    fetch(`/api/orders?session_id=${sessionId}`)
       .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
       .then(data => { setOrder(data); setLoading(false); })
       .catch(() => { setLoading(false); });

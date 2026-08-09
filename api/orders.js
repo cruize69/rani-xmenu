@@ -14,13 +14,17 @@
 
 import Stripe from "stripe";
 import { kv } from "@vercel/kv";
-import { getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
-import { sendCustomerStatusEmail } from "../lib/notifications.js";
+import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS } from "../lib/orders.js";
+import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
 export default async function handler(req, res) {
+  // Public customer routes on OrderSuccess page (no auth required)
+  if (req.method === "GET" && (req.query.session_id || req.query.status_id)) {
+    return handlePublicGet(req, res);
+  }
+
   if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -29,6 +33,88 @@ export default async function handler(req, res) {
   if (req.method === "PATCH") return handleUpdate(req, res);
   if (req.method === "POST")  return handlePost(req, res);
   return res.status(405).json({ error: "Method not allowed" });
+}
+
+// ── Public GET: customer session lookup & status tracking ──────────
+async function handlePublicGet(req, res) {
+  const { session_id, status_id } = req.query;
+
+  // Status polling on OrderSuccess page
+  if (status_id) {
+    try {
+      const order = await getOrder(status_id);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      return res.status(200).json({
+        id:        order.id,
+        status:    order.status,
+        updatedAt: order.updatedAt,
+        createdAt: order.createdAt,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: "Server error" });
+    }
+  }
+
+  // Session detail lookup on OrderSuccess page (with failsafe order save + email dispatch)
+  if (session_id) {
+    try {
+      let orderId = await kv.get(`session:${session_id}`);
+
+      if (!orderId) {
+        const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
+                                process.env.STRIPE_LIVE_SECRET_KEY || 
+                                process.env.STRIPE_KEY || 
+                                process.env.STRIPE_SECRET;
+        const stripe = new Stripe(stripeSecretKey);
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        if (!session) return res.status(404).json({ error: "Session not found" });
+
+        let cartItems = [];
+        try {
+          const cartJson = session.metadata?.cart
+            ?? (session.metadata?.cart_0 + (session.metadata?.cart_1 ?? ""));
+          cartItems = JSON.parse(cartJson || "[]");
+        } catch (e) {}
+
+        let deliveryAddress = null;
+        if (session.metadata?.deliveryAddress) {
+          try { deliveryAddress = JSON.parse(session.metadata.deliveryAddress); } catch {}
+        }
+
+        let paymentIntent = null;
+        if (session.payment_intent) {
+          paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
+        }
+
+        const order = buildOrder({
+          paymentIntent,
+          stripeSession:       session,
+          cartItems,
+          specialInstructions: session.metadata?.specialInstructions ?? "",
+          tip:                 parseFloat(session.metadata?.tip ?? "0") || 0,
+          orderMode:           session.metadata?.orderMode ?? "pickup",
+          deliveryAddress,
+          deliveryFee:         parseFloat(session.metadata?.deliveryFee ?? "0") || 0,
+        });
+
+        await Promise.allSettled([
+          saveOrder(order),
+          kv.set(`session:${session.id}`, order.id, { ex: 60 * 60 * 24 * 7 }),
+          sendOrderEmail(order),
+          sendCustomerReceiptEmail(order),
+          sendOrderSMS(order),
+        ]);
+
+        return res.status(200).json(order);
+      }
+
+      const order = await getOrder(orderId);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      return res.status(200).json(order);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 }
 
 // ── GET: list-by-date, or single order via ?id= ───────────────────
