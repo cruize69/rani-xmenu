@@ -54,7 +54,7 @@ vercel env add NEXT_PUBLIC_BASE_URL
 2. Get your Secret Key from Dashboard → Developers → API Keys
 3. Set up webhook:
    - Dashboard → Developers → Webhooks → Add endpoint
-   - URL: `https://your-app.vercel.app/api/webhook`
+   - URL: `https://ranimahal.food/api/webhook`
    - Events: `checkout.session.completed`
    - Copy the Signing Secret → add as `STRIPE_WEBHOOK_SECRET`
 
@@ -63,7 +63,7 @@ vercel env add NEXT_PUBLIC_BASE_URL
 ## Step 4 — Resend (email)
 
 1. Create account at resend.com
-2. Add your domain (ranimahal.cc) and verify DNS
+2. Add your domain (ranimahal.food) and verify DNS
 3. Create API key → add as `RESEND_API_KEY`
 4. Set `RESTAURANT_EMAIL` to where orders should go
 
@@ -131,7 +131,7 @@ node print-bridge.js
 | `TWILIO_AUTH_TOKEN` | Twilio auth token | twilio.com |
 | `TWILIO_FROM` | Your Twilio number | twilio.com |
 | `RESTAURANT_PHONE` | Restaurant mobile | Your number |
-| `NEXT_PUBLIC_BASE_URL` | Your Vercel URL | e.g. https://ranimahal.cc |
+| `NEXT_PUBLIC_BASE_URL` | Ordering site URL | https://ranimahal.food |
 
 ---
 
@@ -180,7 +180,7 @@ async function handleCheckout() {
 4. Deploy: `vercel deploy --prod`
 
 ### That's it — image storage is ready
-Now open `yoursite.vercel.app/image-manager` and start uploading photos.
+Now open `ranimahal.food/image-manager` and start uploading photos.
 
 ### How images flow
 1. You upload a photo in Image Manager

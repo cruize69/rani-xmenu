@@ -20,8 +20,8 @@ import fetch from "node-fetch";
 
 // ── Config — edit these ──────────────────────────────────────────
 const CONFIG = {
-  // Your Vercel deployment URL
-  apiBase: process.env.API_BASE ?? "https://your-app.vercel.app",
+  // Ordering site API base
+  apiBase: process.env.API_BASE ?? "https://ranimahal.food",
 
   // Manager secret (same as MANAGER_SECRET env var on Vercel)
   managerSecret: process.env.MANAGER_SECRET ?? "change-me",
