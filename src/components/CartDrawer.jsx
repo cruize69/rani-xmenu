@@ -179,6 +179,7 @@ export function CheckoutGate({
   setOrderMode,
   deliveryAddress = {},
   setDeliveryAddress,
+  onOpenFulfillmentSheet,
   onCancel,
   onGuestIdentified,
   onViewAccount,
@@ -526,6 +527,7 @@ export function CartDrawer({
   orderMode = "pickup",
   deliveryAddress = {},
   deliveryFee = 0,
+  onOpenFulfillmentSheet,
   handleCheckout,
 }) {
   const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));
