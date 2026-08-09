@@ -41,6 +41,35 @@ async function resolveIdentity(req) {
 const profileKey  = (id)    => `profile:${id}`;
 const orderIdsKey = (id)    => `account-orders:${id}`;
 
+// Helper to find and auto-index all orders matching a target email
+async function findOrdersForEmail(targetEmail) {
+  if (!targetEmail) return [];
+  const cleanEmail = targetEmail.toLowerCase().trim();
+  const indexKey = `account-orders:guest:${cleanEmail}`;
+
+  const indexedIds = (await kv.lrange(indexKey, 0, 49)) || [];
+  const foundIds = new Set(indexedIds);
+
+  // Also search daily order lists for last 60 days to auto-index missing guest orders
+  const today = new Date();
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayOrders = await getOrdersByDate(dateStr);
+    for (const order of dayOrders) {
+      if (order?.customerEmail && order.customerEmail.toLowerCase().trim() === cleanEmail) {
+        if (!foundIds.has(order.id)) {
+          foundIds.add(order.id);
+          await kv.lpush(indexKey, order.id);
+        }
+      }
+    }
+  }
+
+  return Array.from(foundIds);
+}
+
 export default async function handler(req, res) {
   const identity = await resolveIdentity(req);
   if (!identity) return res.status(401).json({ error: "Unauthorized" });
@@ -62,17 +91,15 @@ export default async function handler(req, res) {
     }
 
     const primaryIdsKey = orderIdsKey(accountId);
-    const guestIdsKey   = userEmail ? orderIdsKey(`guest:${userEmail.toLowerCase().trim()}`) : null;
-
-    const [rawProfile, primaryIds, guestIds, rawSavedCard] = await Promise.all([
+    const [rawProfile, primaryIds, guestOrderIds, rawSavedCard] = await Promise.all([
       kv.get(profileKey(accountId)),
       kv.lrange(primaryIdsKey, 0, 49),
-      guestIdsKey ? kv.lrange(guestIdsKey, 0, 49) : Promise.resolve([]),
+      userEmail ? findOrdersForEmail(userEmail) : identity.email ? findOrdersForEmail(identity.email) : Promise.resolve([]),
       kv.get(`saved-card:${accountId}`),
     ]);
 
     // Merge unique order IDs (primary + guest)
-    const combinedIds = Array.from(new Set([...(primaryIds ?? []), ...(guestIds ?? [])]));
+    const combinedIds = Array.from(new Set([...(primaryIds ?? []), ...(guestOrderIds ?? [])]));
 
     // @vercel/kv auto-deserializes JSON values, so a hit is already an
     // object — only parse when it comes back as a raw string.
