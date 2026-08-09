@@ -432,76 +432,47 @@ export function CheckoutGate({
             <>
               <button onClick={() => { setStep("choice"); setError(null); }} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back</button>
 
+              {/* Delivery Destination Card — Unified 1 Universal Truth */}
               {orderMode === "delivery" && (
-                <div style={{ marginBottom:16, background:"#1c1814", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:14, padding:"16px", display:"flex", flexDirection:"column", gap:12 }}>
-                  <p style={{ fontSize:13, fontWeight:600, color:"#E8A82E", margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.08em" }}>
-                    🚗 Delivery Address & Driver Instructions
-                  </p>
-                  
-                  <div>
-                    <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Street Address *</label>
-                    <AddressAutocomplete
-                      street={street}
-                      setStreet={(val) => {
-                        setStreet(val); setError(null);
-                        setDeliveryAddress?.({ street: val, apt, city, zip, notes });
-                      }}
-                      city={city}
-                      setCity={setCity}
-                      zip={zip}
-                      setZip={setZip}
-                      onSelectAddress={(selected) => {
-                        setError(null);
-                        setDeliveryAddress?.({
-                          street: selected.street,
-                          apt,
-                          city: selected.city,
-                          zip: selected.zip,
-                          notes,
-                        });
-                      }}
-                      placeholder="Start typing street address (e.g. 150 Boston Post Rd)"
-                    />
-                  </div>
-
-                  <div style={{ display:"flex", gap:10 }}>
-                    <div style={{ flex:1 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Apt / Suite (Optional)</label>
-                      <input type="text" placeholder="Apt 4B" value={apt} onChange={e => {
-                        const val = e.target.value; setApt(val);
-                        setDeliveryAddress?.({ street, apt: val, city, zip, notes });
-                      }} style={iStyle} />
+                <div style={{ marginBottom:16 }}>
+                  {addr.street ? (
+                    <div style={{ background:"#1c1814", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:14, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:11, fontWeight:600, color:"#E8A82E", letterSpacing:"0.1em", textTransform:"uppercase", margin:"0 0 3px" }}>
+                          🚗 Delivery Address
+                        </p>
+                        <p style={{ fontSize:13.5, fontWeight:600, color:"#FAF6EF", margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          {addr.street}{addr.apt ? `, ${addr.apt}` : ""}, {addr.city} {addr.zip || ""}
+                        </p>
+                        {addr.notes && (
+                          <p style={{ fontSize:12, color:"#B8A995", fontStyle:"italic", margin:"3px 0 0" }}>
+                            "{addr.notes}"
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onOpenFulfillmentSheet}
+                        style={{ background:"rgba(232,168,46,0.12)", border:"0.5px solid rgba(232,168,46,0.35)", color:"#E8A82E", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:600, cursor:"pointer", flexShrink:0 }}
+                      >
+                        Edit Address
+                      </button>
                     </div>
-                    <div style={{ flex:1 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>City *</label>
-                      <input type="text" placeholder="Mamaroneck" value={city} onChange={e => {
-                        const val = e.target.value; setCity(val);
-                        setDeliveryAddress?.({ street, apt, city: val, zip, notes });
-                      }} style={iStyle} required />
+                  ) : (
+                    <div style={{ background:"rgba(217,72,44,0.1)", border:"1px solid rgba(217,72,44,0.35)", borderRadius:14, padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                      <div>
+                        <p style={{ fontSize:13, fontWeight:600, color:"#F0846A", margin:"0 0 2px" }}>Delivery Address Needed</p>
+                        <p style={{ fontSize:12, color:"#B8A995", margin:0 }}>Please enter your street address for delivery.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onOpenFulfillmentSheet}
+                        style={{ background:"#E8A82E", color:"#080706", border:"none", borderRadius:20, padding:"8px 16px", fontSize:12.5, fontWeight:600, cursor:"pointer", flexShrink:0 }}
+                      >
+                        Set Address →
+                      </button>
                     </div>
-                  </div>
-
-                  <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
-                    <div style={{ width:110, flexShrink:0 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>ZIP Code *</label>
-                      <input type="text" placeholder="10543" value={zip} onChange={e => {
-                        const val = e.target.value;
-                        setZip(val);
-                        setError(null);
-                        const found = lookupTownByZip(val);
-                        const newCity = found ? found.city : city;
-                        if (found) setCity(found.city);
-                        setDeliveryAddress?.({ street, apt, city: newCity, zip: val, notes });
-                      }} style={{ ...iStyle, textAlign:"center", fontWeight:600 }} maxLength={5} required />
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:"#B8A995", marginBottom:6, display:"block" }}>Driver Instructions (Optional)</label>
-                      <input type="text" placeholder="e.g. Leave at door, ring bell" value={notes} onChange={e => {
-                        const val = e.target.value; setNotes(val);
-                        setDeliveryAddress?.({ street, apt, city, zip, notes: val });
-                      }} style={iStyle} />
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 

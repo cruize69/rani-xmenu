@@ -523,6 +523,7 @@ export default function RaniMahal() {
         orderMode={orderMode}
         deliveryAddress={deliveryAddress}
         deliveryFee={deliveryFee}
+        onOpenFulfillmentSheet={() => { setDrawerOpen(false); setShowFulfillmentSheet(true); }}
         handleCheckout={handleCheckout}
       />
     </div>
