@@ -268,7 +268,7 @@ function AccountPortalPage({
   // ── 1. Loading Spinner View ──────────────────────────────────────
   if (status === "loading") {
     return (
-      <div style={{ minHeight: "100vh", background: "#080706", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
         <div style={{ width: 36, height: 36, border: "3px solid #1c1814", borderTop: "3px solid #E8A82E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <p style={{ fontSize: 13, color: "#B8A995" }}>Checking account & order history…</p>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -281,7 +281,7 @@ function AccountPortalPage({
     const isNotFound = status === "not-found";
 
     return (
-      <div style={{ minHeight: "100vh", background: "#080706", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
         <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
         
         <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
@@ -450,7 +450,7 @@ function AccountPortalPage({
   const favoriteDish = Object.entries(itemCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
   return (
-    <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
+    <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); *{box-sizing:border-box}`}</style>
 
       {/* Portal Header */}
