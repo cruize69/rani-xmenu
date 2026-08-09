@@ -116,10 +116,18 @@ export default async function handler(req, res) {
       const fetched = await Promise.all(
         combinedIds.map(id => kv.get(`order:${id}`))
       );
+      const targetCleanEmail = (userEmail || identity.email || "").toLowerCase().trim();
+
       orders = fetched
         .filter(Boolean)
-        .map(raw => {
-          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        .map(raw => (typeof raw === "string" ? JSON.parse(raw) : raw))
+        .filter(parsed => {
+          if (identity.type === "guest" && targetCleanEmail) {
+            return parsed?.customerEmail?.toLowerCase().trim() === targetCleanEmail;
+          }
+          return true;
+        })
+        .map(parsed => {
           // Strip sensitive fields (Stripe session IDs, secret tokens, full street address details for guest view)
           return {
             id: parsed.id,
