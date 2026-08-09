@@ -20,14 +20,12 @@ export function RaniHeader({
         {/* Left — logo emblem + name/tagline stacked */}
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           <img 
-            src="/logo/apsara-square.png" 
+            src="/logo/apsara-logo.png" 
             alt="Rani Mahal Logo" 
             style={{ 
               width: 44, 
               height: 44, 
-              borderRadius: 8, 
               objectFit: "contain",
-              mixBlendMode: "screen",
               flexShrink: 0 
             }} 
           />

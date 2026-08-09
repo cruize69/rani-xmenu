@@ -293,14 +293,12 @@ export function CheckoutGate({
           <div style={{ padding:"16px 20px 12px", borderBottom:"0.5px solid rgba(250,246,239,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <img 
-                src="/logo/apsara-square.png" 
+                src="/logo/apsara-logo.png" 
                 alt="Rani Mahal" 
                 style={{ 
                   width: 32, 
                   height: 32, 
-                  borderRadius: 6, 
                   objectFit: "contain", 
-                  mixBlendMode: "screen",
                   flexShrink: 0 
                 }} 
               />

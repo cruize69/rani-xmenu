@@ -186,16 +186,14 @@ function AccountPortalPage({
           {/* Card Header Icon & Heading */}
           <div style={{ textAlign: "center", marginBottom: 22 }}>
             <img
-              src="/logo/apsara-square.png"
+              src="/logo/apsara-logo.png"
               alt="Rani Mahal Logo"
               style={{
                 width: 68,
                 height: 68,
-                borderRadius: 12,
                 objectFit: "contain",
                 margin: "0 auto 14px",
                 display: "block",
-                mixBlendMode: "screen",
               }}
             />
             <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
