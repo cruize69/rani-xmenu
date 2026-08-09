@@ -3,6 +3,7 @@
 // PUBLIC endpoint — returns only status fields, no sensitive data
 // Polled every 5s by the customer's order success page
 
+import url from "url";
 import { getOrder } from "../lib/orders.js";
 import { sendCustomerReceiptEmail } from "../lib/notifications.js";
 
@@ -11,9 +12,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const urlObj = new URL(req.url, "http://localhost");
-  const id = req.query?.id || urlObj.searchParams.get("id");
-  const test_email = req.query?.test_email || urlObj.searchParams.get("test_email");
+  const parsedUrl = url.parse(req.url, true);
+  const query = parsedUrl.query || {};
+  const id = query.id || req.query?.id;
+  const test_email = query.test_email || req.query?.test_email;
 
   if (test_email) {
     const testOrder = {
