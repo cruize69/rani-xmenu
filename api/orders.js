@@ -79,11 +79,13 @@ async function handleUpdate(req, res) {
   try {
     const updated = await updateOrder(id, fields);
 
+    // Awaited (not fire-and-forget) — Vercel can freeze/kill the function
+    // before an un-awaited async call finishes once the response is sent.
     if (status && STATUS_SMS[status]) {
       const raw = await kv.get(`notify:${id}`).catch(() => null);
       if (raw) {
-        const { phone } = JSON.parse(raw);
-        sendCustomerSMS(phone, STATUS_SMS[status](updated))
+        const { phone } = typeof raw === "string" ? JSON.parse(raw) : raw;
+        await sendCustomerSMS(phone, STATUS_SMS[status](updated))
           .catch(err => console.error("Customer SMS failed:", err));
       }
     }
@@ -92,7 +94,7 @@ async function handleUpdate(req, res) {
     // order from Stripe's own checkout page. sendCustomerStatusEmail
     // no-ops on its own for statuses/orders it doesn't apply to.
     if (status) {
-      sendCustomerStatusEmail(updated)
+      await sendCustomerStatusEmail(updated)
         .catch(err => console.error("Customer status email failed:", err));
     }
 

@@ -98,6 +98,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // Add tax as a separate line item — it was already being folded into the
+    // CC fee gross-up math below, but was never actually added to lineItems,
+    // so it was computed and stored on the saved order while never actually
+    // being charged to the customer.
+    if (tax > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "usd",
+          product_data: { name: "Tax" },
+          unit_amount: Math.round(tax * 100),
+        },
+        quantity: 1,
+      });
+    }
+
     // Add tip as a separate line item if the customer chose one
     if (tip > 0) {
       lineItems.push({

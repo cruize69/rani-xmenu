@@ -121,16 +121,17 @@ export default async function handler(req, res) {
     }
   }
 
-  // Fire notifications concurrently — don't block webhook response
-  Promise.allSettled([
+  // Fire notifications concurrently — awaited so Vercel doesn't freeze/kill
+  // the function before the Resend/Twilio requests finish (background work
+  // after the response is sent is not guaranteed to complete on Vercel).
+  const results = await Promise.allSettled([
     sendOrderEmail(order),
     sendCustomerReceiptEmail(order),
     sendOrderSMS(order),
     notifyPrintQueue(order.id),
-  ]).then(results => {
-    results.forEach((r, i) => {
-      if (r.status === "rejected") console.error(`Notification ${i} failed:`, r.reason);
-    });
+  ]);
+  results.forEach((r, i) => {
+    if (r.status === "rejected") console.error(`Notification ${i} failed:`, r.reason);
   });
 
   return res.status(200).json({ received: true, orderId: order.id });

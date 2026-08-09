@@ -129,8 +129,9 @@ export default async function handler(req, res) {
     await saveOrder(newOrder);
     await kv.lpush(`account-orders:${accountId}`, newOrder.id);
 
-    // Fire notifications
-    Promise.allSettled([
+    // Awaited (not fire-and-forget) — Vercel can freeze/kill the function
+    // before an un-awaited async call finishes once the response is sent.
+    await Promise.allSettled([
       sendOrderEmail(newOrder),
       sendCustomerReceiptEmail(newOrder),
       sendOrderSMS(newOrder),

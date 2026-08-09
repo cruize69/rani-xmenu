@@ -58,8 +58,10 @@ export default async function handler(req, res) {
       kv.get(`saved-card:${accountId}`),
     ]);
 
-    const profile = rawProfile ? JSON.parse(rawProfile) : null;
-    const savedCard = rawSavedCard ? JSON.parse(rawSavedCard) : null;
+    // @vercel/kv auto-deserializes JSON values, so a hit is already an
+    // object — only parse when it comes back as a raw string.
+    const profile = typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile ?? null);
+    const savedCard = typeof rawSavedCard === "string" ? JSON.parse(rawSavedCard) : (rawSavedCard ?? null);
 
     // Fetch full order objects and sanitize sensitive customer fields for guest response
     let orders = [];
@@ -106,7 +108,7 @@ export default async function handler(req, res) {
     const { name, email, preferences } = req.body;
 
     const existing = await kv.get(profileKey(accountId));
-    const current  = existing ? JSON.parse(existing) : {};
+    const current  = typeof existing === "string" ? JSON.parse(existing) : (existing ?? {});
 
     const updated = {
       ...current,
