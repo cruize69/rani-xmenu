@@ -15,6 +15,10 @@ export function RaniHeader({
 }) {
   return (
     <header style={{ background:"rgba(8,7,6,0.57)", backdropFilter:"blur(20px) saturate(180%)", WebkitBackdropFilter:"blur(20px) saturate(180%)", position:"sticky", top:0, zIndex:100, borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
+    {/* Content column matches the page's own maxWidth (RaniMahal.jsx) so the
+        pill stays visually tied to the logo instead of centering across the
+        full viewport on wide desktop screens. No-op on mobile. */}
+    <div style={{ maxWidth:1100, margin:"0 auto" }}>
       {/* Top section — name/info row + fulfillment pill, together above the gold line */}
       <div style={{ borderBottom:"1.5px solid #E8A82E" }}>
         {/* Name + info row */}
@@ -117,6 +121,7 @@ export function RaniHeader({
           <SectionNav sections={SECTIONS} activeSection={activeSection} onSelect={setActiveSection} />
         </div>
       </div>
+    </div>
     </header>
   );
 }
