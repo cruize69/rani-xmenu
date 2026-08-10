@@ -1,4 +1,4 @@
-// OrderManager.jsx — Rani Mahal order + charge management dashboard (Redesigned)
+// OrderManager.jsx — Rani Mahal order + charge management dashboard (Single Column Redesign)
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
@@ -180,9 +180,9 @@ export default function OrderManager() {
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Content Area — Single Column Layout */}
       <div className="rm-container">
-        {/* Filter Pills Bar (Clean, maximized card space) */}
+        {/* Filter Pills Bar */}
         <div className="rm-filter-bar" style={{ marginTop: 8 }}>
           <button
             className={`rm-filter-pill ${filter === "active" ? "active" : ""}`}
@@ -218,7 +218,7 @@ export default function OrderManager() {
           </div>
         )}
 
-        {/* Orders List / Grid */}
+        {/* Orders Single Column Stack */}
         {loading && orders.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "#A09080" }}>Loading orders...</div>
         ) : filtered.length === 0 ? (
@@ -234,6 +234,7 @@ export default function OrderManager() {
                 statusConfig={STATUS}
                 onSelectCard={setSelectedOrder}
                 onStatusChange={handleStatusChange}
+                onPrint={handlePrint}
               />
             ))}
           </div>
@@ -252,7 +253,7 @@ export default function OrderManager() {
         />
       )}
 
-      {/* Redesigned Secure Refund Modal */}
+      {/* Secure Refund Modal */}
       {refundOrder && (
         <RefundModal
           order={refundOrder}
