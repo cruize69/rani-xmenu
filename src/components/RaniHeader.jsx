@@ -23,8 +23,17 @@ export function RaniHeader({
       <div style={{ borderBottom:"1.5px solid #E8A82E" }}>
         {/* Name + info row — logo/name centered, Account floats as a corner
             chip so the centered block stays balanced at any width instead
-            of needing a left/right split. */}
-        <div style={{ position:"relative", padding:"14px 56px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:16 }}>
+            of needing a left/right split. On narrow (mobile) viewports the
+            56px reserve is a large enough fraction of the width that the
+            corner icon's visual weight optically pulls the block right of
+            true center — nudge it left there to compensate. Negligible at
+            desktop widths, so left untouched above 640px. */}
+        <style>{`
+          @media (max-width: 640px) {
+            .rm-header-namerow { padding-left: 40px !important; padding-right: 72px !important; }
+          }
+        `}</style>
+        <div className="rm-header-namerow" style={{ position:"relative", padding:"14px 56px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:16 }}>
           {/* Account / Sign In Chip — top-right corner, icon-only so it stays
               out of the centered logo/name's way at any width */}
           <button onClick={() => setView("account")} aria-label="Account & orders"
