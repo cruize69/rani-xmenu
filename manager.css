@@ -1,11 +1,67 @@
-/* manager.css — Rani Mahal Order Manager Single-Column Layout & Redesign Styles */
+/* manager.css — Rani Mahal Order Manager Dual Theme & Glassmorphism System */
+
+/* ── Theme Definitions ────────────────────────────────────────── */
+.rm-manager-root.theme-dark {
+  --rm-bg-root: #080604;
+  --rm-bg-radial: radial-gradient(circle at 50% 0%, #1c1206 0%, #080604 75%);
+  --rm-header-bg: rgba(12, 8, 4, 0.88);
+  --rm-header-border: rgba(200, 133, 58, 0.25);
+  
+  --rm-card-bg: rgba(26, 18, 10, 0.7);
+  --rm-card-border: rgba(200, 133, 58, 0.25);
+  --rm-card-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --rm-inset-bg: rgba(10, 6, 2, 0.55);
+  --rm-inset-border: rgba(255, 255, 255, 0.07);
+  
+  --rm-text-title: #FFFFFF;
+  --rm-text-body: #FAF6EF;
+  --rm-text-muted: #A09080;
+  --rm-text-gold: #F5E6C8;
+  
+  --rm-pill-bg: rgba(255, 255, 255, 0.06);
+  --rm-pill-border: rgba(255, 255, 255, 0.12);
+  --rm-pill-text: #A09080;
+  
+  --rm-panel-bg: #140E08;
+  --rm-panel-card-bg: #1E160E;
+  --rm-panel-text: #FAF6EF;
+  --rm-panel-subtext: #A09080;
+
+  --rm-glow-new: 0 0 16px rgba(249, 138, 50, 0.3);
+  --rm-glow-ready: 0 0 16px rgba(52, 211, 153, 0.3);
+}
+
+.rm-manager-root.theme-light {
+  --rm-bg-root: #F5F0E8;
+  --rm-bg-radial: radial-gradient(circle at 50% 0%, #FFFFFF 0%, #F5F0E8 80%);
+  --rm-header-bg: rgba(255, 255, 255, 0.92);
+  --rm-header-border: rgba(200, 133, 58, 0.3);
+  
+  --rm-card-bg: #FFFFFF;
+  --rm-card-border: rgba(200, 133, 58, 0.25);
+  --rm-card-box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+  --rm-inset-bg: #FAF6EF;
+  --rm-inset-border: rgba(0, 0, 0, 0.08);
+  
+  --rm-text-title: #0F0800;
+  --rm-text-body: #1F1710;
+  --rm-text-muted: #7A6855;
+  --rm-text-gold: #C8853A;
+  
+  --rm-pill-bg: #FFFFFF;
+  --rm-pill-border: rgba(0, 0, 0, 0.12);
+  --rm-pill-text: #7A6855;
+  
+  --rm-panel-bg: #FAF6EF;
+  --rm-panel-card-bg: #FFFFFF;
+  --rm-panel-text: #0F0800;
+  --rm-panel-subtext: #7A6855;
+
+  --rm-glow-new: 0 4px 12px rgba(200, 96, 10, 0.15);
+  --rm-glow-ready: 0 4px 12px rgba(26, 107, 58, 0.15);
+}
 
 :root {
-  --rm-bg-dark: #0F0800;
-  --rm-bg-surface: #191209;
-  --rm-bg-card: #22180D;
-  --rm-bg-cream: #F5E6C8;
-  --rm-bg-panel: #FAF6EF;
   --rm-gold-primary: #C8853A;
   --rm-gold-light: #E8A82E;
   --rm-gold-glow: rgba(200, 133, 58, 0.35);
@@ -37,16 +93,17 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--rm-bg-dark);
-  color: #FAF6EF;
+  transition: background-color 0.3s ease;
 }
 
 /* Manager Root Layout */
 .rm-manager-root {
   min-height: 100vh;
-  background-color: var(--rm-bg-dark);
-  background-image: radial-gradient(circle at 50% 0%, #1e1306 0%, #0F0800 70%);
+  background-color: var(--rm-bg-root);
+  background-image: var(--rm-bg-radial);
+  color: var(--rm-text-body);
   padding-bottom: 60px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Header Bar */
@@ -54,15 +111,16 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(15, 8, 0, 0.94);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(200, 133, 58, 0.2);
+  background: var(--rm-header-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--rm-header-border);
   padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .rm-brand {
@@ -82,9 +140,9 @@ body {
 
 .rm-brand-title {
   font-family: 'Georgia', serif;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 600;
-  color: var(--rm-bg-cream);
+  color: var(--rm-text-gold);
   line-height: 1.1;
 }
 
@@ -93,7 +151,7 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--rm-gold-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rm-header-controls {
@@ -102,10 +160,31 @@ body {
   gap: 8px;
 }
 
+/* Theme Toggle Button */
+.rm-theme-toggle {
+  background: var(--rm-pill-bg);
+  border: 1px solid var(--rm-header-border);
+  color: var(--rm-text-gold);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  transition: all 0.2s ease;
+}
+
+.rm-theme-toggle:active {
+  transform: scale(0.96);
+}
+
 .rm-date-picker {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(200, 133, 58, 0.3);
-  color: var(--rm-bg-cream);
+  background: var(--rm-pill-bg);
+  border: 1px solid var(--rm-header-border);
+  color: var(--rm-text-title);
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 13px;
@@ -134,7 +213,7 @@ body {
 
 .rm-icon-btn {
   background: rgba(200, 133, 58, 0.12);
-  border: 1px solid rgba(200, 133, 58, 0.3);
+  border: 1px solid var(--rm-header-border);
   color: var(--rm-gold-primary);
   height: 42px;
   width: 42px;
@@ -149,10 +228,9 @@ body {
 
 .rm-icon-btn:active {
   transform: scale(0.96);
-  background: rgba(200, 133, 58, 0.25);
 }
 
-/* Container — Centered single column container */
+/* Container — Centered single column */
 .rm-container {
   max-width: 860px;
   margin: 0 auto;
@@ -163,7 +241,7 @@ body {
 .rm-filter-bar {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -171,11 +249,11 @@ body {
 
 .rm-filter-pill {
   min-height: 46px;
-  padding: 0 20px;
+  padding: 0 22px;
   border-radius: 23px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--rm-bg-surface);
-  color: #A09080;
+  border: 1px solid var(--rm-pill-border);
+  background: var(--rm-pill-bg);
+  color: var(--rm-pill-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -213,18 +291,20 @@ body {
 .rm-orders-grid {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-/* Single-Column Rich Order Card */
+/* Single-Column Rich Glassmorphism Order Card */
 .rm-card {
-  background: var(--rm-bg-card);
-  border: 1px solid rgba(200, 133, 58, 0.2);
-  border-radius: 18px;
-  padding: 18px 20px;
+  background: var(--rm-card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--rm-card-border);
+  border-radius: 20px;
+  padding: 20px;
   position: relative;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  box-shadow: var(--rm-card-box-shadow);
+  transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   overflow: hidden;
 }
 
@@ -236,6 +316,7 @@ body {
   width: 6px;
 }
 
+/* Customer Name Prominent Header */
 .rm-card-header {
   display: flex;
   align-items: flex-start;
@@ -245,28 +326,33 @@ body {
   padding-left: 4px;
 }
 
+/* Customer Name is EXTRA LARGE (24px bold) dominating the card header! */
 .rm-customer-name {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 800;
-  color: #FFFFFF;
-  line-height: 1.2;
+  color: var(--rm-text-title);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
 .rm-order-id-sub {
-  font-size: 13px;
-  color: var(--rm-bg-cream);
+  font-size: 14px;
+  color: var(--rm-gold-primary);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  background: rgba(200, 133, 58, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .rm-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -274,21 +360,21 @@ body {
 .rm-badge-delivery {
   background: var(--rm-type-delivery-bg);
   color: var(--rm-type-delivery-text);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
 .rm-badge-pickup {
   background: var(--rm-type-pickup-bg);
   color: var(--rm-type-pickup-text);
-  border: 1px solid rgba(96, 165, 250, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.35);
 }
 
 .rm-time-elapsed {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  color: #A09080;
+  font-size: 13px;
+  color: var(--rm-text-muted);
   font-weight: 600;
 }
 
@@ -297,27 +383,27 @@ body {
   font-weight: 700;
   color: #EF4444;
   background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  padding: 3px 8px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  padding: 3px 9px;
   border-radius: 12px;
 }
 
-/* Card Items Structured List (Visually distinct, preventing text fatigue) */
+/* Card Inset Box for Items */
 .rm-card-items-box {
-  background: rgba(15, 8, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--rm-inset-bg);
+  border: 1px solid var(--rm-inset-border);
   border-radius: 14px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
 }
 
 .rm-card-item-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 0;
+  padding: 6px 0;
   font-size: 14px;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  border-bottom: 1px dashed var(--rm-inset-border);
 }
 .rm-card-item-row:last-child {
   border-bottom: none;
@@ -340,12 +426,12 @@ body {
 
 .rm-card-item-name {
   font-weight: 600;
-  color: #FAF6EF;
+  color: var(--rm-text-body);
 }
 
 .rm-card-item-price {
   font-weight: 700;
-  color: var(--rm-bg-cream);
+  color: var(--rm-text-title);
   margin-left: 12px;
 }
 
@@ -358,7 +444,7 @@ body {
 
 .rm-btn-primary {
   flex: 1;
-  min-height: 50px;
+  min-height: 52px;
   border-radius: 14px;
   border: none;
   font-size: 15px;
@@ -376,19 +462,20 @@ body {
 }
 
 .rm-btn-outline {
-  min-height: 50px;
-  padding: 0 18px;
+  min-height: 52px;
+  padding: 0 20px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.04);
-  color: #FFFFFF;
+  border: 1px solid var(--rm-card-border);
+  background: var(--rm-pill-bg);
+  color: var(--rm-text-title);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .rm-btn-outline:active {
-  background: rgba(255, 255, 255, 0.12);
+  opacity: 0.8;
 }
 
 /* Drawer Backdrop & Panel */
@@ -396,15 +483,15 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   z-index: 200;
   display: flex;
   justify-content: flex-end;
 }
 
 .rm-panel {
-  background: var(--rm-bg-panel);
-  color: #1F1710;
+  background: var(--rm-panel-bg);
+  color: var(--rm-panel-text);
   width: 100%;
   max-width: 560px;
   height: 100%;
@@ -416,7 +503,7 @@ body {
 
 .rm-panel-header {
   padding: 20px;
-  background: #FFFFFF;
+  background: var(--rm-panel-card-bg);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
@@ -427,13 +514,13 @@ body {
 }
 
 .rm-panel-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: #0F0800;
+  color: var(--rm-panel-text);
 }
 
 .rm-panel-close {
-  background: #F0EBE1;
+  background: rgba(0, 0, 0, 0.08);
   border: none;
   width: 38px;
   height: 38px;
@@ -443,35 +530,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #554433;
+  color: var(--rm-panel-text);
 }
 
 .rm-panel-body {
   padding: 20px;
   flex: 1;
-}
-
-.rm-item-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.rm-qty-bubble {
-  background: var(--rm-gold-primary);
-  color: #FFFFFF;
-  font-size: 13px;
-  font-weight: 700;
-  min-width: 26px;
-  height: 26px;
-  border-radius: 13px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-  flex-shrink: 0;
 }
 
 /* Modal Wrap (Refunds) */

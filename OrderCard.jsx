@@ -1,4 +1,4 @@
-// OrderCard.jsx — Single-column rich tablet & mobile order card
+// OrderCard.jsx — Single-column rich glassmorphism tablet & mobile order card
 
 import { useMemo } from "react";
 
@@ -38,32 +38,39 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
     onPrint(order.id);
   };
 
+  const glowStyle = useMemo(() => {
+    if (order.status === "new") return { boxShadow: "0 0 16px rgba(249, 138, 50, 0.22)", borderColor: "rgba(249, 138, 50, 0.4)" };
+    if (order.status === "done") return { boxShadow: "0 0 16px rgba(52, 211, 153, 0.22)", borderColor: "rgba(52, 211, 153, 0.4)" };
+    return {};
+  }, [order.status]);
+
   return (
-    <div className="rm-card" onClick={() => onSelectCard(order)}>
+    <div className="rm-card" style={glowStyle} onClick={() => onSelectCard(order)}>
       {/* Left status color bar */}
       <div className="rm-card-left-stripe" style={{ backgroundColor: s.color }} />
 
       <div>
-        {/* Top Header Row: Customer Name front & center + Badge & Elapsed Time */}
+        {/* Top Header Row: Customer Name (Extra Large 24px bold) front & center */}
         <div className="rm-card-header">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <h3 className="rm-customer-name">{order.customerName || "Walk-in Guest"}</h3>
+            <h2 className="rm-customer-name">{order.customerName || "Walk-in Guest"}</h2>
+            
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
               <span className="rm-order-id-sub">{shortId}</span>
               <span className="rm-time-elapsed">⏱ {elapsedTime}</span>
             </div>
             
             {/* Contact & Address info row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
               {addressLine && (
-                <div style={{ fontSize: 13, color: "#E8A82E", background: "rgba(200, 133, 58, 0.14)", padding: "3px 10px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid rgba(200, 133, 58, 0.25)", fontWeight: 600 }}>
+                <div style={{ fontSize: 13, color: "#E8A82E", background: "rgba(200, 133, 58, 0.14)", padding: "4px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid rgba(200, 133, 58, 0.3)", fontWeight: 600 }}>
                   <span>📍</span>
                   <span>{addressLine}</span>
                 </div>
               )}
               
               {order.customerPhone && (
-                <span style={{ fontSize: 12, color: "#A09080", fontWeight: 600 }}>
+                <span style={{ fontSize: 13, color: "var(--rm-text-muted)", fontWeight: 600 }}>
                   📞 {order.customerPhone}
                 </span>
               )}
@@ -81,7 +88,7 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
           </div>
         </div>
 
-        {/* Structured Items Box (Clean, easy to read, avoiding text fatigue) */}
+        {/* Structured Items Box (Clean, high contrast, zero fatigue) */}
         <div className="rm-card-items-box">
           {order.items?.map((item, idx) => (
             <div key={idx} className="rm-card-item-row">
@@ -102,7 +109,7 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
 
           {/* Special instructions box if present */}
           {order.specialInstructions && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,0.1)", fontSize: 12, color: "#E8A82E", fontStyle: "italic" }}>
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(200,133,58,0.2)", fontSize: 13, color: "#E8A82E", fontStyle: "italic", fontWeight: 600 }}>
               Note: "{order.specialInstructions}"
             </div>
           )}
@@ -112,8 +119,8 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
       {/* Card Actions & Totals Footer */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "#A09080", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total:</span>
-          <span style={{ fontSize: 20, fontWeight: 800, color: "#FAF6EF" }}>{fmt(order.total)}</span>
+          <span style={{ fontSize: 13, color: "var(--rm-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Total:</span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "var(--rm-text-title)" }}>{fmt(order.total)}</span>
           {order.refundedTotal > 0 && (
             <span style={{ color: "#F87171", fontSize: 12, fontWeight: 700 }}>
               ({order.refundedTotal >= order.total - 0.01 ? "Refunded" : `−${fmt(order.refundedTotal)}`})
@@ -126,7 +133,6 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
             className="rm-btn-outline"
             onClick={handleQuickPrint}
             title="Print receipt"
-            style={{ padding: "0 14px" }}
           >
             🖨 {order.printed ? "Reprint" : "Print"}
           </button>
@@ -134,7 +140,6 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
           <button
             className="rm-btn-outline"
             onClick={() => onSelectCard(order)}
-            style={{ padding: "0 14px" }}
           >
             Details
           </button>
@@ -142,7 +147,7 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
           {s.next && (
             <button
               className="rm-btn-primary"
-              style={{ background: s.nextColor || "#1A6B3A", color: "#FFFFFF", padding: "0 22px" }}
+              style={{ background: s.nextColor || "#1A6B3A", color: "#FFFFFF" }}
               onClick={handleQuickStatus}
             >
               ✓ {s.nextLabel}

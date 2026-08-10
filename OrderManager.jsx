@@ -1,4 +1,4 @@
-// OrderManager.jsx — Rani Mahal order + charge management dashboard (Single Column Redesign)
+// OrderManager.jsx — Rani Mahal order + charge management dashboard (Dual Theme & Glassmorphism)
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
@@ -14,6 +14,14 @@ const STATUS = {
   done:     { label: "Ready",    color: "#34D399", bg: "rgba(26, 107, 58, 0.18)", next: null,   nextLabel: null,       nextColor: null },
   refunded: { label: "Refunded", color: "#F87171", bg: "rgba(155, 38, 38, 0.18)", next: null,   nextLabel: null,       nextColor: null },
 };
+
+// Helper: auto-detect theme based on time of day (7 AM – 6 PM = Light Day, 6 PM – 7 AM = Dark Night)
+function getInitialTheme() {
+  const stored = localStorage.getItem("rm_manager_theme");
+  if (stored === "dark" || stored === "light") return stored;
+  const hour = new Date().getHours();
+  return (hour >= 7 && hour < 18) ? "light" : "dark";
+}
 
 // ── API helpers ──────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
@@ -31,6 +39,7 @@ export default function OrderManager() {
   const [summary, setSummary]           = useState(null);
   const [date, setDate]                 = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }));
   const [filter, setFilter]             = useState("active");
+  const [theme, setTheme]               = useState(getInitialTheme);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState(null);
   const [lastRefresh, setLastRefresh]   = useState(new Date());
@@ -38,6 +47,12 @@ export default function OrderManager() {
   const [refundOrder, setRefundOrder]   = useState(null);
   const [newOrderIds, setNewOrderIds]   = useState(new Set());
   const prevOrderIds                    = useRef(new Set());
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("rm_manager_theme", next);
+  };
 
   const load = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -150,7 +165,7 @@ export default function OrderManager() {
   }, [orders, filter]);
 
   return (
-    <div className="rm-manager-root">
+    <div className={`rm-manager-root theme-${theme}`}>
       {/* Header Bar */}
       <header className="rm-header">
         <div className="rm-brand">
@@ -162,25 +177,32 @@ export default function OrderManager() {
         </div>
 
         <div className="rm-header-controls">
+          {/* Ambient Theme Switcher */}
+          <button className="rm-theme-toggle" onClick={toggleTheme} title="Switch Ambient Theme (Day / Night)">
+            {theme === "dark" ? "🌙 Night" : "☀️ Day"}
+          </button>
+
           <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
             className="rm-date-picker"
           />
+
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div className={`rm-status-dot ${error ? "offline" : "online"}`} />
-            <span style={{ fontSize: 11, color: "#A09080" }}>
+            <span style={{ fontSize: 11, color: "var(--rm-text-muted)" }}>
               {error ? "Offline" : lastRefresh.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
+
           <button className="rm-icon-btn" onClick={() => load(true)} title="Refresh orders">
             ↺
           </button>
         </div>
       </header>
 
-      {/* Main Content Area — Single Column Layout */}
+      {/* Main Content Area */}
       <div className="rm-container">
         {/* Filter Pills Bar */}
         <div className="rm-filter-bar" style={{ marginTop: 8 }}>
@@ -220,9 +242,9 @@ export default function OrderManager() {
 
         {/* Orders Single Column Stack */}
         {loading && orders.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#A09080" }}>Loading orders...</div>
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--rm-text-muted)" }}>Loading orders...</div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "#A09080", background: "var(--rm-bg-surface)", borderRadius: 16, border: "1px solid rgba(255, 255, 255, 0.05)" }}>
+          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--rm-text-muted)", background: "var(--rm-card-bg)", borderRadius: 20, border: "1px solid var(--rm-card-border)" }}>
             {filter === "active" ? "✓ All clear! No active orders waiting." : "No orders match this filter."}
           </div>
         ) : (
