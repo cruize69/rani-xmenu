@@ -16,7 +16,7 @@
 import net  from "net";
 import fs   from "fs";
 import path from "path";
-import fetch from "node-fetch";
+import { exec } from "child_process";
 
 // ── Config — edit these ──────────────────────────────────────────
 const CONFIG = {
@@ -26,12 +26,12 @@ const CONFIG = {
   // Manager secret (same as MANAGER_SECRET env var on Vercel)
   managerSecret: process.env.MANAGER_SECRET ?? "change-me",
 
-  // Printer connection — choose ONE:
+  // Printer connection details:
   printer: {
-    type: "tcp",         // "tcp" for LAN printer, "usb" for USB
-    host: "192.168.1.x", // LAN IP of the Star printer (check printer config page)
-    port: 9100,          // Star default RAW port
-    // usbPath: "/dev/usb/lp0", // uncomment for USB on Linux/Mac
+    type: process.env.PRINTER_TYPE ?? "win",       // "win" for Windows Driver, "tcp" for RAW LAN
+    winName: process.env.PRINTER_NAME ?? "TSP143", // Windows printer name from Printers & Scanners
+    host: process.env.PRINTER_IP ?? "192.168.2.221",
+    port: 9100,
   },
 
   // Poll interval
@@ -64,7 +64,7 @@ async function poll() {
     const { orderId } = await res.json();
     if (!orderId) return; // queue empty
 
-    console.log(`[${new Date().toLocaleTimeString()}] Printing order ${orderId}...`);
+    console.log(`[${new Date().toLocaleTimeString()}] 🖨️ Printing order ${orderId.slice(-6).toUpperCase()} to ${CONFIG.printer.winName}...`);
 
     // Fetch full order
     const orderRes = await fetch(`${CONFIG.apiBase}/api/orders?id=${orderId}`, {
@@ -78,12 +78,14 @@ async function poll() {
 
     const order = await orderRes.json();
 
-    // Build receipt (dynamic import from shared lib)
-    const { buildReceipt } = await import("./lib/printer.js");
-    const receiptBuffer = buildReceipt(order);
-
-    // Send to printer
-    await sendToPrinter(receiptBuffer);
+    // Send to Windows printer driver or TCP socket
+    if (CONFIG.printer.type === "win") {
+      const { buildPlainTextReceipt } = await import("./lib/printer.js");
+      await sendToWindowsPrinter(CONFIG.printer.winName, buildPlainTextReceipt(order));
+    } else {
+      const { buildReceipt } = await import("./lib/printer.js");
+      await sendToPrinter(buildReceipt(order));
+    }
 
     // Mark as printed
     await fetch(`${CONFIG.apiBase}/api/orders`, {
@@ -95,13 +97,31 @@ async function poll() {
       body: JSON.stringify({ id: orderId, printed: true }),
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] ✓ Printed & marked: ${orderId}`);
+    console.log(`[${new Date().toLocaleTimeString()}] ✅ Printed & marked: ${orderId.slice(-6).toUpperCase()}`);
 
   } catch (err) {
     console.error(`Poll error: ${err.message}`);
   } finally {
     isRunning = false;
   }
+}
+
+function sendToWindowsPrinter(printerName, textContent) {
+  return new Promise((resolve, reject) => {
+    const tempPath = path.join(process.cwd(), "temp_receipt.txt");
+    fs.writeFileSync(tempPath, textContent, "utf8");
+
+    const cmd = `powershell -Command "Get-Content -Path '${tempPath}' | Out-Printer -Name '${printerName}'"`;
+
+    exec(cmd, (err, stdout, stderr) => {
+      if (err) {
+        console.error("Windows Print Error:", stderr || err.message);
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
 }
 
 function sendToPrinter(buffer) {
