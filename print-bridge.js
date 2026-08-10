@@ -80,8 +80,8 @@ async function poll() {
 
     // Send to Windows printer driver or TCP socket
     if (CONFIG.printer.type === "win") {
-      const { buildPlainTextReceipt } = await import("./lib/printer.js");
-      await sendToWindowsPrinter(CONFIG.printer.winName, buildPlainTextReceipt(order));
+      const textContent = buildPlainTextReceipt(order);
+      await sendToWindowsPrinter(CONFIG.printer.winName, textContent);
     } else {
       const { buildReceipt } = await import("./lib/printer.js");
       await sendToPrinter(buildReceipt(order));
@@ -177,3 +177,70 @@ setInterval(poll, CONFIG.pollMs);
 // Graceful shutdown
 process.on("SIGINT",  () => { console.log("\nBridge stopped."); process.exit(0); });
 process.on("SIGTERM", () => { console.log("\nBridge stopped."); process.exit(0); });
+
+function buildPlainTextReceipt(order) {
+  const shortId = order.id.slice(-6).toUpperCase();
+  const isDelivery = order.orderMode === "delivery";
+  const lines = [];
+
+  lines.push("========================================");
+  lines.push("               RANI MAHAL               ");
+  lines.push("          Fine Indian Cuisine           ");
+  lines.push("      327 Mamaroneck Ave, NY 10543      ");
+  lines.push("             (914) 835-9066             ");
+  lines.push("========================================");
+  lines.push(`              ORDER #${shortId}          `);
+  lines.push(isDelivery ? "          *** DELIVERY ORDER ***        " : "           --- PICKUP ORDER ---         ");
+  lines.push("========================================");
+
+  const time = new Date(order.createdAt).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+  lines.push(`Time:     ${time}`);
+  lines.push(`Customer: ${order.customerName}`);
+  if (order.customerPhone) lines.push(`Phone:    ${order.customerPhone}`);
+
+  if (isDelivery && order.deliveryAddress) {
+    lines.push("----------------------------------------");
+    lines.push("DELIVER TO:");
+    const addr = order.deliveryAddress;
+    lines.push(`${addr.street}${addr.apt ? ' ' + addr.apt : ''}`);
+    lines.push(`${addr.city}, NY ${addr.zip || ''}`);
+    if (addr.notes) lines.push(`Driver Note: ${addr.notes}`);
+  }
+
+  lines.push("----------------------------------------");
+  lines.push("ITEM                                 QTY");
+  lines.push("----------------------------------------");
+
+  (order.items || []).forEach(item => {
+    const qtyStr = `${item.qty}x`.padStart(4);
+    const nameStr = item.name.padEnd(34).slice(0, 34);
+    lines.push(`${nameStr}${qtyStr}`);
+    if (item.spice) lines.push(`   Spice: ${item.spice}`);
+    if (item.note)  lines.push(`   Note:  ${item.note}`);
+  });
+
+  lines.push("----------------------------------------");
+  lines.push(`Subtotal:                    $${(order.subtotal || 0).toFixed(2).padStart(7)}`);
+  if (isDelivery) {
+    lines.push(`Delivery Fee:                $${(order.deliveryFee || 0).toFixed(2).padStart(7)}`);
+  }
+  lines.push(`Tax:                         $${(order.tax || 0).toFixed(2).padStart(7)}`);
+  lines.push("----------------------------------------");
+  lines.push(`TOTAL:                       $${(order.total || 0).toFixed(2).padStart(7)}`);
+  lines.push("Paid via Stripe (Online)");
+  lines.push("========================================");
+
+  if (order.specialInstructions) {
+    lines.push("SPECIAL INSTRUCTIONS:");
+    lines.push(order.specialInstructions);
+    lines.push("========================================");
+  }
+
+  lines.push("        Thank you for your order!       ");
+  lines.push("             ranimahal.food             ");
+  lines.push("\n\n\n");
+
+  return lines.join("\r\n");
+}
