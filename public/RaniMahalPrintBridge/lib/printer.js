@@ -107,28 +107,28 @@ export function buildReceipt(order) {
 
   chunks.push(divider("-"));
 
-  // Items Header
+  // Items Header — Clean POS Alignment
   chunks.push(BOLD_ON);
-  chunks.push(twoCol("ITEM", "QTY   PRICE"));
+  chunks.push(twoCol("QTY  ITEM", "PRICE"));
   chunks.push(BOLD_OFF);
   chunks.push(divider("-"));
 
-  // Item List
+  // Item List — Same Line Alignment (QTY  ITEM NAME                 PRICE)
   (order.items || []).forEach(item => {
-    const qty = `${item.qty}x`;
+    const qty = `${item.qty}x`.padEnd(3);
     const price = `$${(item.price * item.qty).toFixed(2)}`;
-    
-    // Item name in bold
+    const maxNameLen = RECEIPT_WIDTH - qty.length - price.length - 2;
+    const name = item.name.toUpperCase().slice(0, maxNameLen);
+
     chunks.push(BOLD_ON);
-    chunks.push(line(item.name.toUpperCase()));
+    chunks.push(twoCol(`${qty} ${name}`, price));
     chunks.push(BOLD_OFF);
 
-    // Spice & Price line
-    const spiceStr = item.spice ? `  [SPICE: ${item.spice.toUpperCase()}]` : "  ";
-    chunks.push(twoCol(spiceStr, `${qty.padStart(3)} ${price.padStart(7)}`));
-
+    if (item.spice) {
+      chunks.push(line(`    [SPICE: ${item.spice.toUpperCase()}]`));
+    }
     if (item.note) {
-      chunks.push(line(`  * Note: ${item.note}`));
+      chunks.push(line(`    * Note: ${item.note}`));
     }
   });
 
@@ -177,14 +177,14 @@ export function buildReceipt(order) {
 
 /**
  * Build formatted plain text receipt string for Windows Driver GDI Spooler
- * Formatted to 33-column width for 9.0pt Bold Courier New (zero truncation guarantee)
+ * Formatted to 33-column width with perfect single-line QTY  ITEM  PRICE alignment!
  */
 export function buildPlainTextReceipt(order) {
   const shortId = order.id ? order.id.slice(-6).toUpperCase() : "------";
   const isDelivery = order.orderMode === "delivery";
   const lines = [];
 
-  const W = 33; // 33 chars exact fit for 9.0pt Bold Courier New with zero right edge truncation!
+  const W = 33; // 33 chars exact fit for 9.0pt Bold Courier New
   
   const center = (str) => {
     const s = String(str ?? "").slice(0, W);
@@ -228,17 +228,25 @@ export function buildPlainTextReceipt(order) {
   }
 
   lines.push("---------------------------------");
-  lines.push(twoCol("ITEM", "QTY   PRICE"));
+  lines.push(twoCol("QTY  ITEM", "PRICE"));
   lines.push("---------------------------------");
 
   (order.items || []).forEach(item => {
-    const name = item.name.toUpperCase();
-    const qty = `${item.qty}x`;
+    const qty = `${item.qty}x`.padEnd(3);
     const price = `$${(item.price * item.qty).toFixed(2)}`;
-    
-    lines.push(name.slice(0, W));
-    lines.push(twoCol(item.spice ? `  [SPICE: ${item.spice.toUpperCase()}]` : "  ", `${qty.padStart(3)} ${price.padStart(7)}`));
-    if (item.note) lines.push(`  * Note: ${item.note}`.slice(0, W));
+    const maxNameLen = W - qty.length - price.length - 2;
+    const name = item.name.toUpperCase().slice(0, maxNameLen);
+
+    // Line 1: QTY  ITEM NAME               PRICE (all on same line!)
+    lines.push(twoCol(`${qty} ${name}`, price));
+
+    // Sub-lines for spice & note if present
+    if (item.spice) {
+      lines.push(`    [SPICE: ${item.spice.toUpperCase()}]`.slice(0, W));
+    }
+    if (item.note) {
+      lines.push(`    * Note: ${item.note}`.slice(0, W));
+    }
   });
 
   lines.push("---------------------------------");

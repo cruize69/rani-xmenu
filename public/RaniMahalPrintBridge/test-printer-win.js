@@ -18,17 +18,17 @@ HEADER:RANI MAHAL
 =================================
 MODE:***  PICKUP ORDER  ***
 =================================
-TIME:            Aug 10, 7:25 PM
+TIME:            Aug 10, 7:35 PM
 CUSTOMER:           RIYADH JUWEL
 PHONE:            (914) 441-1103
 ---------------------------------
-ITEM                 QTY   PRICE
+QTY  ITEM                   PRICE
 ---------------------------------
-RAITA                 1x   $4.50
-BIRIYANI MEDLEY       1x  $27.95
-PESHWARI NAAN         1x   $6.20
-MIXED APPETIZERS      1x   $9.95
-NIMBU PANI            1x   $6.00
+1x   RAITA                  $4.50
+1x   BIRIYANI MEDLEY       $27.95
+1x   PESHWARI NAAN          $6.20
+1x   MIXED APPETIZERS       $9.95
+1x   NIMBU PANI             $6.00
 ---------------------------------
 Subtotal:                 $54.60
 Tax (8.375%):              $4.57
@@ -97,8 +97,8 @@ exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psScript}"`, (er
     console.error("❌ Print Failed:", stderr || err.message);
     process.exit(1);
   } else {
-    console.log("✅ Zero-truncation print test sent successfully!");
-    console.log("🎉 Check printer — right margin truncation fixed, quantities & prices shifted left, MODE in 14pt Bold!");
+    console.log("✅ Single-line item alignment print test sent successfully!");
+    console.log("🎉 Check printer — QTY, ITEM NAME, and PRICE are now perfectly aligned on the SAME line!");
     process.exit(0);
   }
 });
