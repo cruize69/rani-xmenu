@@ -1,4 +1,4 @@
-// OrderCard.jsx — Touch-optimized card for tablet and mobile order manager
+// OrderCard.jsx — Touch-optimized card with inline address for delivery orders
 
 import { useMemo } from "react";
 
@@ -19,6 +19,12 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
   }, [order.createdAt]);
 
   const isDelivery = order.orderMode === "delivery";
+
+  const addressLine = useMemo(() => {
+    if (!isDelivery || !order.deliveryAddress) return null;
+    const { street, apt, city } = order.deliveryAddress;
+    return `${street}${apt ? `, Apt ${apt}` : ""}${city ? `, ${city}` : ""}`;
+  }, [isDelivery, order.deliveryAddress]);
 
   const handleQuickStatus = (e) => {
     e.stopPropagation();
@@ -53,6 +59,14 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
             )}
           </div>
         </div>
+
+        {/* Delivery Address Visible Inline on Card */}
+        {addressLine && (
+          <div style={{ fontSize: 12, color: "#E8A82E", background: "rgba(200, 133, 58, 0.12)", padding: "4px 8px", borderRadius: 6, marginBottom: 8, marginLeft: 4, display: "flex", alignItems: "center", gap: 4, border: "1px solid rgba(200, 133, 58, 0.2)" }}>
+            <span>📍</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{addressLine}</span>
+          </div>
+        )}
 
         {/* Middle Section: Items Summary & Price */}
         <div className="rm-card-middle">
