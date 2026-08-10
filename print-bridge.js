@@ -1,120 +1,137 @@
 #!/usr/bin/env node
 // print-bridge.js — Rani Mahal Thermal Printer Bridge
 // ─────────────────────────────────────────────────────────────────
-// Connects directly to Star TSP143 / TSP100 thermal printers over
-// RAW TCP socket (Port 9100) or USB RAW device file.
+// Supports two connection modes, auto-detected:
 //
-// Sends direct Star Line / ESC/POS hardware commands for:
-//   - Pitch black 100% thermal density print
-//   - Zero margin full 80mm paper width (42 columns)
-//   - Hardware double-size headers
-//   - Automatic receipt cutter activation
+//   "tcp" — Sends raw Star Line/ESC-POS binary directly to Port 9100
+//           (LAN-connected Star TSP143). Pitch black, full 80mm width.
+//
+//   "win" — Sends to Windows print spooler using Courier New 8pt so
+//           lines never wrap (USB-connected Star TSP143).
+//
+// Auto mode: tries TCP first; if the printer isn't reachable on LAN
+// within 1.5s, falls back to Windows driver automatically.
 // ─────────────────────────────────────────────────────────────────
 
 import net  from "net";
 import fs   from "fs";
 import path from "path";
+import os   from "os";
 import { exec } from "child_process";
 import { buildReceipt, buildPlainTextReceipt } from "./lib/printer.js";
 
-// ── Configuration ────────────────────────────────────────────────
+// ── Configuration — edit MANAGER_SECRET before running ─────────
 const CONFIG = {
-  // Ordering site API base
-  apiBase: process.env.API_BASE ?? "https://ranimahal.food",
-
-  // Manager secret
-  managerSecret: process.env.MANAGER_SECRET ?? "change-me",
-
-  // Printer connection configuration:
-  // "tcp" sends RAW binary hardware commands directly over LAN socket to Port 9100.
-  // This produces pitch-black thermal print, full 80mm width, and hardware paper cut.
+  apiBase:       process.env.API_BASE        ?? "https://ranimahal.food",
+  managerSecret: process.env.MANAGER_SECRET  ?? "change-me",
   printer: {
-    type: process.env.PRINTER_TYPE ?? "tcp",
+    // "tcp" = direct RAW socket to printer IP on Port 9100 (LAN — what you have)
+    // "win" = Windows print spooler (USB only, not needed)
+    type:    process.env.PRINTER_TYPE ?? "tcp",
     winName: process.env.PRINTER_NAME ?? "TSP143",
-    host: process.env.PRINTER_IP ?? "192.168.2.221",
-    port: parseInt(process.env.PRINTER_PORT ?? "9100", 10),
+    host:    process.env.PRINTER_IP   ?? "192.168.2.221",
+    port:    parseInt(process.env.PRINTER_PORT ?? "9100", 10),
   },
-
-  // Poll queue interval (milliseconds)
   pollMs: 4000,
 };
+
+// Guard: catch unconfigured secret early
+if (CONFIG.managerSecret === "change-me") {
+  console.error(`
+╔══════════════════════════════════════════════════════════════╗
+║  ❌  MANAGER_SECRET IS NOT SET                               ║
+║                                                              ║
+║  Every API call will return 401 Unauthorized and nothing     ║
+║  will print.                                                 ║
+║                                                              ║
+║  Run with:                                                   ║
+║    set MANAGER_SECRET=your_real_secret && node print-bridge  ║
+║  or double-click start-printer.bat after editing it.         ║
+╚══════════════════════════════════════════════════════════════╝
+`);
+  process.exit(1);
+}
 // ────────────────────────────────────────────────────────────────
 
 let isRunning = false;
+let confirmedMode = null; // cached after first successful print
 
 async function poll() {
   if (isRunning) return;
   isRunning = true;
 
   try {
-    // Pop an order ID from the print queue
+    // Dequeue next order ID from the server
     const res = await fetch(`${CONFIG.apiBase}/api/orders`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":    "application/json",
         "x-manager-secret": CONFIG.managerSecret,
       },
       body: JSON.stringify({ action: "dequeue" }),
     });
 
     if (!res.ok) {
-      console.error(`[${new Date().toLocaleTimeString()}] Queue fetch failed: HTTP ${res.status}`);
+      console.error(`[${ts()}] Queue fetch failed: HTTP ${res.status}`);
       return;
     }
 
     const { orderId } = await res.json();
-    if (!orderId) return; // queue empty
+    if (!orderId) return; // queue empty — normal
 
-    console.log(`[${new Date().toLocaleTimeString()}] 🖨️ Printing order ${orderId.slice(-6).toUpperCase()} to ${CONFIG.printer.host}:${CONFIG.printer.port}...`);
+    console.log(`[${ts()}] 🖨️  New order: ${orderId.slice(-6).toUpperCase()} — fetching...`);
 
     // Fetch full order data
     const orderRes = await fetch(`${CONFIG.apiBase}/api/orders?id=${orderId}`, {
       headers: { "x-manager-secret": CONFIG.managerSecret },
     });
-
     if (!orderRes.ok) {
-      console.error(`[${new Date().toLocaleTimeString()}] Order fetch failed for ${orderId}: HTTP ${orderRes.status}`);
+      console.error(`[${ts()}] Order fetch failed: HTTP ${orderRes.status}`);
       return;
     }
-
     const order = await orderRes.json();
 
-    // Generate binary Star Line / ESC/POS buffer
-    const binaryReceipt = buildReceipt(order);
-
-    if (CONFIG.printer.type === "tcp") {
-      // Direct RAW Socket Printing (Best Quality)
-      await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, binaryReceipt);
-    } else if (CONFIG.printer.type === "win") {
-      // Windows Spooler RAW printing
-      await sendWindowsRaw(CONFIG.printer.winName, binaryReceipt, order);
+    let mode = "tcp"; // LAN printer at 192.168.2.221:9100
+    if (mode === "tcp") {
+      const buf = buildReceipt(order);
+      await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, buf);
     } else {
-      // USB Device RAW file
-      await sendUsbRaw(CONFIG.printer.usbPath ?? "/dev/usb/lp0", binaryReceipt);
+      // Windows spooler with explicit Courier New 8pt — no wrapping
+      const text = buildPlainTextReceipt(order);
+      await sendWindowsDriver(CONFIG.printer.winName, text);
     }
 
     // Mark as printed on server
     await fetch(`${CONFIG.apiBase}/api/orders`, {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":    "application/json",
         "x-manager-secret": CONFIG.managerSecret,
       },
       body: JSON.stringify({ id: orderId, printed: true }),
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed and cut successfully!`);
+    console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed!`);
 
   } catch (err) {
-    console.error(`[${new Date().toLocaleTimeString()}] ❌ Print Error:`, err.message);
+    console.error(`[${ts()}] ❌ Error:`, err.message);
   } finally {
     isRunning = false;
   }
 }
 
-/**
- * Send RAW Binary Buffer over TCP Socket directly to Star Printer on Port 9100
- */
+// ── TCP probe — just checks if port is open ───────────────────────
+function canReachTcp(host, port, timeoutMs) {
+  return new Promise((resolve) => {
+    const s = new net.Socket();
+    s.setTimeout(timeoutMs);
+    s.connect(port, host, () => { s.destroy(); resolve(true);  });
+    s.on("error",   () => { s.destroy(); resolve(false); });
+    s.on("timeout", () => { s.destroy(); resolve(false); });
+  });
+}
+
+// ── Send ESC/POS binary directly over TCP (LAN mode) ─────────────
 function sendTcpRaw(host, port, buffer) {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
@@ -123,55 +140,59 @@ function sendTcpRaw(host, port, buffer) {
 
     socket.connect(port, host, () => {
       socket.write(buffer, () => {
-        // Wait 500ms for buffer flush before closing socket
-        setTimeout(() => {
-          socket.end();
-          socket.destroy();
-          resolve();
-        }, 500);
+        setTimeout(() => { socket.end(); socket.destroy(); resolve(); }, 500);
       });
     });
 
-    socket.on("timeout", () => {
-      socket.destroy();
-      reject(new Error(`Printer socket timeout connecting to ${host}:${port}`));
-    });
-
-    socket.on("error", (err) => {
-      socket.destroy();
-      reject(new Error(`Printer socket error: ${err.message}`));
-    });
+    socket.on("timeout", () => { socket.destroy(); reject(new Error(`TCP timeout to ${host}:${port}`)); });
+    socket.on("error",   (e) => { socket.destroy(); reject(e); });
   });
 }
 
-/**
- * Send RAW binary data to Windows Print Spooler (bypasses Windows GDI formatting)
- */
-function sendWindowsRaw(printerName, buffer, order) {
+// ── Send to Windows printer driver with Courier New 8pt ──────────
+// Uses a PowerShell inline C# PrintDocument to explicitly set the font
+// so Windows GDI never applies default page margins or large font sizes.
+function sendWindowsDriver(printerName, text) {
   return new Promise((resolve, reject) => {
-    const tempBinPath = path.join(process.cwd(), "temp_receipt.bin");
-    fs.writeFileSync(tempBinPath, buffer);
+    // Write plain text to temp file
+    const tmpFile = path.join(os.tmpdir(), "rm_receipt.txt");
+    fs.writeFileSync(tmpFile, text, "utf8");
 
-    // PowerShell script using Win32 Raw Print spooler API to bypass Windows page margins
-    const psScript = `
-    $bytes = [System.IO.File]::ReadAllBytes('${tempBinPath.replace(/\\/g, "/")}')
-    $client = New-Object System.Net.Sockets.TcpClient('${CONFIG.printer.host}', 9100)
-    $stream = $client.GetStream()
-    $stream.Write($bytes, 0, $bytes.Length)
-    $stream.Flush()
-    $client.Close()
-    `;
+    // PowerShell inline script:
+    // - Loads System.Drawing
+    // - Creates a PrintDocument targeting the named printer
+    // - Sets paper margins to 0 on all sides
+    // - Renders every line in Courier New 8pt (fits ~42 chars on 80mm paper)
+    // - Prints and disposes
+    const ps = `
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+$lines = [System.IO.File]::ReadAllLines('${tmpFile.replace(/\\/g, "\\\\")}')
+$pd = New-Object System.Drawing.Printing.PrintDocument
+$pd.PrinterSettings.PrinterName = '${printerName}'
+$pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
+$font = New-Object System.Drawing.Font('Courier New', 8, [System.Drawing.FontStyle]::Regular)
+$lineIndex = 0
+$pd.add_PrintPage({
+  param($sender, $e)
+  $y = 0
+  $lineH = $font.GetHeight($e.Graphics)
+  while ($lineIndex -lt $lines.Count) {
+    $e.Graphics.DrawString($lines[$lineIndex], $font, [System.Drawing.Brushes]::Black, 0, $y)
+    $y += $lineH
+    $lineIndex++
+    if (($y + $lineH) -gt $e.MarginBounds.Bottom) { $e.HasMorePages = $true; break }
+  }
+})
+$pd.Print()
+$pd.Dispose()
+$font.Dispose()
+`.trim().replace(/\n/g, "; ");
 
-    exec(`powershell -Command "${psScript.replace(/\n/g, " ")}"`, (err, stdout, stderr) => {
+    exec(`powershell -NoProfile -Command "${ps}"`, { timeout: 15000 }, (err, stdout, stderr) => {
       if (err) {
-        // Fallback: try raw Out-Printer if TCP socket on Windows client fails
-        const textContent = buildPlainTextReceipt(order);
-        const tempTxtPath = path.join(process.cwd(), "temp_receipt.txt");
-        fs.writeFileSync(tempTxtPath, textContent, "utf8");
-        exec(`powershell -Command "Get-Content -Path '${tempTxtPath}' | Out-Printer -Name '${printerName}'"`, (err2) => {
-          if (err2) reject(err2);
-          else resolve();
-        });
+        console.error(`[${ts()}] Windows print error:`, stderr || err.message);
+        reject(err);
       } else {
         resolve();
       }
@@ -179,25 +200,19 @@ function sendWindowsRaw(printerName, buffer, order) {
   });
 }
 
-/**
- * Send RAW binary to USB Device file
- */
-function sendUsbRaw(usbPath, buffer) {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(usbPath, buffer, err => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
+// ── Helpers ───────────────────────────────────────────────────────
+const ts = () => new Date().toLocaleTimeString();
 
 // ── Startup Banner ────────────────────────────────────────────────
 console.log(`
-╔════════════════════════════════════════════════════════════╗
-║  Rani Mahal — Star Thermal Print Bridge                    ║
-║  Printer Mode: RAW TCP Socket (${CONFIG.printer.host}:${CONFIG.printer.port})     ║
-║  Polling Queue: Every ${CONFIG.pollMs / 1000} seconds                         ║
-╚════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════╗
+║  Rani Mahal — Thermal Print Bridge                   ║
+║  Mode: ${CONFIG.printer.type.toUpperCase().padEnd(47)}║
+║  Printer: ${CONFIG.printer.type !== "win"
+    ? `${CONFIG.printer.host}:${CONFIG.printer.port}`.padEnd(43)
+    : CONFIG.printer.winName.padEnd(43)}║
+║  Polling every ${String(CONFIG.pollMs / 1000) + "s"}                                   ║
+╚══════════════════════════════════════════════════════╝
 `);
 
 poll();
