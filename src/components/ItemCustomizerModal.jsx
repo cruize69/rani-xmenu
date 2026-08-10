@@ -107,7 +107,7 @@ export function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl
             style={{ width:"100%", border:"1.5px solid rgba(250,246,239,0.1)", borderRadius:10, padding:"10px 12px", fontFamily:"'Inter',sans-serif", fontSize:14, color:"#FAF6EF", background:"#1c1814", resize:"none", height:70, marginBottom:"1.25rem", outline:"none" }} />
         </div>
         {/* Footer */}
-        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"1rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)", background:"#12100e", position:"sticky", bottom:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"1rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)", background:"#12100e", position:"sticky", bottom:0, zIndex:1 }}>
           <div style={{ display:"flex", alignItems:"center", border:"1.5px solid rgba(250,246,239,0.12)", borderRadius:30, overflow:"hidden", flexShrink:0 }}>
             <button onClick={() => setQty(q=>Math.max(1,q-1))} disabled={qty<=1} style={{ width:36, height:36, background:"transparent", border:"none", fontSize:20, color:qty<=1?"rgba(250,246,239,0.25)":"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
             <span style={{ minWidth:28, textAlign:"center", fontSize:15, fontWeight:500, color:"#FAF6EF" }}>{qty}</span>

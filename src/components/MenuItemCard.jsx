@@ -54,7 +54,7 @@ export function QuickAddCard({ id, cart, onQty, imageUrl }) {
   if (!item) return null;
   const qty = cart[id]?.qty ?? 0;
   return (
-    <div style={{ flexShrink:0, width:126, height:150, position:"relative", borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
+    <div style={{ flexShrink:0, width:126, height:150, position:"relative", zIndex:0, borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
       {!imageUrl && (
         <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
       )}
