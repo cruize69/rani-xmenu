@@ -1,0 +1,11 @@
+{
+  "name": "ranimahal-print-bridge",
+  "version": "1.0.0",
+  "description": "Rani Mahal Fine Indian Cuisine - Star Thermal Receipt Print Bridge",
+  "main": "print-bridge.js",
+  "type": "module",
+  "scripts": {
+    "start": "node print-bridge.js",
+    "test": "node test-printer.js"
+  }
+}
