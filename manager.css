@@ -469,33 +469,65 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 .rm-refund-log-entry { font-size: 12px; color: var(--rm-panel-text); margin-bottom: 3px; }
 
 /* ── Action Bar ───────────────────────────────────────────────── */
-/* Sticky to bottom of right panel */
+/* Sticky to bottom of right panel. Never wraps — all buttons stay on one line. */
 .rm-action-bar {
   flex-shrink: 0;
-  padding: 14px 22px;
+  padding: 12px 18px;
   border-top: 1px solid var(--rm-divider);
   background: var(--rm-panel-bg);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap;   /* never push buttons to a second row */
+  overflow: hidden;    /* clip if somehow too tight */
 }
+
+/* Delay chips: fixed small squares */
 .rm-action-chip {
-  height: 44px; padding: 0 16px; border-radius: 12px;
+  flex-shrink: 0;
+  height: 48px; width: 56px; padding: 0;
+  border-radius: 12px;
   border: 1px solid var(--rm-panel-border); background: var(--rm-pill-bg);
   color: var(--rm-panel-text); font-size: 13px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
   transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
 }
-.rm-action-chip:active { transform: scale(0.95); }
+.rm-action-chip:hover  { background: var(--rm-card-bg-hover); }
+.rm-action-chip:active { transform: scale(0.94); }
+
+/* All action buttons: fixed 48px height, never shrink, never grow (except primary) */
 .rm-action-btn {
-  height: 52px; padding: 0 20px; border-radius: 14px;
+  flex-shrink: 0;
+  height: 48px; padding: 0 18px; border-radius: 14px;
   border: none; font-size: 14px; font-weight: 800; cursor: pointer;
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap;
   transition: opacity 0.15s, transform 0.1s;
 }
-.rm-action-btn:active  { transform: scale(0.97); opacity: 0.9; }
-.rm-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.rm-action-btn.primary    { flex: 1; color: #FFF; }
-.rm-action-btn.secondary  { background: var(--rm-pill-bg); border: 1px solid var(--rm-panel-border); color: var(--rm-panel-text); }
-.rm-action-btn.danger     { background: transparent; border: 1px solid rgba(248, 113, 113, 0.35); color: #FCA5A5; }
+.rm-action-btn:active   { transform: scale(0.97); opacity: 0.9; }
+.rm-action-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Primary CTA grows to fill remaining space but has a minimum width */
+.rm-action-btn.primary {
+  flex: 1 1 auto;
+  min-width: 120px;
+  max-width: 220px;
+  color: #FFF;
+}
+
+/* Secondary and danger buttons never grow */
+.rm-action-btn.secondary {
+  flex: 0 0 auto;
+  background: var(--rm-pill-bg);
+  border: 1px solid var(--rm-panel-border);
+  color: var(--rm-panel-text);
+}
+.rm-action-btn.danger {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #FCA5A5;
+}
 
 /* ── Panel Empty State ────────────────────────────────────────── */
 .rm-panel-empty {
@@ -564,20 +596,32 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   padding: 26px; box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
 }
 
-/* Shared button classes used by RefundModal */
+/* ── Refund Modal Buttons ─────────────────────────────────────── */
+/* Fixed height so long authorize labels can't stretch the button vertically */
 .rm-btn-primary {
-  min-height: 52px; border-radius: 14px; border: none;
+  height: 52px;          /* fixed — never grows taller */
+  width: 100%;
+  border-radius: 14px; border: none;
   font-size: 15px; font-weight: 800; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 0 20px;
   transition: opacity 0.15s, transform 0.1s;
+  flex-shrink: 0;
 }
-.rm-btn-primary:active { transform: scale(0.97); opacity: 0.9; }
+.rm-btn-primary:active  { transform: scale(0.97); opacity: 0.9; }
+.rm-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Refund menu option buttons — fixed height, no min-height that can grow */
 .rm-btn-outline {
-  min-height: 52px; padding: 0 18px; border-radius: 14px;
+  height: 58px;          /* fixed — accommodates 2 lines of text */
+  padding: 0 18px;
+  border-radius: 14px;
   border: 1px solid rgba(0,0,0,0.15); background: #F8F4EE;
   color: #1F1710; font-size: 14px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; flex-shrink: 0;
   transition: background 0.15s, transform 0.1s;
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%;
 }
+.rm-btn-outline:hover  { background: #F0EBE0; }
 .rm-btn-outline:active { transform: scale(0.98); }
