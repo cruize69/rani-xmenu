@@ -1,4 +1,6 @@
-// OrderManager.jsx — Rani Mahal Order Manager (Adaptive Master-Detail & Single Stack)
+// OrderManager.jsx — Rani Mahal Order Manager
+// Architecture: Compact left-rail queue + Full right-panel ticket detail
+// Matches wireframe: 35% left / 65% right split on ≥1024px
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
@@ -10,7 +12,7 @@ import "./manager.css";
 const API_BASE = "";
 
 const STATUS = {
-  new:      { label: "Received", color: "#F98A32", bg: "rgba(200, 96, 10, 0.15)", next: "done", nextLabel: "Mark Ready", nextColor: "#1A6B3A" },
+  new:      { label: "New",      color: "#F98A32", bg: "rgba(200, 96, 10, 0.15)", next: "done", nextLabel: "Mark Ready", nextColor: "#1A6B3A" },
   done:     { label: "Ready",    color: "#34D399", bg: "rgba(26, 107, 58, 0.18)", next: null,   nextLabel: null,       nextColor: null },
   refunded: { label: "Refunded", color: "#F87171", bg: "rgba(155, 38, 38, 0.18)", next: null,   nextLabel: null,       nextColor: null },
 };
@@ -18,26 +20,24 @@ const STATUS = {
 function getInitialTheme() {
   const stored = localStorage.getItem("rm_manager_theme");
   if (stored === "dark" || stored === "light") return stored;
-  const hour = new Date().getHours();
-  return (hour >= 7 && hour < 18) ? "light" : "dark";
+  const h = new Date().getHours();
+  return (h >= 7 && h < 18) ? "light" : "dark";
 }
 
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, opts = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", "x-manager-secret": getManagerSecret(), ...(options.headers ?? {}) },
+    ...opts,
+    headers: { "Content-Type": "application/json", "x-manager-secret": getManagerSecret(), ...(opts.headers ?? {}) },
   });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json();
 }
 
-// Synthesize 3-tone Web Audio chime for new order arrival
-function playOrderChime() {
+function playChime() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const now = ctx.currentTime;
-    const tones = [523.25, 659.25, 783.99]; // C5, E5, G5 major triad
-    tones.forEach((freq, i) => {
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
@@ -45,34 +45,31 @@ function playOrderChime() {
       gain.gain.setValueAtTime(0, now + i * 0.12);
       gain.gain.linearRampToValueAtTime(0.25, now + i * 0.12 + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + i * 0.12);
-      osc.stop(now + i * 0.12 + 0.4);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.4);
     });
-  } catch (e) {}
+  } catch (e) { /* ignore audio errors */ }
 }
 
 export default function OrderManager() {
   const [orders, setOrders]             = useState([]);
-  const [summary, setSummary]           = useState(null);
   const [date, setDate]                 = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }));
   const [filter, setFilter]             = useState("active");
   const [theme, setTheme]               = useState(getInitialTheme);
-  const [loading, setLoading]           = useState(false);
+  const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [lastRefresh, setLastRefresh]   = useState(new Date());
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [refundOrder, setRefundOrder]   = useState(null);
-  const [isWideScreen, setIsWideScreen] = useState(() => window.innerWidth >= 1024);
-  const [newOrderAlert, setNewOrderAlert] = useState(null);
-  const prevOrderIds                    = useRef(new Set());
+  const [isWide, setIsWide]             = useState(() => window.innerWidth >= 1024);
+  const [newAlert, setNewAlert]         = useState(null);
+  const prevIds                         = useRef(new Set());
 
-  // Listen to viewport resize for Master-Detail split pane vs single column
+  // Track viewport width for split-pane vs single-column
   useEffect(() => {
-    const handleResize = () => setIsWideScreen(window.innerWidth >= 1024);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const fn = () => setIsWide(window.innerWidth >= 1024);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
   }, []);
 
   const toggleTheme = () => {
@@ -81,228 +78,185 @@ export default function OrderManager() {
     localStorage.setItem("rm_manager_theme", next);
   };
 
-  const load = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setLoading(true);
+  const load = useCallback(async (spin = true) => {
+    if (spin) setLoading(true);
     try {
       const data = await apiFetch(`/api/orders?date=${date}`);
-      const fetchedOrders = data.orders || [];
-      setOrders(fetchedOrders);
-      setSummary(data.summary || null);
+      setOrders(data.orders || []);
       setLastRefresh(new Date());
       setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      if (showSpinner) setLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { if (spin) setLoading(false); }
   }, [date]);
 
-  // Real-time SSE Stream
+  // SSE real-time stream
   useEffect(() => {
     const secret = getManagerSecret();
-    const streamUrl = `/api/orders?stream=true&date=${date}&secret=${encodeURIComponent(secret)}`;
-    
-    let es;
-    let reconnectTimer;
+    let es, reconnect;
     setLoading(true);
 
-    const connectSSE = () => {
+    const connect = () => {
       try {
-        es = new EventSource(streamUrl);
-
-        es.onmessage = (event) => {
+        es = new EventSource(`/api/orders?stream=true&date=${date}&secret=${encodeURIComponent(secret)}`);
+        es.onmessage = (ev) => {
           try {
-            const data = JSON.parse(event.data);
+            const data = JSON.parse(ev.data);
             if (data.type === "orders_update") {
-              const fetchedOrders = data.orders || [];
-              
-              if (prevOrderIds.current.size > 0) {
-                const incomingNew = fetchedOrders.filter(o => !prevOrderIds.current.has(o.id));
-                if (incomingNew.length > 0) {
-                  playOrderChime();
-                  setNewOrderAlert(incomingNew[0]);
-                }
+              const list = data.orders || [];
+              // Detect new incoming orders
+              if (prevIds.current.size > 0) {
+                const fresh = list.filter(o => !prevIds.current.has(o.id));
+                if (fresh.length > 0) { playChime(); setNewAlert(fresh[0]); }
               }
-              prevOrderIds.current = new Set(fetchedOrders.map(o => o.id));
-              
-              setOrders(fetchedOrders);
-              setSummary(data.summary || null);
+              prevIds.current = new Set(list.map(o => o.id));
+              setOrders(list);
               setLastRefresh(new Date());
               setError(null);
               setLoading(false);
             }
-          } catch (e) {}
+          } catch (e) { /* parse error */ }
         };
-
-        es.onerror = () => {
-          setLoading(false);
-          if (es) es.close();
-          reconnectTimer = setTimeout(connectSSE, 3000);
-        };
-      } catch (e) {
-        setLoading(false);
-      }
+        es.onerror = () => { setLoading(false); if (es) es.close(); reconnect = setTimeout(connect, 3000); };
+      } catch (e) { setLoading(false); }
     };
-
-    connectSSE();
-
-    return () => {
-      if (es) es.close();
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-    };
+    connect();
+    return () => { if (es) es.close(); clearTimeout(reconnect); };
   }, [date]);
 
-  const handleStatusChange = async (id, status) => {
+  const handleStatus = async (id, status) => {
+    // Optimistic update
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-    if (selectedOrder?.id === id) {
-      setSelectedOrder(prev => prev ? { ...prev, status } : null);
-    }
+    if (selectedOrder?.id === id) setSelectedOrder(prev => prev ? { ...prev, status } : null);
     try {
-      await apiFetch("/api/orders", {
-        method: "PATCH",
-        body: JSON.stringify({ id, status }),
-      });
-    } catch (err) {
-      console.error("Status update error:", err);
-      load(false);
-    }
+      await apiFetch("/api/orders", { method: "PATCH", body: JSON.stringify({ id, status }) });
+    } catch (err) { console.error("Status update failed:", err); load(false); }
   };
 
   const handlePrint = async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, printed: true } : o));
-    if (selectedOrder?.id === id) {
-      setSelectedOrder(prev => prev ? { ...prev, printed: true } : null);
-    }
+    if (selectedOrder?.id === id) setSelectedOrder(prev => prev ? { ...prev, printed: true } : null);
     try {
-      await apiFetch("/api/orders", {
-        method: "POST",
-        body: JSON.stringify({ action: "reprint", id }),
-      });
-    } catch (err) {
-      console.error("Print queue error:", err);
-    }
+      await apiFetch("/api/orders", { method: "POST", body: JSON.stringify({ action: "reprint", id }) });
+    } catch (err) { console.error("Print error:", err); }
   };
 
-  const { filtered, newCount, inProgCount, refundedCount } = useMemo(() => {
+  const handleDelay = async (id, minutes) => {
+    // Placeholder: extend prep time (can hook into backend later)
+    console.log(`Delay order ${id} by +${minutes}m`);
+  };
+
+  // Filtered list + counts
+  const { filtered, counts } = useMemo(() => {
+    const nc = orders.filter(o => o.status === "new").length;
+    const dc = orders.filter(o => o.status === "done").length;
+    const rc = orders.filter(o => o.status === "refunded").length;
+    const ac = nc; // active = new orders
+
     const list = orders.filter(o => {
       if (filter === "active")   return o.status !== "done" && o.status !== "refunded";
       if (filter === "done")     return o.status === "done";
       if (filter === "refunded") return o.status === "refunded";
       return true;
     });
-    const nc = orders.filter(o => o.status === "new").length;
-    const ipc = orders.filter(o => o.status === "in_progress").length;
-    const rc = orders.filter(o => o.status === "refunded").length;
-    return { filtered: list, newCount: nc, inProgCount: ipc, refundedCount: rc };
+    return { filtered: list, counts: { active: ac, done: dc, refunded: rc, all: orders.length } };
   }, [orders, filter]);
 
-  // Auto-select first active order on landscape split-pane if none selected
+  // Auto-select first order on wide screen if nothing selected
   useEffect(() => {
-    if (isWideScreen && !selectedOrder && filtered.length > 0) {
-      setSelectedOrder(filtered[0]);
+    if (isWide && !selectedOrder && filtered.length > 0) setSelectedOrder(filtered[0]);
+  }, [isWide, filtered, selectedOrder]);
+
+  // Keep selected order data in sync with live order updates
+  useEffect(() => {
+    if (selectedOrder) {
+      const updated = orders.find(o => o.id === selectedOrder.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedOrder)) {
+        setSelectedOrder(updated);
+      }
     }
-  }, [isWideScreen, filtered, selectedOrder]);
+  }, [orders, selectedOrder]);
 
   return (
     <div className={`rm-manager-root theme-${theme}`}>
-      {/* Incoming Order Flash Overlay */}
-      {newOrderAlert && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(200, 96, 10, 0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setNewOrderAlert(null)}>
-          <div style={{ background: "#FFFFFF", color: "#0F0800", borderRadius: 24, padding: 32, maxWidth: 440, width: "100%", textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+
+      {/* ── New Order Alert Overlay ── */}
+      {newAlert && (
+        <div className="rm-alert-overlay" onClick={() => { setSelectedOrder(newAlert); setNewAlert(null); }}>
+          <div className="rm-alert-card">
             <div style={{ fontSize: 48, marginBottom: 8 }}>🔔</div>
-            <h2 style={{ fontSize: 26, fontWeight: 800, color: "#C8600A", marginBottom: 4 }}>NEW ORDER RECEIVED!</h2>
-            <p style={{ fontSize: 20, fontWeight: 800, color: "#0F0800", marginBottom: 4 }}>{newOrderAlert.customerName || "Walk-in Guest"}</p>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: "#C8600A", marginBottom: 4 }}>NEW ORDER</h2>
+            <p style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{newAlert.customerName || "Guest"}</p>
             <p style={{ fontSize: 14, color: "#7A6855", marginBottom: 20 }}>
-              Order #{newOrderAlert.id?.slice(-6).toUpperCase()} • {newOrderAlert.items?.length || 0} items
+              {newAlert.items?.length || 0} items • ${Number(newAlert.total ?? 0).toFixed(2)}
             </p>
-            <button className="rm-btn-primary" style={{ background: "#C8600A", color: "#FFFFFF", width: "100%", height: 54, fontSize: 16 }}>
-              Acknowledge & View Order
+            <button
+              className="rm-btn-primary"
+              style={{ background: "#C8600A", color: "#FFF", width: "100%", minHeight: 52 }}
+            >
+              View Order
             </button>
           </div>
         </div>
       )}
 
-      {/* Header Bar */}
+      {/* ── Header Bar ── */}
       <header className="rm-header">
         <div className="rm-brand">
-          <img src="/logo/apsara-logo-256.png" alt="Rani Mahal Logo" className="rm-logo" />
+          <img src="/logo/apsara-logo-256.png" alt="Rani Mahal" className="rm-logo" />
           <div>
             <h1 className="rm-brand-title">Rani Mahal</h1>
             <p className="rm-brand-sub">Order Manager</p>
           </div>
         </div>
-
         <div className="rm-header-controls">
-          <button className="rm-theme-toggle" onClick={toggleTheme} title="Switch Ambient Theme (Day / Night)">
-            {theme === "dark" ? "🌙 Night" : "☀️ Day"}
-          </button>
-
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="rm-date-picker"
-          />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div className={`rm-status-dot ${error ? "offline" : "online"}`} />
             <span style={{ fontSize: 11, color: "var(--rm-text-muted)" }}>
-              {error ? "Offline" : lastRefresh.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              {error ? "Offline" : "Online"}
             </span>
           </div>
-
-          <button className="rm-icon-btn" onClick={() => load(true)} title="Refresh orders">
-            ↺
+          <button className="rm-theme-toggle" onClick={toggleTheme}>
+            {theme === "dark" ? "🌙 Night" : "☀️ Day"}
           </button>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rm-date-picker" />
+          <button className="rm-icon-btn" onClick={() => load(true)} title="Refresh">↺</button>
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* ── Main Container ── */}
       <div className="rm-container">
-        {/* Filter Pills Bar */}
-        <div className="rm-filter-bar" style={{ marginTop: 8 }}>
-          <button
-            className={`rm-filter-pill ${filter === "active" ? "active" : ""}`}
-            onClick={() => setFilter("active")}
-          >
-            Active ({newCount + inProgCount})
-            {newCount > 0 && <span className="rm-new-badge-pill">{newCount} NEW</span>}
-          </button>
-          <button
-            className={`rm-filter-pill ${filter === "done" ? "active" : ""}`}
-            onClick={() => setFilter("done")}
-          >
-            Done ({orders.filter(o => o.status === "done").length})
-          </button>
-          <button
-            className={`rm-filter-pill ${filter === "refunded" ? "active" : ""}`}
-            onClick={() => setFilter("refunded")}
-          >
-            Refunded ({refundedCount})
-          </button>
-          <button
-            className={`rm-filter-pill ${filter === "all" ? "active" : ""}`}
-            onClick={() => setFilter("all")}
-          >
-            All ({orders.length})
-          </button>
+
+        {/* Filter pills */}
+        <div className="rm-filter-bar">
+          {[
+            { key: "active",   label: "Active",   count: counts.active },
+            { key: "done",     label: "Done",      count: counts.done },
+            { key: "refunded", label: "Refunded",  count: counts.refunded },
+            { key: "all",      label: "All",       count: counts.all },
+          ].map(f => (
+            <button key={f.key} className={`rm-filter-pill ${filter === f.key ? "active" : ""}`} onClick={() => setFilter(f.key)}>
+              {f.label} ({f.count})
+              {f.key === "active" && counts.active > 0 && <span className="rm-new-badge-pill">{counts.active} NEW</span>}
+            </button>
+          ))}
         </div>
 
         {error && (
-          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 12, padding: "12px 16px", color: "#F87171", fontSize: 13, marginBottom: 14 }}>
-            ⚠ Connection alert: {error}
+          <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "10px 14px", color: "#F87171", fontSize: 13, marginBottom: 12 }}>
+            ⚠ Connection: {error}
           </div>
         )}
 
-        {/* Master-Detail Adaptive Split Pane vs Single Column Stack */}
-        <div className="rm-split-pane-layout">
-          {/* Left Column Queue Stream */}
-          <div className="rm-left-stream-col">
+        {/* ── Split-Pane Layout ── */}
+        <div className="rm-split-pane">
+
+          {/* LEFT RAIL: Compact queue cards */}
+          <div className="rm-left-rail">
             {loading && orders.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "var(--rm-text-muted)" }}>Loading orders...</div>
+              <div className="rm-empty">Loading orders...</div>
             ) : filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0", color: "var(--rm-text-muted)", background: "var(--rm-card-bg)", borderRadius: 20, border: "1px solid var(--rm-card-border)" }}>
-                {filter === "active" ? "✓ All clear! No active orders waiting." : "No orders match this filter."}
+              <div className="rm-empty">
+                {filter === "active" ? "✓ All clear — no active orders." : "No orders match this filter."}
               </div>
             ) : (
               <div className="rm-orders-stack">
@@ -313,53 +267,56 @@ export default function OrderManager() {
                     statusConfig={STATUS}
                     selected={selectedOrder?.id === order.id}
                     onSelectCard={setSelectedOrder}
-                    onStatusChange={handleStatusChange}
-                    onPrint={handlePrint}
                   />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Right Column Persistent Inspection Panel (on Landscape Tablets >=1024px) */}
-          {isWideScreen && selectedOrder && (
-            <div className="rm-right-detail-col">
+          {/* RIGHT PANE: Full ticket detail (visible on ≥1024px) */}
+          <div className="rm-right-pane">
+            {selectedOrder ? (
               <OrderDetailPanel
                 order={selectedOrder}
                 onClose={() => setSelectedOrder(null)}
-                onStatusChange={handleStatusChange}
+                onStatusChange={handleStatus}
                 onPrint={handlePrint}
-                onOpenRefund={orderToRefund => setRefundOrder(orderToRefund)}
+                onDelay={handleDelay}
+                onOpenRefund={o => setRefundOrder(o)}
                 statusInfo={STATUS[selectedOrder.status] ?? STATUS.new}
                 isPersistentPane={true}
               />
-            </div>
-          )}
+            ) : (
+              <div className="rm-persistent-panel">
+                <div className="rm-panel-empty">
+                  Select an order from the queue to view details.
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Slide-Over Drawer on Compact/Portrait Screens (<1024px) */}
-      {!isWideScreen && selectedOrder && (
+      {/* ── Slide-Over Drawer (< 1024px, tapping a card) ── */}
+      {!isWide && selectedOrder && (
         <OrderDetailPanel
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
-          onStatusChange={handleStatusChange}
+          onStatusChange={handleStatus}
           onPrint={handlePrint}
-          onOpenRefund={orderToRefund => setRefundOrder(orderToRefund)}
+          onDelay={handleDelay}
+          onOpenRefund={o => setRefundOrder(o)}
           statusInfo={STATUS[selectedOrder.status] ?? STATUS.new}
           isPersistentPane={false}
         />
       )}
 
-      {/* Streamlined Refund Modal (No dollar presets) */}
+      {/* ── Refund Modal ── */}
       {refundOrder && (
         <RefundModal
           order={refundOrder}
           onClose={() => setRefundOrder(null)}
-          onSuccess={() => {
-            setRefundOrder(null);
-            load(false);
-          }}
+          onSuccess={() => { setRefundOrder(null); load(false); }}
           apiFetch={apiFetch}
         />
       )}

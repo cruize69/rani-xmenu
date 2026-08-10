@@ -1,199 +1,77 @@
-// OrderCard.jsx — Rani Mahal tablet order card
+// OrderCard.jsx — Compact left-rail queue card
+// Matches wireframe: status dot + timer + ID + badge → name → items • total
+// ALL detail (items, phone, address, allergy) lives in the right panel only.
 
 import { useMemo } from "react";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
-// Utility: Format phone numbers cleanly as (XXX) XXX-XXXX
+// Format phone as (XXX) XXX-XXXX
 export function formatPhoneNumber(str) {
   if (!str) return null;
   const digits = str.replace(/\D/g, "");
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  }
-  return str; // Return raw if non-standard length
+  if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`;
+  return str;
 }
 
-// Utility: Check if special instructions contain allergy flags
-function checkAllergies(notes) {
-  if (!notes) return null;
-  const lower = notes.toLowerCase();
-  const keywords = ["allergy", "allergies", "nut", "peanut", "dairy", "gluten", "vegan", "celiac"];
-  const matched = keywords.filter(k => lower.includes(k));
-  return matched.length > 0 ? notes : null;
+// SLA timer color: green > amber > red
+function timerColor(mins) {
+  if (mins <= 8) return "#34D399";   // green — on pace
+  if (mins <= 15) return "#F59E0B";  // amber — attention
+  return "#EF4444";                  // red   — overdue
 }
 
-export default function OrderCard({ order, statusConfig, selected, onSelectCard, onStatusChange, onPrint }) {
+export default function OrderCard({ order, statusConfig, selected, onSelectCard }) {
   const s = statusConfig[order.status] ?? statusConfig.new;
 
   const shortId = useMemo(() => {
     return order.id ? "#" + order.id.slice(-6).toUpperCase() : "#------";
   }, [order.id]);
 
-  const elapsedTime = useMemo(() => {
-    if (!order.createdAt) return "";
+  const elapsed = useMemo(() => {
+    if (!order.createdAt) return { text: "0m", mins: 0 };
     const mins = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000));
-    if (mins === 0) return "Just now";
-    return `${mins} min ago`;
+    return { text: `${mins}m`, mins };
   }, [order.createdAt]);
 
   const isDelivery = order.orderMode === "delivery";
-  const formattedPhone = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
-  const allergyNote = useMemo(() => checkAllergies(order.specialInstructions), [order.specialInstructions]);
-
-  const addressLine = useMemo(() => {
-    if (!isDelivery || !order.deliveryAddress) return null;
-    const { street, apt, city, zip } = order.deliveryAddress;
-    return `${street}${apt ? `, Apt ${apt}` : ""}${city ? `, ${city}` : ""}${zip ? ` ${zip}` : ""}`;
-  }, [isDelivery, order.deliveryAddress]);
-
-  const handleQuickStatus = (e) => {
-    e.stopPropagation();
-    if (s.next) {
-      onStatusChange(order.id, s.next);
-    }
-  };
-
-  const handleQuickPrint = (e) => {
-    e.stopPropagation();
-    onPrint(order.id);
-  };
-
-  const borderStyle = useMemo(() => {
-    if (selected) return { borderColor: "var(--rm-gold-primary)", boxShadow: "0 0 20px var(--rm-gold-glow)" };
-    if (order.status === "new") return { boxShadow: "0 0 16px rgba(249, 138, 50, 0.25)", borderColor: "rgba(249, 138, 50, 0.4)" };
-    if (order.status === "done") return { boxShadow: "0 0 16px rgba(52, 211, 153, 0.25)", borderColor: "rgba(52, 211, 153, 0.4)" };
-    return {};
-  }, [selected, order.status]);
+  const itemCount = order.items?.length || 0;
 
   return (
-    <div className={`rm-card ${selected ? "selected" : ""}`} style={borderStyle} onClick={() => onSelectCard(order)}>
-      {/* Left status color stripe */}
-      <div className="rm-card-left-stripe" style={{ backgroundColor: s.color }} />
+    <div
+      className={`rm-queue-card ${selected ? "rm-queue-card--selected" : ""}`}
+      onClick={() => onSelectCard(order)}
+      role="button"
+      tabIndex={0}
+    >
+      {/* Left status stripe */}
+      <div className="rm-queue-stripe" style={{ backgroundColor: s.color }} />
 
-      <div>
-        {/* Top Header Row: 24pt Bold Customer Name + Clean Badge (ONLY Pickup or Delivery) */}
-        <div className="rm-card-header">
-          <div>
-            <h2 className="rm-customer-name">{order.customerName || "Walk-in Guest"}</h2>
-            
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-              <span className="rm-order-id-sub">{shortId}</span>
-              <span className="rm-time-elapsed">⏱ {elapsedTime}</span>
-            </div>
-            
-            {/* Phone & Address row (Clean spacing, formatted phone) */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
-              {addressLine && (
-                <div style={{ fontSize: 13, color: "#E8A82E", background: "rgba(200, 133, 58, 0.14)", padding: "4px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid rgba(200, 133, 58, 0.3)", fontWeight: 600 }}>
-                  <span>📍</span>
-                  <span>{addressLine}</span>
-                </div>
-              )}
-              
-              {formattedPhone && (
-                <span style={{ fontSize: 13, color: "var(--rm-text-muted)", fontWeight: 700, letterSpacing: "0.02em" }}>
-                  📞 {formattedPhone}
-                </span>
-              )}
-            </div>
-          </div>
-          
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            {/* Clean Fulfillment Badges (ONLY 2 modes: DELIVERY or PICKUP) */}
-            <span className={`rm-fulfillment-badge ${isDelivery ? "delivery" : "pickup"}`}>
-              {isDelivery ? "🚗 DELIVERY" : "🛍️ PICKUP"}
-            </span>
-            
-            {!order.printed && order.status !== "refunded" && (
-              <span className="rm-unprinted-tag">UNPRINTED</span>
-            )}
-          </div>
+      {/* Row 1: Status dot + timer + order ID + fulfillment badge */}
+      <div className="rm-queue-row1">
+        <div className="rm-queue-status-group">
+          <span className="rm-queue-status-dot" style={{ backgroundColor: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+          <span className="rm-queue-status-label" style={{ color: s.color }}>{s.label?.toUpperCase()}</span>
+          <span className="rm-queue-timer" style={{ color: timerColor(elapsed.mins) }}>({elapsed.text})</span>
+          <span className="rm-queue-id">{shortId}</span>
         </div>
-
-        {/* Allergy Warning Banner if detected */}
-        {allergyNote && (
-          <div className="rm-allergy-banner">
-            <span>⚠️</span>
-            <span>ALLERGY ALERT: "{allergyNote}"</span>
-          </div>
-        )}
-
-        {/* Inset Structured Items Box */}
-        <div className="rm-card-items-box">
-          {order.items?.map((item, idx) => (
-            <div key={idx} className="rm-card-item-row">
-              <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-                <span className="rm-card-qty">{item.qty}</span>
-                <span className="rm-card-item-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.name}
-                </span>
-                
-                {/* Spice Badges */}
-                {item.spice && (
-                  <span className={`rm-spice-badge ${
-                    item.spice.toLowerCase().includes("mild") ? "rm-spice-mild" :
-                    item.spice.toLowerCase().includes("medium") ? "rm-spice-medium" :
-                    item.spice.toLowerCase().includes("hot") ? "rm-spice-hot" : "rm-spice-spicy"
-                  }`}>
-                    🌶 {item.spice}
-                  </span>
-                )}
-              </div>
-              <span className="rm-card-item-price">{fmt(item.price * item.qty)}</span>
-            </div>
-          ))}
-
-          {/* Kitchen instructions callout if present */}
-          {order.specialInstructions && !allergyNote && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(200,133,58,0.2)", fontSize: 13, color: "#E8A82E", fontStyle: "italic", fontWeight: 600 }}>
-              Note: "{order.specialInstructions}"
-            </div>
-          )}
-        </div>
+        <span className={`rm-queue-badge ${isDelivery ? "rm-queue-badge--delivery" : "rm-queue-badge--pickup"}`}>
+          {isDelivery ? "DELIVERY" : "PICKUP"}
+        </span>
       </div>
 
-      {/* Card Footer Bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--rm-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Total:</span>
-          <span style={{ fontSize: 22, fontWeight: 800, color: "var(--rm-text-title)" }}>{fmt(order.total)}</span>
-          {order.refundedTotal > 0 && (
-            <span style={{ color: "#F87171", fontSize: 12, fontWeight: 700 }}>
-              ({order.refundedTotal >= order.total - 0.01 ? "Refunded" : `−${fmt(order.refundedTotal)}`})
-            </span>
-          )}
-        </div>
+      {/* Row 2: Customer name — large & bold */}
+      <div className="rm-queue-name">{order.customerName || "Walk-in Guest"}</div>
 
-        <div className="rm-card-actions" onClick={e => e.stopPropagation()}>
-          <button
-            className="rm-btn-outline"
-            onClick={handleQuickPrint}
-            title="Print receipt"
-          >
-            🖨 {order.printed ? "Reprint" : "Print"}
-          </button>
-
-          <button
-            className="rm-btn-outline"
-            onClick={() => onSelectCard(order)}
-          >
-            Details
-          </button>
-
-          {s.next && (
-            <button
-              className="rm-btn-primary"
-              style={{ background: s.nextColor || "#1A6B3A", color: "#FFFFFF" }}
-              onClick={handleQuickStatus}
-            >
-              ✓ {s.nextLabel}
-            </button>
-          )}
-        </div>
+      {/* Row 3: Item count + total */}
+      <div className="rm-queue-row3">
+        <span className="rm-queue-meta">
+          {itemCount} {itemCount === 1 ? "item" : "items"} • {fmt(order.total)}
+        </span>
+        {!order.printed && order.status !== "refunded" && (
+          <span className="rm-queue-unprinted">UNPRINTED</span>
+        )}
       </div>
     </div>
   );
