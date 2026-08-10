@@ -1,48 +1,45 @@
-// OrderDetailPanel.jsx — Full ticket inspection panel (right pane / slide-over drawer)
-// This is where ALL detail lives: fulfillment badge, customer, phone, SLA timer,
-// address, allergy alerts, full itemized list, financials, action bar.
+// OrderDetailPanel.jsx — Full ticket inspection panel
+// Layout: rm-detail-wrap (scrollable content) + rm-action-bar (sticky bottom)
+// Used as persistent right pane (isPersistentPane=true) or slide-over drawer (false)
 
 import { useState, useMemo } from "react";
 import { formatPhoneNumber } from "./OrderCard.jsx";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
-// Check special instructions for allergy keywords
 function detectAllergy(notes) {
-  if (!notes) return null;
-  const lower = notes.toLowerCase();
-  const kws = ["allergy", "allergies", "allergen", "nut", "peanut", "dairy", "gluten", "vegan", "celiac", "lactose", "shellfish", "soy"];
-  return kws.some(k => lower.includes(k)) ? notes : null;
+  if (!notes) return false;
+  const kws = ["allergy", "allergen", "nut", "peanut", "dairy", "gluten", "vegan", "celiac", "lactose", "shellfish", "soy"];
+  return kws.some(k => notes.toLowerCase().includes(k));
 }
 
-// SLA timer helper
 function slaInfo(createdAt) {
-  if (!createdAt) return { text: "—", mins: 0, color: "#34D399" };
+  if (!createdAt) return { text: "—", mins: 0, color: "#22C55E" };
   const mins = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
-  const color = mins <= 8 ? "#34D399" : mins <= 15 ? "#F59E0B" : "#EF4444";
+  const color = mins <= 8 ? "#22C55E" : mins <= 15 ? "#F59E0B" : "#EF4444";
   return { text: `${mins} min elapsed`, mins, color };
 }
 
-export default function OrderDetailPanel({ order, onClose, onStatusChange, onPrint, onOpenRefund, onDelay, statusInfo, isPersistentPane = false }) {
+function spiceClass(spice) {
+  const s = spice?.toLowerCase() ?? "";
+  if (s.includes("hot") || s.includes("desi")) return "hot";
+  if (s.includes("spicy"))  return "spicy";
+  if (s.includes("medium")) return "medium";
+  return "mild";
+}
+
+export default function OrderDetailPanel({
+  order, onClose, onStatusChange, onPrint, onDelay, onOpenRefund, statusInfo, isPersistentPane = false
+}) {
   const [updating, setUpdating] = useState(false);
   const s = statusInfo;
 
-  const shortId = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
+  const shortId    = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
   const isDelivery = order.orderMode === "delivery";
-  const phone = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
-  const sla = useMemo(() => slaInfo(order.createdAt), [order.createdAt]);
-  const allergyNote = useMemo(() => detectAllergy(order.specialInstructions), [order.specialInstructions]);
-  const canRefund = order.stripePaymentId && order.status !== "refunded";
-
-  const handleStatus = async () => {
-    if (!s?.next || updating) return;
-    setUpdating(true);
-    try { await onStatusChange(order.id, s.next); } finally { setUpdating(false); }
-  };
-
-  const handleDelay = (minutes) => {
-    if (onDelay) onDelay(order.id, minutes);
-  };
+  const phone      = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
+  const sla        = useMemo(() => slaInfo(order.createdAt), [order.createdAt]);
+  const hasAllergy = useMemo(() => detectAllergy(order.specialInstructions), [order.specialInstructions]);
+  const canRefund  = order.stripePaymentId && order.status !== "refunded";
 
   const addressLine = useMemo(() => {
     if (!isDelivery || !order.deliveryAddress) return null;
@@ -50,37 +47,44 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onPri
     return `${a.street}${a.apt ? `, Apt ${a.apt}` : ""}${a.city ? `, ${a.city}` : ""}${a.zip ? ` ${a.zip}` : ""}`;
   }, [isDelivery, order.deliveryAddress]);
 
-  const content = (
-    <div className="rm-detail">
-      {/* Top: Fulfillment badge + Order ID */}
+  const handleStatus = async () => {
+    if (!s?.next || updating) return;
+    setUpdating(true);
+    try { await onStatusChange(order.id, s.next); } finally { setUpdating(false); }
+  };
+
+  // The scrollable content section
+  const scrollContent = (
+    <div className="rm-detail-wrap">
+      {/* Top bar: fulfillment badge + order ID + close (drawer mode) */}
       <div className="rm-detail-topbar">
-        <span className={`rm-fulfillment-badge ${isDelivery ? "delivery" : "pickup"}`}>
+        <span className={`rm-detail-badge ${isDelivery ? "delivery" : "pickup"}`}>
           {isDelivery ? "🚗 DELIVERY" : "🛍️ PICKUP"}
         </span>
-        <span className="rm-detail-id">{shortId}</span>
+        <span className="rm-detail-order-id">{shortId}</span>
         {!isPersistentPane && (
-          <button className="rm-detail-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="rm-detail-close" onClick={onClose}>✕</button>
         )}
       </div>
 
-      {/* Customer name — 24pt bold anchor */}
+      {/* Customer name — 26pt bold anchor */}
       <h2 className="rm-detail-customer">{order.customerName || "Walk-in Guest"}</h2>
 
-      {/* Phone — formatted (XXX) XXX-XXXX with generous spacing */}
-      {phone && (
-        <a href={`tel:${order.customerPhone}`} className="rm-detail-phone">
-          📞&nbsp;&nbsp;{phone}
-        </a>
-      )}
+      {/* Contact details */}
+      <div className="rm-detail-contact">
+        {phone && (
+          <a href={`tel:${order.customerPhone}`} className="rm-detail-phone">
+            📞&nbsp;&nbsp;{phone}
+          </a>
+        )}
+        {order.customerEmail && (
+          <a href={`mailto:${order.customerEmail}`} className="rm-detail-email">
+            ✉&nbsp;&nbsp;{order.customerEmail}
+          </a>
+        )}
+      </div>
 
-      {/* Email */}
-      {order.customerEmail && (
-        <a href={`mailto:${order.customerEmail}`} className="rm-detail-email">
-          ✉&nbsp;&nbsp;{order.customerEmail}
-        </a>
-      )}
-
-      {/* SLA Timer */}
+      {/* SLA timer */}
       <div className="rm-detail-sla" style={{ color: sla.color }}>
         ⏱&nbsp;&nbsp;{sla.text}
       </div>
@@ -88,25 +92,24 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onPri
       {/* Delivery address */}
       {addressLine && (
         <div className="rm-detail-address">
-          📍&nbsp;&nbsp;{addressLine}
+          <span>📍</span>
+          <span>{addressLine}</span>
         </div>
       )}
-
-      {/* Driver notes */}
       {isDelivery && order.deliveryAddress?.notes && (
         <div className="rm-detail-driver-note">
-          🚗 Driver Note: "{order.deliveryAddress.notes}"
+          🚗 Driver note: "{order.deliveryAddress.notes}"
         </div>
       )}
 
       <hr className="rm-detail-divider" />
 
-      {/* Allergy alert banner */}
-      {allergyNote && (
+      {/* Allergy alert */}
+      {hasAllergy && (
         <>
           <div className="rm-allergy-banner">
             <span>⚠️</span>
-            <span>ALLERGY ALERT: {allergyNote}</span>
+            <span>ALLERGY ALERT — {order.specialInstructions}</span>
           </div>
           <hr className="rm-detail-divider" />
         </>
@@ -115,31 +118,27 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onPri
       {/* Itemized order list */}
       <div className="rm-detail-items">
         {order.items?.map((item, idx) => (
-          <div key={idx} className="rm-detail-item-row">
-            <div className="rm-detail-item-left">
-              <span className="rm-detail-qty">{item.qty}×</span>
-              <div className="rm-detail-item-info">
-                <span className="rm-detail-item-name">{item.name}</span>
+          <div key={idx} className="rm-item-row">
+            <div className="rm-item-left">
+              <span className="rm-item-qty">{item.qty}×</span>
+              <div className="rm-item-info">
+                <span className="rm-item-name">{item.name}</span>
                 {item.spice && (
-                  <span className={`rm-spice-chip ${
-                    item.spice.toLowerCase().includes("mild") ? "rm-spice-mild" :
-                    item.spice.toLowerCase().includes("medium") ? "rm-spice-medium" :
-                    item.spice.toLowerCase().includes("hot") ? "rm-spice-hot" : "rm-spice-spicy"
-                  }`}>
+                  <span className={`rm-spice ${spiceClass(item.spice)}`}>
                     🌶 {item.spice}
                   </span>
                 )}
-                {item.note && <div className="rm-detail-item-mod">↳ {item.note}</div>}
+                {item.note && <div className="rm-item-mod">↳ {item.note}</div>}
               </div>
             </div>
-            <span className="rm-detail-item-price">{fmt(item.price * item.qty)}</span>
+            <span className="rm-item-price">{fmt(item.price * item.qty)}</span>
           </div>
         ))}
       </div>
 
-      {/* Special instructions (non-allergy) */}
-      {order.specialInstructions && !allergyNote && (
-        <div className="rm-detail-note-box">
+      {/* Kitchen note (non-allergy) */}
+      {order.specialInstructions && !hasAllergy && (
+        <div className="rm-note-box">
           📝 "{order.specialInstructions}"
         </div>
       )}
@@ -147,23 +146,18 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onPri
       <hr className="rm-detail-divider" />
 
       {/* Financial summary */}
-      <div className="rm-detail-financials">
-        <div className="rm-detail-fin-row">
-          <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
-        </div>
+      <div className="rm-financials">
+        <div className="rm-fin-row"><span>Subtotal</span><span>{fmt(order.subtotal)}</span></div>
         {isDelivery && (
-          <div className="rm-detail-fin-row">
-            <span>Delivery Fee</span><span>{order.deliveryFee > 0 ? fmt(order.deliveryFee) : "FREE"}</span>
+          <div className="rm-fin-row">
+            <span>Delivery Fee</span>
+            <span>{order.deliveryFee > 0 ? fmt(order.deliveryFee) : "FREE"}</span>
           </div>
         )}
-        <div className="rm-detail-fin-row">
-          <span>Tax (8.375%)</span><span>{fmt(order.tax)}</span>
-        </div>
-        <div className="rm-detail-fin-total">
-          <span>Total</span><span>{fmt(order.total)}</span>
-        </div>
+        <div className="rm-fin-row"><span>Tax (8.375%)</span><span>{fmt(order.tax)}</span></div>
+        <div className="rm-fin-total"><span>Total</span><span>{fmt(order.total)}</span></div>
         {order.refundedTotal > 0 && (
-          <div className="rm-detail-fin-row" style={{ color: "#F87171", marginTop: 6 }}>
+          <div className="rm-fin-row" style={{ color: "#FCA5A5", marginTop: 6 }}>
             <span>Refunded</span><span>−{fmt(order.refundedTotal)}</span>
           </div>
         )}
@@ -171,56 +165,66 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onPri
 
       {/* Refund audit trail */}
       {order.refundHistory?.length > 0 && (
-        <div className="rm-detail-refund-log">
-          <p className="rm-detail-refund-log-title">Refund Audit Trail</p>
+        <div className="rm-refund-log">
+          <p className="rm-refund-log-title">Refund Audit Trail</p>
           {order.refundHistory.map((r, i) => (
-            <div key={i} className="rm-detail-refund-log-entry">
-              {r.success ? "✓" : "✗"} {r.type} • {fmt(r.amount)} • {r.reason || "—"}
+            <div key={i} className="rm-refund-log-entry">
+              {r.success ? "✓" : "✗"} {r.type} · {fmt(r.amount)} · {r.reason || "—"}
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
 
-      <hr className="rm-detail-divider" />
-
-      {/* ACTION BAR — matches wireframe: [+5m Delay] [🖨 PRINT] [✓ STATUS] */}
-      <div className="rm-detail-actions">
-        {s?.next && (
-          <>
-            <button className="rm-action-chip" onClick={() => handleDelay(5)}>+5m</button>
-            <button className="rm-action-chip" onClick={() => handleDelay(10)}>+10m</button>
-          </>
-        )}
-        <button className="rm-action-btn rm-action-btn--secondary" onClick={() => onPrint(order.id)}>
-          🖨 {order.printed ? "REPRINT" : "PRINT"}
+  // The sticky action bar
+  const actionBar = (
+    <div className="rm-action-bar">
+      {s?.next && (
+        <>
+          <button className="rm-action-chip" onClick={() => onDelay?.(order.id, 5)}>+5m</button>
+          <button className="rm-action-chip" onClick={() => onDelay?.(order.id, 10)}>+10m</button>
+        </>
+      )}
+      <button
+        className="rm-action-btn secondary"
+        onClick={() => onPrint(order.id)}
+      >
+        🖨 {order.printed ? "REPRINT" : "PRINT"}
+      </button>
+      {canRefund && (
+        <button className="rm-action-btn danger" onClick={() => onOpenRefund(order)}>
+          ↩ REFUND
         </button>
-        {canRefund && (
-          <button className="rm-action-btn rm-action-btn--ghost" onClick={() => onOpenRefund(order)}>
-            ↩ REFUND
-          </button>
-        )}
-        {s?.next && (
-          <button
-            className="rm-action-btn rm-action-btn--primary"
-            style={{ background: s.nextColor || "#1A6B3A" }}
-            onClick={handleStatus}
-            disabled={updating}
-          >
-            {updating ? "..." : `✓ ${s.nextLabel?.toUpperCase()}`}
-          </button>
-        )}
-      </div>
+      )}
+      {s?.next && (
+        <button
+          className="rm-action-btn primary"
+          style={{ background: s.nextColor || "#16A34A" }}
+          onClick={handleStatus}
+          disabled={updating}
+        >
+          {updating ? "…" : `✓ ${s.nextLabel?.toUpperCase()}`}
+        </button>
+      )}
     </div>
   );
 
   if (isPersistentPane) {
-    return <div className="rm-persistent-panel">{content}</div>;
+    // Right pane: scrollable content + sticky action bar at bottom
+    return (
+      <>
+        {scrollContent}
+        {actionBar}
+      </>
+    );
   }
 
-  // Slide-over drawer for compact / portrait screens
+  // Drawer: internal scroll + sticky bottom action bar
   return (
-    <div className="rm-drawer-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="rm-drawer">{content}</div>
-    </div>
+    <>
+      <div className="rm-drawer-scroll">{scrollContent}</div>
+      {actionBar}
+    </>
   );
 }
