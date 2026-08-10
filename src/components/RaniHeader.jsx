@@ -21,9 +21,39 @@ export function RaniHeader({
     <div style={{ maxWidth:1100, margin:"0 auto" }}>
       {/* Top section — name/info row + fulfillment pill, together above the gold line */}
       <div style={{ borderBottom:"1.5px solid #E8A82E" }}>
-        {/* Name + info row */}
-        <div style={{ padding:"12px 20px 10px", display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:16 }}>
-          {/* Left — logo emblem + name/tagline stacked */}
+        {/* Name + info row — logo/name centered, Account floats as a corner
+            chip so the centered block stays balanced at any width instead
+            of needing a left/right split. */}
+        <div style={{ position:"relative", padding:"14px 56px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:16 }}>
+          {/* Account / Sign In Chip — top-right corner, icon-only so it stays
+              out of the centered logo/name's way at any width */}
+          <button onClick={() => setView("account")} aria-label="Account & orders"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 16,
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "rgba(232,168,46,0.10)",
+              border: "1px solid rgba(232,168,46,0.30)",
+              color: "#E8A82E",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E8A82E"; e.currentTarget.style.background = "rgba(232,168,46,0.18)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(232,168,46,0.30)"; e.currentTarget.style.background = "rgba(232,168,46,0.10)"; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+            </svg>
+          </button>
+
+          {/* Centered — logo emblem + name/tagline stacked */}
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <img
               src="/logo/apsara-logo.png"
@@ -43,34 +73,6 @@ export function RaniHeader({
                 Fine Indian Cuisine
               </p>
             </div>
-          </div>
-
-          {/* Right action — Account / Sign In Chip */}
-          <div>
-            <button onClick={() => setView("account")} aria-label="Account & orders"
-              style={{
-                padding: "7px 15px",
-                borderRadius: 20,
-                background: "rgba(232,168,46,0.10)",
-                border: "1px solid rgba(232,168,46,0.30)",
-                color: "#E8A82E",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#E8A82E"; e.currentTarget.style.background = "rgba(232,168,46,0.18)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(232,168,46,0.30)"; e.currentTarget.style.background = "rgba(232,168,46,0.10)"; }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-              </svg>
-              <span>Account</span>
-            </button>
           </div>
         </div>
 
