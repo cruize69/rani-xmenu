@@ -279,7 +279,7 @@ function AccountPortalPage({
               Sign In to View Your Orders
             </h2>
             <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
-              Create a free account in one tap to save your order history, favorites & reorder instantly. Checking out as a guest? You'll still get an email confirmation with live order tracking — no account required for that.
+              One tap saves your history, favorites & 1-tap reorders. Guests still get email tracking — no account needed.
             </p>
           </div>
 
