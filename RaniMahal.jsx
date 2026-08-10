@@ -352,8 +352,6 @@ export default function RaniMahal() {
   if (view === "account") {
     return (
       <AccountPortal
-        guestEmail={guestEmail}
-        setGuestEmail={setGuestEmail}
         onStartOrder={() => setView("menu")}
         onReorder={reorderFromOrder}
         onQuickAdd={quickAddFavorite}
@@ -420,7 +418,6 @@ export default function RaniMahal() {
           setGuestEmail={(email) => { setGuestEmail(email); saveGuestEmail(email); }}
           onCancel={() => { setShowCheckoutGate(false); setDrawerOpen(true); }}
           onGuestIdentified={email => { setGuestEmail(email); saveGuestEmail(email); }}
-          onViewAccount={() => { setShowCheckoutGate(false); setView("account"); }}
         />
       )}
 

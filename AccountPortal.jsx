@@ -194,8 +194,6 @@ function OrderCard({ order, onReorder, cloudImages }) {
 
 // ── Primary Account Portal Page Component ──────────────────────────
 function AccountPortalPage({
-  guestEmail,
-  setGuestEmail,
   onStartOrder,
   onReorder,
   cloudImages,
@@ -204,29 +202,25 @@ function AccountPortalPage({
   signOut,
   openSignIn,
 }) {
-  const [tab, setTab] = useState("history");
   const [profile, setProfile] = useState(null);
-  const [searchedEmail, setSearchedEmail] = useState(guestEmail || "");
-  const [searchCount, setSearchCount] = useState(0);
-  const [status, setStatus] = useState(() => (searchedEmail || guestEmail || isSignedIn ? "loading" : "signed-out"));
+  const [status, setStatus] = useState(() => (isSignedIn ? "loading" : "signed-out"));
 
+  // Order history is only ever shown for a verified signed-in account — a
+  // bare guest email is not proof of identity, so there's no server-side
+  // lookup-by-email path anymore (see api/account/profile.js). Guests still
+  // get their order confirmation email with a live tracking link; they just
+  // don't get a browsable history without creating an account.
   useEffect(() => {
     let active = true;
 
     async function loadAccount() {
-      const token = isSignedIn ? await getToken() : null;
-      const targetEmail = (searchedEmail || guestEmail || "").trim();
+      if (!isSignedIn) { if (active) setStatus("signed-out"); return; }
+      const token = await getToken();
+      if (!token) { if (active) setStatus("signed-out"); return; }
 
-      if (!token && !targetEmail) {
-        if (active) setStatus("signed-out");
-        return;
-      }
-
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const url = token ? "/api/account/profile" : `/api/account/profile?email=${encodeURIComponent(targetEmail)}`;
-
-      const fetchPromise = fetch(url, { headers });
+      const fetchPromise = fetch("/api/account/profile", {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 1500));
 
       try {
@@ -239,13 +233,13 @@ function AccountPortalPage({
           }
         } else {
           if (active) {
-            setProfile({ profile: { email: targetEmail }, orders: [], favorites: [] });
+            setProfile({ profile: {}, orders: [], favorites: [] });
             setStatus("not-found");
           }
         }
       } catch {
         if (active) {
-          setProfile({ profile: { email: targetEmail }, orders: [], favorites: [] });
+          setProfile({ profile: {}, orders: [], favorites: [] });
           setStatus("not-found");
         }
       }
@@ -253,17 +247,9 @@ function AccountPortalPage({
 
     loadAccount();
     return () => { active = false; };
-  }, [guestEmail, searchedEmail, isSignedIn, searchCount, getToken]);
+  }, [isSignedIn, getToken]);
 
-  const handleResetLookup = () => {
-    setSearchedEmail("");
-    setGuestEmail?.("");
-    localStorage.removeItem("rani_guest_email");
-    setProfile(null);
-    setStatus("signed-out");
-  };
-
-  const activeEmail = searchedEmail || guestEmail || "";
+  const activeEmail = profile?.profile?.email || "";
 
   // ── 1. Loading Spinner View ──────────────────────────────────────
   if (status === "loading") {
@@ -276,87 +262,29 @@ function AccountPortalPage({
     );
   }
 
-  // ── 2. Signed Out / Search Form / Not Found Card ───────────────
-  if (status === "signed-out" || status === "not-found" || !profile || !profile.orders?.length) {
-    const isNotFound = status === "not-found";
-
+  // ── 2. Signed Out — accounts only, no guest email lookup ───────
+  if (status === "signed-out") {
     return (
       <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
         <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
-        
+
         <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}>
-          {/* Card Header Icon & Heading */}
           <div style={{ textAlign: "center", marginBottom: 22 }}>
             <img
               src="/logo/apsara-logo.png"
               alt="Rani Mahal Logo"
-              style={{
-                width: 68,
-                height: 68,
-                objectFit: "contain",
-                margin: "0 auto 14px",
-                display: "block",
-              }}
+              style={{ width: 68, height: 68, objectFit: "contain", margin: "0 auto 14px", display: "block" }}
             />
             <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
-              {isNotFound ? "Welcome New Guest" : "Welcome to Rani Mahal"}
+              Sign In to View Your Orders
             </h2>
             <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
-              {isNotFound
-                ? `No past order history found for "${activeEmail}". You can start an order as a new guest or try another email below!`
-                : "Sign in or enter your email to view past orders, save favorites & reorder in 1 tap."}
+              Create a free account in one tap to save your order history, favorites & reorder instantly. Checking out as a guest? You'll still get an email confirmation with live order tracking — no account required for that.
             </p>
           </div>
 
-          {/* Primary Actions when No Orders Found */}
-          {isNotFound && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, marginBottom: 20 }}>
-              <button
-                onClick={onStartOrder}
-                style={{
-                  padding: "11px 24px",
-                  background: "#E8A82E",
-                  color: "#080706",
-                  border: "none",
-                  borderRadius: 24,
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "'Inter',sans-serif",
-                  boxShadow: "0 4px 14px rgba(232,168,46,0.25)",
-                  transition: "transform 0.15s ease, opacity 0.15s ease",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
-                onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-              >
-                Continue as Guest ({activeEmail.split("@")[0] || "Guest"}) →
-              </button>
-
-              <button
-                onClick={handleResetLookup}
-                style={{
-                  background: "transparent",
-                  color: "#B8A995",
-                  border: "none",
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  fontFamily: "'Inter',sans-serif",
-                  textDecoration: "underline",
-                }}
-              >
-                ← Try Another Email
-              </button>
-            </div>
-          )}
-
-          {/* Clerk Account Sign-In Option */}
-          {openSignIn && !isNotFound && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 18 }}>
+          {openSignIn && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
               <button
                 onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })}
                 style={{
@@ -380,53 +308,50 @@ function AccountPortalPage({
               >
                 <span>🔑 Sign In / Create Account</span>
               </button>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", margin: "18px 0 14px" }}>
-                <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
-                <span style={{ fontSize: 11, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  or email lookup
-                </span>
-                <div style={{ flex: 1, height: 0.5, background: "rgba(250,246,239,0.1)" }} />
-              </div>
             </div>
           )}
 
-          {/* Email Order Lookup Form */}
-          {!isNotFound && (
-            <form onSubmit={e => {
-              e.preventDefault();
-              const val = e.target.email.value.trim();
-              if (val && val.includes("@")) {
-                localStorage.setItem("rani_guest_email", val);
-                setGuestEmail?.(val);
-                setSearchedEmail(val);
-                setSearchCount(c => c + 1);
-                setStatus("loading");
-              }
-            }}>
-              <label style={S.label}>Lookup Past Orders by Email</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  name="email"
-                  type="email"
-                  placeholder="you@email.com"
-                  style={{ ...S.input, flex: 1 }}
-                  defaultValue={activeEmail}
-                  required
-                />
-                <button type="submit" style={{ padding: "10px 16px", background: "rgba(232,168,46,0.14)", border: "1px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-                  Lookup →
-                </button>
-              </div>
-            </form>
-          )}
+          <div style={{ marginTop: 12, textAlign: "center" }}>
+            <button onClick={onStartOrder} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer" }}>
+              ← Return to Menu
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          {!isNotFound && (
-            <div style={{ marginTop: 12, textAlign: "center" }}>
-              <button onClick={onStartOrder} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer" }}>
-                ← Return to Menu
+  // ── 2b. Signed in, but no orders yet ────────────────────────────
+  if (status === "not-found" || !profile || !profile.orders?.length) {
+    return (
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", fontFamily: "'Inter',sans-serif" }}>
+        <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
+
+        <div style={{ ...S.card, maxWidth: 420, width: "100%", padding: "2.25rem 1.75rem", marginBottom: 0, boxShadow: "0 20px 50px rgba(0,0,0,0.6)", textAlign: "center" }}>
+          <img
+            src="/logo/apsara-logo.png"
+            alt="Rani Mahal Logo"
+            style={{ width: 68, height: 68, objectFit: "contain", margin: "0 auto 14px", display: "block" }}
+          />
+          <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
+            No Orders Yet
+          </h2>
+          <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, marginBottom: 22, lineHeight: 1.55 }}>
+            Once you place your first order, it'll show up here.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+            <button
+              onClick={onStartOrder}
+              style={{ padding: "11px 24px", background: "#E8A82E", color: "#080706", border: "none", borderRadius: 24, fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif", boxShadow: "0 4px 14px rgba(232,168,46,0.25)" }}
+            >
+              Start an Order →
+            </button>
+            {isSignedIn && (
+              <button onClick={() => signOut()} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 12.5, cursor: "pointer" }}>
+                🚪 Log Out
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     );
@@ -491,8 +416,8 @@ function AccountPortalPage({
                 <p style={{ fontSize: 15, fontWeight: 600, color: "#FAF6EF", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {profile.profile?.name ?? activeEmail}
                 </p>
-                <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: isSignedIn ? "rgba(127,190,107,0.14)" : "rgba(232,168,46,0.12)", color: isSignedIn ? "#9CD684" : "#E8A82E", border: `0.5px solid ${isSignedIn ? "rgba(127,190,107,0.3)" : "rgba(232,168,46,0.3)"}` }}>
-                  {isSignedIn ? "✓ Account Verified" : "Guest History"}
+                <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 12, background: "rgba(127,190,107,0.14)", color: "#9CD684", border: "0.5px solid rgba(127,190,107,0.3)" }}>
+                  ✓ Account Verified
                 </span>
               </div>
               <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2, margin: 0 }}>
@@ -502,19 +427,13 @@ function AccountPortalPage({
           </div>
 
           <div style={{ flexShrink: 0 }}>
-            {isSignedIn ? (
-              <button onClick={() => signOut()} style={{ padding: "7px 13px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                🚪 Log Out
-              </button>
-            ) : (
-              <button onClick={handleResetLookup} style={{ padding: "7px 13px", background: "rgba(232,168,46,0.14)", border: "0.5px solid rgba(232,168,46,0.35)", color: "#E8A82E", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                🔄 Switch Email
-              </button>
-            )}
+            <button onClick={() => signOut()} style={{ padding: "7px 13px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", color: "#F0846A", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              🚪 Log Out
+            </button>
           </div>
         </div>
 
-        {/* Guest VIP Summary Stats Bar */}
+        {/* Account Summary Stats Bar */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
           <div style={{ background: "#16120e", border: "0.5px solid rgba(250,246,239,0.08)", borderRadius: 14, padding: "10px 12px", textAlign: "center" }}>
             <p style={{ fontSize: 10, color: "#B8A995", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 2px", fontWeight: 600 }}>Total Orders</p>
@@ -612,12 +531,10 @@ function GuestOnlyAccountPortal(props) {
 }
 
 export default function AccountPortal({
-  guestEmail = null,
-  setGuestEmail,
   onStartOrder = () => {},
   onReorder = () => {},
   cloudImages = {},
 }) {
-  const props = { guestEmail, setGuestEmail, onStartOrder, onReorder, cloudImages };
+  const props = { onStartOrder, onReorder, cloudImages };
   return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }

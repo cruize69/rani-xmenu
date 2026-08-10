@@ -2,8 +2,11 @@
 // GET  /api/account/profile        — fetch profile + order history
 // POST /api/account/profile        — create or update profile
 //
-// Auth: Clerk JWT in Authorization header (signed-in users)
-//       OR guest identified by email (guests)
+// Auth: Clerk JWT in Authorization header — required. There is no guest
+// path: a bare client-supplied email is not proof of identity, so it can't
+// be used to look up someone else's order history. Guests still get their
+// order confirmation email with a live tracking link; a browsable history
+// requires creating an account (Clerk sign-in is one tap).
 //
 // Setup: npm install @clerk/backend
 //        Add CLERK_SECRET_KEY to Vercel env vars
@@ -14,34 +17,24 @@ import { getOrdersByDate }   from "../../lib/orders.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
-// ── Auth helper — verify Clerk JWT or fall back to guest email ───
-async function resolveIdentity(req) {
+async function resolveUserId(req) {
   const authHeader = req.headers["authorization"] ?? "";
-
-  if (authHeader.startsWith("Bearer ")) {
-    try {
-      const token  = authHeader.slice(7);
-      const payload = await clerk.verifyToken(token);
-      return { type: "user", userId: payload.sub };
-    } catch {
-      return null; // invalid token
-    }
+  if (!authHeader.startsWith("Bearer ")) return null;
+  try {
+    const payload = await clerk.verifyToken(authHeader.slice(7));
+    return payload.sub;
+  } catch {
+    return null; // invalid token
   }
-
-  // Guest — identified by email only. Checked separately (not `req.body ?? req.query`)
-  // because a bodyless GET request's req.body can be `{}` rather than undefined/null,
-  // which would silently swallow the query-string email.
-  const email = req.query?.email ?? req.body?.email;
-  if (email) return { type: "guest", email: email.toLowerCase().trim() };
-
-  return null;
 }
 
 // ── Profile key helpers ──────────────────────────────────────────
-const profileKey  = (id)    => `profile:${id}`;
-const orderIdsKey = (id)    => `account-orders:${id}`;
+const profileKey  = (id) => `profile:${id}`;
+const orderIdsKey = (id) => `account-orders:${id}`;
 
-// Helper to find and auto-index all orders matching a target email
+// Once signed in, also surface past orders placed as a guest under this
+// same (Clerk-verified) email address — safe because the email comes from
+// the verified Clerk user record, not from client input.
 async function findOrdersForEmail(targetEmail) {
   if (!targetEmail) return [];
   const cleanEmail = targetEmail.toLowerCase().trim();
@@ -83,31 +76,23 @@ async function findOrdersForEmail(targetEmail) {
 }
 
 export default async function handler(req, res) {
-  const identity = await resolveIdentity(req);
-  if (!identity) return res.status(401).json({ error: "Unauthorized" });
-
-  // Determine KV key — user ID for signed-in, email for guest
-  const accountId = identity.type === "user"
-    ? identity.userId
-    : `guest:${identity.email}`;
+  const userId = await resolveUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
   // ── GET profile ──────────────────────────────────────────────
   if (req.method === "GET") {
-    // For signed-in users, also check for past guest orders under their email address
-    let userEmail = identity.email ?? req.query?.email ?? null;
-    if (identity.type === "user" && !userEmail) {
-      try {
-        const u = await clerk.users.getUser(identity.userId);
-        userEmail = u.emailAddresses?.find(e => e.id === u.primaryEmailAddressId)?.emailAddress ?? u.emailAddresses?.[0]?.emailAddress ?? null;
-      } catch {}
-    }
+    let userEmail = null;
+    try {
+      const u = await clerk.users.getUser(userId);
+      userEmail = u.emailAddresses?.find(e => e.id === u.primaryEmailAddressId)?.emailAddress ?? u.emailAddresses?.[0]?.emailAddress ?? null;
+    } catch {}
 
-    const primaryIdsKey = orderIdsKey(accountId);
+    const primaryIdsKey = orderIdsKey(userId);
     const [rawProfile, primaryIds, guestOrderIds, rawSavedCard] = await Promise.all([
-      kv.get(profileKey(accountId)),
+      kv.get(profileKey(userId)),
       kv.lrange(primaryIdsKey, 0, 49),
-      userEmail ? findOrdersForEmail(userEmail) : identity.email ? findOrdersForEmail(identity.email) : Promise.resolve([]),
-      kv.get(`saved-card:${accountId}`),
+      userEmail ? findOrdersForEmail(userEmail) : Promise.resolve([]),
+      kv.get(`saved-card:${userId}`),
     ]);
 
     // Merge unique order IDs (primary + guest)
@@ -118,25 +103,17 @@ export default async function handler(req, res) {
     const profile = typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile ?? null);
     const savedCard = typeof rawSavedCard === "string" ? JSON.parse(rawSavedCard) : (rawSavedCard ?? null);
 
-    // Fetch full order objects and sanitize sensitive customer fields for guest view
     let orders = [];
     if (combinedIds?.length) {
       const fetched = await Promise.all(
         combinedIds.map(id => kv.get(`order:${id}`))
       );
-      const targetCleanEmail = (userEmail || identity.email || "").toLowerCase().trim();
 
       orders = fetched
         .filter(Boolean)
         .map(raw => (typeof raw === "string" ? JSON.parse(raw) : raw))
-        .filter(parsed => {
-          if (identity.type === "guest" && targetCleanEmail) {
-            return parsed?.customerEmail?.toLowerCase().trim() === targetCleanEmail;
-          }
-          return true;
-        })
         .map(parsed => {
-          // Strip sensitive fields (Stripe session IDs, secret tokens, full street address details for guest view)
+          // Strip sensitive fields (Stripe session IDs, secret tokens, full street address details)
           return {
             id: parsed.id,
             createdAt: parsed.createdAt,
@@ -153,42 +130,37 @@ export default async function handler(req, res) {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
-    // Build favorites from order history
     const favorites = buildFavorites(orders);
 
     return res.status(200).json({
-      type:      identity.type,
-      profile:   { name: profile?.name ?? null, email: identity.email ?? null },
-      savedCard: identity.type === "user" ? savedCard : null,
+      type:      "user",
+      profile:   { name: profile?.name ?? null, email: userEmail },
+      savedCard,
       orders,
       favorites,
       stats: buildStats(orders),
     });
   }
 
-  // ── POST — create/update profile (verified signed-in accounts only) ──
+  // ── POST — create/update profile ──────────────────────────────
   if (req.method === "POST") {
-    if (identity.type !== "user") {
-      return res.status(403).json({ error: "Only verified signed-in accounts can update account settings." });
-    }
-
     const { name, email, preferences } = req.body;
 
-    const existing = await kv.get(profileKey(accountId));
+    const existing = await kv.get(profileKey(userId));
     const current  = typeof existing === "string" ? JSON.parse(existing) : (existing ?? {});
 
     const updated = {
       ...current,
-      accountId,
-      type:        identity.type,
+      accountId:   userId,
+      type:        "user",
       name:        name        ?? current.name        ?? null,
-      email:       email       ?? current.email       ?? (identity.email ?? null),
+      email:       email       ?? current.email        ?? null,
       preferences: preferences ?? current.preferences ?? {},
       updatedAt:   new Date().toISOString(),
       createdAt:   current.createdAt ?? new Date().toISOString(),
     };
 
-    await kv.set(profileKey(accountId), JSON.stringify(updated));
+    await kv.set(profileKey(userId), JSON.stringify(updated));
     return res.status(200).json({ success: true, profile: updated });
   }
 

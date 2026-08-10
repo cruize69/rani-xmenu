@@ -183,7 +183,6 @@ export function CheckoutGate({
   onOpenFulfillmentSheet,
   onCancel,
   onGuestIdentified,
-  onViewAccount,
   guestEmail = "",
   setGuestEmail,
 }) {
@@ -191,36 +190,11 @@ export function CheckoutGate({
   const [step,       setStep]       = useState("choice");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
-  const [returning,  setReturning]  = useState(null);
   // CLERK_ENABLED is a build-time constant (never changes across renders),
   // so conditioning this hook call on it doesn't violate rules-of-hooks —
   // CheckoutGate must still render (for guest checkout) when Clerk isn't
   // configured, and useClerk() throws outside a <ClerkProvider>.
   const clerk = CLERK_ENABLED ? useClerk() : null;
-
-  const checkReturnAbortRef = useRef(null);
-
-  const checkReturning = async emailToCheck => {
-    if (!emailToCheck.includes("@")) return;
-    // Cancel any in-flight request from a previous blur
-    checkReturnAbortRef.current?.abort();
-    checkReturnAbortRef.current = new AbortController();
-    try {
-      const res = await fetch(`/api/account/profile?email=${encodeURIComponent(emailToCheck)}`, {
-        signal: checkReturnAbortRef.current.signal
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile && data.profile.totalOrders > 0) {
-          setReturning(data.profile);
-        } else {
-          setReturning(null);
-        }
-      }
-    } catch (err) {
-      if (err.name !== "AbortError") setReturning(null);
-    }
-  };
 
   const validateDelivery = () => {
     if (orderMode !== "delivery") return true;
@@ -449,19 +423,8 @@ export function CheckoutGate({
               <form onSubmit={handleGuestContinue}>
                 <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", marginBottom:5, display:"block" }}>Your email *</label>
                 <input type="email" placeholder="you@email.com" value={guestEmail}
-                  onChange={e => { setGuestEmail(e.target.value); setReturning(null); }}
-                  onBlur={e => checkReturning(e.target.value)}
+                  onChange={e => setGuestEmail(e.target.value)}
                   style={iStyle} required autoFocus />
-                {returning && (
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:"rgba(232,168,46,0.1)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"10px 14px", marginBottom:12 }}>
-                    <p style={{ fontSize:12.5, color:"#FAF6EF", lineHeight:1.4, margin:0 }}>
-                      Welcome back! You've ordered with us {returning.totalOrders} time{returning.totalOrders===1?"":"s"}{returning.favoriteName ? ` — usually ${returning.favoriteName}` : ""}.
-                    </p>
-                    <button type="button" onClick={() => onViewAccount?.()} style={{ background:"transparent", border:"none", color:"#E8A82E", fontSize:12, fontWeight:600, cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" }}>
-                      View past orders
-                    </button>
-                  </div>
-                )}
                 {error && (
                   error.includes("minimum food subtotal") ? (
                     <div style={{ background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
