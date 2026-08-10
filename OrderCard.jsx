@@ -1,10 +1,32 @@
-// OrderCard.jsx — Single-column rich glassmorphism tablet & mobile order card
+// OrderCard.jsx — Rani Mahal tablet order card
 
 import { useMemo } from "react";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
-export default function OrderCard({ order, statusConfig, onSelectCard, onStatusChange, onPrint }) {
+// Utility: Format phone numbers cleanly as (XXX) XXX-XXXX
+export function formatPhoneNumber(str) {
+  if (!str) return null;
+  const digits = str.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return str; // Return raw if non-standard length
+}
+
+// Utility: Check if special instructions contain allergy flags
+function checkAllergies(notes) {
+  if (!notes) return null;
+  const lower = notes.toLowerCase();
+  const keywords = ["allergy", "allergies", "nut", "peanut", "dairy", "gluten", "vegan", "celiac"];
+  const matched = keywords.filter(k => lower.includes(k));
+  return matched.length > 0 ? notes : null;
+}
+
+export default function OrderCard({ order, statusConfig, selected, onSelectCard, onStatusChange, onPrint }) {
   const s = statusConfig[order.status] ?? statusConfig.new;
 
   const shortId = useMemo(() => {
@@ -19,6 +41,8 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
   }, [order.createdAt]);
 
   const isDelivery = order.orderMode === "delivery";
+  const formattedPhone = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
+  const allergyNote = useMemo(() => checkAllergies(order.specialInstructions), [order.specialInstructions]);
 
   const addressLine = useMemo(() => {
     if (!isDelivery || !order.deliveryAddress) return null;
@@ -38,19 +62,20 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
     onPrint(order.id);
   };
 
-  const glowStyle = useMemo(() => {
-    if (order.status === "new") return { boxShadow: "0 0 16px rgba(249, 138, 50, 0.22)", borderColor: "rgba(249, 138, 50, 0.4)" };
-    if (order.status === "done") return { boxShadow: "0 0 16px rgba(52, 211, 153, 0.22)", borderColor: "rgba(52, 211, 153, 0.4)" };
+  const borderStyle = useMemo(() => {
+    if (selected) return { borderColor: "var(--rm-gold-primary)", boxShadow: "0 0 20px var(--rm-gold-glow)" };
+    if (order.status === "new") return { boxShadow: "0 0 16px rgba(249, 138, 50, 0.25)", borderColor: "rgba(249, 138, 50, 0.4)" };
+    if (order.status === "done") return { boxShadow: "0 0 16px rgba(52, 211, 153, 0.25)", borderColor: "rgba(52, 211, 153, 0.4)" };
     return {};
-  }, [order.status]);
+  }, [selected, order.status]);
 
   return (
-    <div className="rm-card" style={glowStyle} onClick={() => onSelectCard(order)}>
-      {/* Left status color bar */}
+    <div className={`rm-card ${selected ? "selected" : ""}`} style={borderStyle} onClick={() => onSelectCard(order)}>
+      {/* Left status color stripe */}
       <div className="rm-card-left-stripe" style={{ backgroundColor: s.color }} />
 
       <div>
-        {/* Top Header Row: Customer Name (Extra Large 24px bold) front & center */}
+        {/* Top Header Row: 24pt Bold Customer Name + Clean Badge (ONLY Pickup or Delivery) */}
         <div className="rm-card-header">
           <div>
             <h2 className="rm-customer-name">{order.customerName || "Walk-in Guest"}</h2>
@@ -60,26 +85,27 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
               <span className="rm-time-elapsed">⏱ {elapsedTime}</span>
             </div>
             
-            {/* Contact & Address info row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+            {/* Phone & Address row (Clean spacing, formatted phone) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
               {addressLine && (
-                <div style={{ fontSize: 13, color: "#E8A82E", background: "rgba(200, 133, 58, 0.14)", padding: "4px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid rgba(200, 133, 58, 0.3)", fontWeight: 600 }}>
+                <div style={{ fontSize: 13, color: "#E8A82E", background: "rgba(200, 133, 58, 0.14)", padding: "4px 12px", borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid rgba(200, 133, 58, 0.3)", fontWeight: 600 }}>
                   <span>📍</span>
                   <span>{addressLine}</span>
                 </div>
               )}
               
-              {order.customerPhone && (
-                <span style={{ fontSize: 13, color: "var(--rm-text-muted)", fontWeight: 600 }}>
-                  📞 {order.customerPhone}
+              {formattedPhone && (
+                <span style={{ fontSize: 13, color: "var(--rm-text-muted)", fontWeight: 700, letterSpacing: "0.02em" }}>
+                  📞 {formattedPhone}
                 </span>
               )}
             </div>
           </div>
           
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            <span className={`rm-badge ${isDelivery ? "rm-badge-delivery" : "rm-badge-pickup"}`}>
-              {isDelivery ? "🚗 DELIVERY" : "📦 PICKUP"}
+            {/* Clean Fulfillment Badges (ONLY 2 modes: DELIVERY or PICKUP) */}
+            <span className={`rm-fulfillment-badge ${isDelivery ? "delivery" : "pickup"}`}>
+              {isDelivery ? "🚗 DELIVERY" : "🛍️ PICKUP"}
             </span>
             
             {!order.printed && order.status !== "refunded" && (
@@ -88,7 +114,15 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
           </div>
         </div>
 
-        {/* Structured Items Box (Clean, high contrast, zero fatigue) */}
+        {/* Allergy Warning Banner if detected */}
+        {allergyNote && (
+          <div className="rm-allergy-banner">
+            <span>⚠️</span>
+            <span>ALLERGY ALERT: "{allergyNote}"</span>
+          </div>
+        )}
+
+        {/* Inset Structured Items Box */}
         <div className="rm-card-items-box">
           {order.items?.map((item, idx) => (
             <div key={idx} className="rm-card-item-row">
@@ -97,8 +131,14 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
                 <span className="rm-card-item-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.name}
                 </span>
+                
+                {/* Spice Badges */}
                 {item.spice && (
-                  <span style={{ fontSize: 11, color: "#E8A82E", marginLeft: 6, fontWeight: 700, flexShrink: 0 }}>
+                  <span className={`rm-spice-badge ${
+                    item.spice.toLowerCase().includes("mild") ? "rm-spice-mild" :
+                    item.spice.toLowerCase().includes("medium") ? "rm-spice-medium" :
+                    item.spice.toLowerCase().includes("hot") ? "rm-spice-hot" : "rm-spice-spicy"
+                  }`}>
                     🌶 {item.spice}
                   </span>
                 )}
@@ -107,8 +147,8 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
             </div>
           ))}
 
-          {/* Special instructions box if present */}
-          {order.specialInstructions && (
+          {/* Kitchen instructions callout if present */}
+          {order.specialInstructions && !allergyNote && (
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(200,133,58,0.2)", fontSize: 13, color: "#E8A82E", fontStyle: "italic", fontWeight: 600 }}>
               Note: "{order.specialInstructions}"
             </div>
@@ -116,7 +156,7 @@ export default function OrderCard({ order, statusConfig, onSelectCard, onStatusC
         </div>
       </div>
 
-      {/* Card Actions & Totals Footer */}
+      {/* Card Footer Bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13, color: "var(--rm-text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Total:</span>
