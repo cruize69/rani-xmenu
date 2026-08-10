@@ -192,6 +192,11 @@ export function CheckoutGate({
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [returning,  setReturning]  = useState(null);
+  // CLERK_ENABLED is a build-time constant (never changes across renders),
+  // so conditioning this hook call on it doesn't violate rules-of-hooks —
+  // CheckoutGate must still render (for guest checkout) when Clerk isn't
+  // configured, and useClerk() throws outside a <ClerkProvider>.
+  const clerk = CLERK_ENABLED ? useClerk() : null;
 
   const checkReturnAbortRef = useRef(null);
 
@@ -246,13 +251,20 @@ export function CheckoutGate({
       const fullDeliveryAddress = orderMode === "delivery" ? deliveryAddress : null;
       if (setDeliveryAddress && fullDeliveryAddress) setDeliveryAddress(fullDeliveryAddress);
 
+      // Account linking is verified server-side from this token, not from a
+      // client-supplied clerkUserId field (which the server no longer trusts).
+      const headers = { "Content-Type": "application/json" };
+      if (clerkUserId && clerk?.session) {
+        const token = await clerk.session.getToken().catch(() => null);
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/create-checkout", {
         method: "POST",
-        headers: { "Content-Type":"application/json" },
+        headers,
         body: JSON.stringify({
           items: Object.values(cart),
           specialInstructions:"",
-          clerkUserId,
           guestEmail,
           tip,
           orderMode,

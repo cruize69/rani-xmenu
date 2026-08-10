@@ -16,6 +16,11 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 const STRIPE_PCT = 0.029;
 const STRIPE_FLAT = 0.30;
 
+// A bare client-supplied email is not proof of identity — anyone could claim
+// any address and charge that email's saved card. Off-session charges here
+// require a verified Clerk session; there's no guest path (guests have no
+// way to prove ownership without an OTP/magic-link flow, which doesn't
+// exist yet).
 async function resolveIdentity(req) {
   const authHeader = req.headers["authorization"] ?? "";
   if (authHeader.startsWith("Bearer ")) {
@@ -27,9 +32,6 @@ async function resolveIdentity(req) {
       return null;
     }
   }
-
-  const email = req.body?.email ?? req.query?.email;
-  if (email) return { type: "guest", email: email.toLowerCase().trim() };
   return null;
 }
 
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
     const identity = await resolveIdentity(req);
     if (!identity) return res.status(401).json({ error: "Unauthorized" });
 
-    const accountId = identity.type === "user" ? identity.userId : `guest:${identity.email}`;
+    const accountId = identity.userId;
     const { orderId } = req.body;
 
     if (!orderId) return res.status(400).json({ error: "Missing orderId" });
@@ -52,6 +54,13 @@ export default async function handler(req, res) {
     if (!rawOrder) return res.status(404).json({ error: "Original order not found" });
 
     const originalOrder = typeof rawOrder === "string" ? JSON.parse(rawOrder) : rawOrder;
+
+    // The referenced order must actually belong to the caller — otherwise
+    // anyone could pass any known orderId and reorder (and charge the
+    // saved card for) someone else's items.
+    if (originalOrder.clerkUserId !== accountId) {
+      return res.status(403).json({ error: "That order does not belong to this account." });
+    }
 
     // Retrieve vaulted card metadata
     const rawCard = await kv.get(`saved-card:${accountId}`);

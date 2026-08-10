@@ -7,9 +7,10 @@ import Stripe from "stripe";
 import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrdersByDate, getNYDateString } from "../lib/orders.js";
 import { syncStripeSessions } from "../lib/syncStripe.js";
+import { isManagerSecretValid } from "../lib/auth.js";
 
 export default async function handler(req, res) {
-  if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET) {
+  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   if (req.method !== "GET") {
@@ -35,7 +36,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Analytics error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 

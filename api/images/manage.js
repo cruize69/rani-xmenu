@@ -11,6 +11,7 @@ import { kv }        from "@vercel/kv";
 import { IncomingForm } from "formidable";
 import { buffer }    from "micro";
 import fs from "fs";
+import { isManagerSecretValid } from "../../lib/auth.js";
 
 // bodyParser must stay off for multipart upload; DELETE's JSON body is
 // parsed manually below since this config applies to the whole handler.
@@ -24,7 +25,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const ACCEPTED  = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export default async function handler(req, res) {
-  if (req.headers["x-manager-secret"] !== process.env.MANAGER_SECRET) {
+  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -84,7 +85,7 @@ async function handleUpload(req, res) {
 
   } catch (err) {
     console.error("Upload error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 
@@ -110,6 +111,6 @@ async function handleDelete(req, res) {
 
   } catch (err) {
     console.error("Delete error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

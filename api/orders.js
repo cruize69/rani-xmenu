@@ -13,10 +13,12 @@
 // All routes protected by MANAGER_SECRET header.
 
 import Stripe from "stripe";
+import crypto from "crypto";
 import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
+import { isManagerSecretValid } from "../lib/auth.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
@@ -26,8 +28,17 @@ export default async function handler(req, res) {
     return handlePublicGet(req, res);
   }
 
-  const secret = req.headers["x-manager-secret"];
-  if (secret !== process.env.MANAGER_SECRET) {
+  // SSE stream: EventSource can't send custom headers, so it authenticates
+  // via a short-lived one-time token (see action:"stream_token" below)
+  // instead of the raw MANAGER_SECRET, which never appears in a URL/log.
+  if (req.method === "GET" && (req.query.stream === "true" || req.query.stream === "1")) {
+    const token = req.query.token;
+    const valid = token && (await kv.get(`stream-token:${token}`));
+    if (!valid) return res.status(401).json({ error: "Unauthorized" });
+    return handleGet(req, res);
+  }
+
+  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -147,7 +158,7 @@ async function handleGet(req, res) {
     return res.status(200).json({ orders, summary, date });
   } catch (err) {
     console.error("Orders fetch error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 
@@ -199,7 +210,7 @@ async function handleUpdate(req, res) {
     return res.status(200).json({ order: updated });
   } catch (err) {
     console.error("Update order error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 
@@ -221,10 +232,20 @@ async function sendCustomerSMS(to, body) {
 // ── POST: action-dispatched — dequeue | reprint | refund ──────────
 async function handlePost(req, res) {
   const { action } = req.body ?? {};
-  if (action === "dequeue") return handleDequeue(req, res);
-  if (action === "reprint") return handleReprint(req, res);
-  if (action === "refund")  return handleRefund(req, res);
+  if (action === "dequeue")      return handleDequeue(req, res);
+  if (action === "reprint")      return handleReprint(req, res);
+  if (action === "refund")       return handleRefund(req, res);
+  if (action === "stream_token") return handleStreamToken(req, res);
   return res.status(400).json({ error: `Unknown action: ${action}` });
+}
+
+// Issues a short-lived, single-purpose token so the SSE stream (which can't
+// send the x-manager-secret header) never has to put the real password in a
+// URL. Caller must already be authenticated with MANAGER_SECRET to get one.
+async function handleStreamToken(req, res) {
+  const token = crypto.randomBytes(24).toString("hex");
+  await kv.set(`stream-token:${token}`, "1", { ex: 60 });
+  return res.status(200).json({ token });
 }
 
 // Pops one order ID from the print queue — polled every 5s by the local print bridge
@@ -275,6 +296,11 @@ async function handleRefund(req, res) {
     success: false,
   };
 
+  // Validate against what's actually left on the charge, not the original
+  // total — otherwise repeated partial/item refunds can cumulatively exceed
+  // what's still refundable.
+  const remaining = order.total - (order.refundedTotal ?? 0);
+
   try {
     let refundAmount = null; // in cents
 
@@ -285,8 +311,8 @@ async function handleRefund(req, res) {
       if (!amount || isNaN(amount) || Number(amount) <= 0) {
         return res.status(400).json({ error: "Valid amount required for partial refund" });
       }
-      if (Number(amount) > order.total) {
-        return res.status(400).json({ error: `Amount $${amount} exceeds order total $${order.total.toFixed(2)}` });
+      if (Number(amount) > remaining + 0.01) {
+        return res.status(400).json({ error: `Amount $${amount} exceeds remaining refundable balance $${remaining.toFixed(2)}` });
       }
       refundAmount = Math.round(Number(amount) * 100);
 
@@ -294,7 +320,11 @@ async function handleRefund(req, res) {
       if (!itemName) return res.status(400).json({ error: "itemName required for item refund" });
       const item = order.items.find(i => i.name === itemName);
       if (!item) return res.status(400).json({ error: `Item "${itemName}" not found in order` });
-      refundAmount = Math.round(item.price * item.qty * 100);
+      const itemAmount = item.price * item.qty;
+      if (itemAmount > remaining + 0.01) {
+        return res.status(400).json({ error: `Item amount $${itemAmount.toFixed(2)} exceeds remaining refundable balance $${remaining.toFixed(2)}` });
+      }
+      refundAmount = Math.round(itemAmount * 100);
 
     } else if (type === "void") {
       const intent = await stripe.paymentIntents.cancel(order.stripePaymentId);
@@ -380,7 +410,7 @@ async function handleRefund(req, res) {
       }
     }
 
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 

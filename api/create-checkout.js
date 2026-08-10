@@ -9,8 +9,26 @@
 
 import Stripe from "stripe";
 import crypto from "crypto";
+import { createClerkClient } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
+
+const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+// A client-supplied clerkUserId is just a string an attacker can set to
+// anyone's (non-secret) Clerk user ID — it must never be trusted as-is.
+// It's only used to link an order/saved-card to an account, so verify it
+// against the caller's own JWT and ignore it entirely if that fails.
+async function resolveVerifiedClerkUserId(req) {
+  const authHeader = req.headers["authorization"] ?? "";
+  if (!authHeader.startsWith("Bearer ")) return null;
+  try {
+    const payload = await clerk.verifyToken(authHeader.slice(7));
+    return payload.sub;
+  } catch {
+    return null;
+  }
+}
 
 const MAX_QTY_PER_LINE = 25;
 const STRIPE_PCT = 0.029;
@@ -33,7 +51,8 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
-    const { items, specialInstructions, clerkUserId, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress } = req.body || {};
+    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress } = req.body || {};
+    const clerkUserId = await resolveVerifiedClerkUserId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "No items in cart" });
@@ -189,6 +208,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("Checkout error:", err);
-    return res.status(500).json({ error: err.message || "Failed to create checkout session" });
+    return res.status(500).json({ error: "Failed to create checkout session. Please try again." });
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { getManagerSecret } from "./lib/managerAuth.js";
+import { getStreamToken } from "./lib/managerAuth.js";
 
 // ── Custom High-Visibility 4K TV Vector Icons ─────────────────────
 function TvPickupIcon({ size = 32, color = "#080706" }) {
@@ -346,9 +346,8 @@ export default function TvKitchenDisplay() {
 
   // Real-time SSE Sync + Auto Flash Notification Trigger
   useEffect(() => {
-    const secret = getManagerSecret();
     const today = new Date().toISOString().slice(0, 10);
-    const streamUrl = `/api/orders?stream=true&date=${today}&secret=${encodeURIComponent(secret)}`;
+    let cancelled = false;
 
     const processOrders = (newOrders) => {
       if (prevOrderIdsRef.current.size > 0) {
@@ -374,10 +373,12 @@ export default function TvKitchenDisplay() {
 
     let es;
     let reconnectTimer;
-    
-    const connectSSE = () => {
+
+    const connectSSE = async () => {
       try {
-        es = new EventSource(streamUrl);
+        const token = await getStreamToken();
+        if (cancelled) return;
+        es = new EventSource(`/api/orders?stream=true&date=${today}&token=${encodeURIComponent(token)}`);
         es.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
@@ -389,14 +390,17 @@ export default function TvKitchenDisplay() {
         es.onerror = () => {
           if (es) es.close();
           // Auto-reconnect SSE after 3 seconds on error
-          reconnectTimer = setTimeout(connectSSE, 3000);
+          if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
         };
-      } catch (err) {}
+      } catch (err) {
+        if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
+      }
     };
 
     connectSSE();
 
     return () => {
+      cancelled = true;
       if (es) es.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);

@@ -3,7 +3,7 @@
 //   <header fixed> → <subheader/filter bar fixed> → <rm-body flex row (left scrolls / right locked)>
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { getManagerSecret } from "./lib/managerAuth.js";
+import { getManagerSecret, getStreamToken } from "./lib/managerAuth.js";
 import OrderCard from "./OrderCard.jsx";
 import OrderDetailPanel from "./OrderDetailPanel.jsx";
 import RefundModal from "./RefundModal.jsx";
@@ -100,14 +100,15 @@ export default function OrderManager() {
 
   // SSE stream
   useEffect(() => {
-    const secret = getManagerSecret();
-    let es, reconnectTimer;
+    let es, reconnectTimer, cancelled = false;
     setLoading(true);
 
-    const connect = () => {
+    const connect = async () => {
       try {
+        const token = await getStreamToken();
+        if (cancelled) return;
         es = new EventSource(
-          `/api/orders?stream=true&date=${date}&secret=${encodeURIComponent(secret)}`
+          `/api/orders?stream=true&date=${date}&token=${encodeURIComponent(token)}`
         );
         es.onmessage = (ev) => {
           try {
@@ -131,10 +132,13 @@ export default function OrderManager() {
           if (es) es.close();
           reconnectTimer = setTimeout(connect, 3000);
         };
-      } catch (_) { setLoading(false); }
+      } catch (_) {
+        setLoading(false);
+        if (!cancelled) reconnectTimer = setTimeout(connect, 3000);
+      }
     };
     connect();
-    return () => { if (es) es.close(); clearTimeout(reconnectTimer); };
+    return () => { cancelled = true; if (es) es.close(); clearTimeout(reconnectTimer); };
   }, [date]);
 
   const handleStatus = async (id, status) => {

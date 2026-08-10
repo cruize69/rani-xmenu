@@ -8,6 +8,7 @@
 // We strip non-digits and prepend +1 if 10 digits (US numbers)
 
 import { kv } from "@vercel/kv";
+import { getOrder } from "../lib/orders.js";
 
 function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, "");
@@ -30,6 +31,22 @@ export default async function handler(req, res) {
   const normalized = normalizePhone(phone);
   if (!normalized) {
     return res.status(400).json({ error: "Invalid phone number. Please use a US mobile number." });
+  }
+
+  // Must reference a real order — otherwise this endpoint is just a free,
+  // unauthenticated "send an SMS to anyone" primitive.
+  const order = await getOrder(orderId);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+
+  // Lightweight abuse guard: cap how often a given number can be signed up
+  // for updates. No auth exists here (customers aren't logged in at
+  // checkout), so a per-phone counter is the cheapest real mitigation
+  // against SMS-bombing an arbitrary number at the restaurant's expense.
+  const rlKey = `notify-rl:${normalized}`;
+  const count = await kv.incr(rlKey);
+  if (count === 1) await kv.expire(rlKey, 60 * 60);
+  if (count > 3) {
+    return res.status(429).json({ error: "Too many requests for this number. Please try again later." });
   }
 
   // Store subscriber: key = notify:{orderId}  value = { phone, subscribedAt }

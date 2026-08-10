@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getManagerSecret } from "./lib/managerAuth.js";
+import { getManagerSecret, getStreamToken } from "./lib/managerAuth.js";
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(path, {
@@ -187,15 +187,15 @@ export default function KitchenDisplay() {
 
   // Server-Sent Events (SSE) stream for real-time pushes (zero polling overhead)
   useEffect(() => {
-    const secret = getManagerSecret();
-    const streamUrl = `/api/orders?stream=true&secret=${encodeURIComponent(secret)}`;
-    
     let es;
     let reconnectTimer;
+    let cancelled = false;
 
-    const connectSSE = () => {
+    const connectSSE = async () => {
       try {
-        es = new EventSource(streamUrl);
+        const token = await getStreamToken();
+        if (cancelled) return;
+        es = new EventSource(`/api/orders?stream=true&token=${encodeURIComponent(token)}`);
 
         es.onmessage = (event) => {
           try {
@@ -217,16 +217,18 @@ export default function KitchenDisplay() {
 
         es.onerror = () => {
           if (es) es.close();
-          reconnectTimer = setTimeout(connectSSE, 3000);
+          if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
         };
       } catch (e) {
         console.error("SSE stream error:", e);
+        if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
       }
     };
 
     connectSSE();
 
     return () => {
+      cancelled = true;
       if (es) es.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
