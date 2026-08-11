@@ -29,15 +29,7 @@ export default async function handler(req, res) {
     return handlePublicGet(req, res);
   }
 
-  // SSE stream: EventSource can't send custom headers, so it authenticates
-  // via a short-lived one-time token (see action:"stream_token" below)
-  // instead of the raw MANAGER_SECRET, which never appears in a URL/log.
-  if (req.method === "GET" && (req.query.stream === "true" || req.query.stream === "1")) {
-    const token = req.query.token;
-    const valid = token && (await kv.get(`stream-token:${token}`));
-    if (!valid) return res.status(401).json({ error: "Unauthorized" });
-    return handleGet(req, res);
-  }
+
 
   if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -101,46 +93,8 @@ async function handlePublicGet(req, res) {
   return res.status(400).json({ error: "Missing session_id or status_id" });
 }
 
-// ── GET: list-by-date, or single order via ?id= ───────────────────
 async function handleGet(req, res) {
   try {
-    // Server-Sent Events (SSE) stream support for real-time kitchen & manager screens
-    if (req.query.stream === "true" || req.query.stream === "1") {
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no",
-      });
-
-      const targetDate = req.query.date ?? getNYDateString();
-      res.write(`data: ${JSON.stringify({ type: "connected", timestamp: Date.now() })}\n\n`);
-
-      let lastHash = "";
-      const sendUpdate = async () => {
-        try {
-          const orders = await getOrdersByDate(targetDate, true);
-          const summary = buildDailySummary(orders);
-          // Comprehensive change hash ensuring ANY change (status, printed, refund, items) triggers a stream update
-          const hash = orders.map(o => `${o.id}:${o.status}:${o.printed}:${o.refundedTotal ?? 0}:${o.updatedAt}`).join("|");
-          if (hash !== lastHash) {
-            lastHash = hash;
-            res.write(`data: ${JSON.stringify({ type: "orders_update", orders, summary, date: targetDate, timestamp: Date.now() })}\n\n`);
-          } else {
-            res.write(`: heartbeat ${Date.now()}\n\n`);
-          }
-        } catch (e) {}
-      };
-
-      await sendUpdate();
-      const timer = setInterval(sendUpdate, 2500);
-
-      req.on("close", () => {
-        clearInterval(timer);
-        res.end();
-      });
-      return;
-    }
 
     // Auto-sync missing paid Stripe sessions into KV asynchronously (non-blocking)
     syncStripeSessions().catch(err => console.error("Async syncStripeSessions error:", err));
@@ -242,17 +196,7 @@ async function handlePost(req, res) {
   if (action === "dequeue")      return handleDequeue(req, res);
   if (action === "reprint")      return handleReprint(req, res);
   if (action === "refund")       return handleRefund(req, res);
-  if (action === "stream_token") return handleStreamToken(req, res);
   return res.status(400).json({ error: `Unknown action: ${action}` });
-}
-
-// Issues a short-lived, single-purpose token so the SSE stream (which can't
-// send the x-manager-secret header) never has to put the real password in a
-// URL. Caller must already be authenticated with MANAGER_SECRET to get one.
-async function handleStreamToken(req, res) {
-  const token = crypto.randomBytes(24).toString("hex");
-  await kv.set(`stream-token:${token}`, "1", { ex: 60 });
-  return res.status(200).json({ token });
 }
 
 // Pops one order ID from the print queue — polled every 5s by the local print bridge

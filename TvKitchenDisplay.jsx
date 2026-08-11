@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { getStreamToken } from "./lib/managerAuth.js";
+import { getManagerSecret } from "./lib/managerAuth.js";
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "x-manager-secret": getManagerSecret(),
+      ...(options.headers ?? {}),
+    },
+  });
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  return res.json();
+}
 
 // ── Custom High-Visibility 4K TV Vector Icons ─────────────────────
 function TvPickupIcon({ size = 32, color = "#080706" }) {
@@ -371,38 +384,22 @@ export default function TvKitchenDisplay() {
       }, 5500); // 5.5-second auto dismiss matching sound
     };
 
-    let es;
-    let reconnectTimer;
-
-    const connectSSE = async () => {
+    const loadOrders = async () => {
       try {
-        const token = await getStreamToken();
+        const res = await apiFetch(`/api/orders?date=${today}`);
         if (cancelled) return;
-        es = new EventSource(`/api/orders?stream=true&date=${today}&token=${encodeURIComponent(token)}`);
-        es.onmessage = (e) => {
-          try {
-            const data = JSON.parse(e.data);
-            if (data.type === "orders_update") {
-              processOrders(data.orders || []);
-            }
-          } catch (err) {}
-        };
-        es.onerror = () => {
-          if (es) es.close();
-          // Auto-reconnect SSE after 3 seconds on error
-          if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
-        };
+        processOrders(res.orders || []);
       } catch (err) {
-        if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
+        console.error("Load orders error:", err);
       }
     };
 
-    connectSSE();
+    loadOrders();
+    const pollTimer = setInterval(loadOrders, 8000);
 
     return () => {
       cancelled = true;
-      if (es) es.close();
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearInterval(pollTimer);
       if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);

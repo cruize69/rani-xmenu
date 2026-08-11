@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { getManagerSecret, getStreamToken } from "./lib/managerAuth.js";
+import { getManagerSecret } from "./lib/managerAuth.js";
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(path, {
@@ -185,54 +185,30 @@ export default function KitchenDisplay() {
   const prevIds = useRef(new Set());
 
 
-  // Server-Sent Events (SSE) stream for real-time pushes (zero polling overhead)
-  useEffect(() => {
-    let es;
-    let reconnectTimer;
-    let cancelled = false;
-
-    const connectSSE = async () => {
-      try {
-        const token = await getStreamToken();
-        if (cancelled) return;
-        es = new EventSource(`/api/orders?stream=true&token=${encodeURIComponent(token)}`);
-
-        es.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === "orders_update") {
-              const fetchedOrders = data.orders || [];
-              if (prevIds.current.size > 0) {
-                const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
-                if (newArr.length > 0) {
-                  setFlash(newArr[0].id.slice(-4).toUpperCase());
-                }
-              }
-              prevIds.current = new Set(fetchedOrders.map(o => o.id));
-              setOrders(fetchedOrders);
-              setLastPoll(new Date());
-            }
-          } catch (e) {}
-        };
-
-        es.onerror = () => {
-          if (es) es.close();
-          if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
-        };
-      } catch (e) {
-        console.error("SSE stream error:", e);
-        if (!cancelled) reconnectTimer = setTimeout(connectSSE, 3000);
+  const loadOrders = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/orders");
+      const fetchedOrders = data.orders || [];
+      if (prevIds.current.size > 0) {
+        const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
+        if (newArr.length > 0) {
+          setFlash(newArr[0].id.slice(-4).toUpperCase());
+        }
       }
-    };
-
-    connectSSE();
-
-    return () => {
-      cancelled = true;
-      if (es) es.close();
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-    };
+      prevIds.current = new Set(fetchedOrders.map(o => o.id));
+      setOrders(fetchedOrders);
+      setLastPoll(new Date());
+    } catch (e) {
+      console.error("Load orders error:", e);
+    }
   }, []);
+
+  // Standard polling (8 seconds) to replace high-cost SSE stream and stay under Upstash limits
+  useEffect(() => {
+    loadOrders();
+    const timer = setInterval(loadOrders, 8000);
+    return () => clearInterval(timer);
+  }, [loadOrders]);
 
   const advance = useCallback(async (id) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: "done" } : o));

@@ -3,7 +3,7 @@
 //   <header fixed> → <subheader/filter bar fixed> → <rm-body flex row (left scrolls / right locked)>
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { getManagerSecret, getStreamToken } from "./lib/managerAuth.js";
+import { getManagerSecret } from "./lib/managerAuth.js";
 import OrderCard from "./OrderCard.jsx";
 import OrderDetailPanel from "./OrderDetailPanel.jsx";
 import RefundModal from "./RefundModal.jsx";
@@ -98,48 +98,14 @@ export default function OrderManager() {
     }
   }, [date]);
 
-  // SSE stream
+  // Standard polling (8 seconds) to replace high-cost SSE stream and stay under Upstash limits
   useEffect(() => {
-    let es, reconnectTimer, cancelled = false;
-    setLoading(true);
-
-    const connect = async () => {
-      try {
-        const token = await getStreamToken();
-        if (cancelled) return;
-        es = new EventSource(
-          `/api/orders?stream=true&date=${date}&token=${encodeURIComponent(token)}`
-        );
-        es.onmessage = (ev) => {
-          try {
-            const data = JSON.parse(ev.data);
-            if (data.type === "orders_update") {
-              const list = data.orders || [];
-              if (prevIds.current.size > 0) {
-                const fresh = list.filter(o => !prevIds.current.has(o.id));
-                if (fresh.length > 0) { playChime(); setNewAlert(fresh[0]); }
-              }
-              prevIds.current = new Set(list.map(o => o.id));
-              setOrders(list);
-              setLastRefresh(new Date());
-              setError(null);
-              setLoading(false);
-            }
-          } catch (_) {}
-        };
-        es.onerror = () => {
-          setLoading(false);
-          if (es) es.close();
-          reconnectTimer = setTimeout(connect, 3000);
-        };
-      } catch (_) {
-        setLoading(false);
-        if (!cancelled) reconnectTimer = setTimeout(connect, 3000);
-      }
-    };
-    connect();
-    return () => { cancelled = true; if (es) es.close(); clearTimeout(reconnectTimer); };
-  }, [date]);
+    load(false); // Initial load without full screen spinner
+    const timer = setInterval(() => {
+      load(false);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [load]);
 
   const handleStatus = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
