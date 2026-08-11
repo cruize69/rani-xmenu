@@ -172,9 +172,9 @@ async function handleGet(req, res) {
 // ── PATCH: update status/printed, fires customer SMS on status change ──
 const STATUS_SMS = {
   in_progress: (order) =>
-    `Rani Mahal: Great news! Your order #${order.id.slice(-6).toUpperCase()} is now being prepared. We'll text you when it's ready. (914) 835-9066`,
+    `Rani Mahal: Great news! Your order #${order.id.slice(-6).toUpperCase()} is now being prepared. We'll text you when it's ready. (914) 835-9066 Reply STOP to opt out.`,
   done: (order) =>
-    `Rani Mahal: Your order #${order.id.slice(-6).toUpperCase()} is READY for pickup! Come on in — we look forward to seeing you. (914) 835-9066`,
+    `Rani Mahal: Your order #${order.id.slice(-6).toUpperCase()} is READY for pickup! Come on in — we look forward to seeing you. (914) 835-9066 Reply STOP to opt out.`,
 };
 
 async function handleUpdate(req, res) {
