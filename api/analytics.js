@@ -3,11 +3,24 @@
 // Returns aggregated sales data + customer list for SalesDashboard
 // Protected by MANAGER_SECRET
 
-import Stripe from "stripe";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder, getOrdersByDate, getNYDateString } from "../lib/orders.js";
+import { getOrdersByDate, getNYDateString } from "../lib/orders.js";
 import { syncStripeSessions } from "../lib/syncStripe.js";
 import { isManagerSecretValid } from "../lib/auth.js";
+
+// Food cost weights for COGS estimation
+const FOOD_COST_WEIGHTS = {
+  "Lamb": 0.32,
+  "Chicken": 0.28,
+  "Seafood": 0.30,
+  "Vegetarian": 0.20,
+  "Breads": 0.12,
+  "Drinks": 0.08,
+  "Appetizers": 0.18,
+  "Sides": 0.15,
+  "Tandoori": 0.30,
+  "Soups": 0.15,
+};
 
 export default async function handler(req, res) {
   if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
@@ -20,19 +33,45 @@ export default async function handler(req, res) {
   try {
     const range  = req.query.range ?? "30d";
     const days   = range === "90d" ? 90 : range === "365d" ? 365 : range === "all" ? 730 : 30;
+    
+    // Fetch orders in active range
     const orders = await fetchOrderRange(days);
 
+    // Fetch draft checkouts for funnel analytics
+    const drafts = await fetchDrafts(days);
+
+    // Run aggregations
+    const overview = buildOverview(orders, days);
+    const refunds = buildRefunds(orders);
+    const cogs = calculateEstimatedCOGS(orders);
+    
+    // Add additional fields to overview
+    overview.cogs = cogs;
+    overview.grossProfit = Math.max(0, overview.netSales - cogs);
+    overview.grossProfitRate = overview.netSales ? Math.round((overview.grossProfit / overview.netSales) * 100) : 0;
+    
+    // Labor Cost Metrics (Shift Labor Rate = $160/hr, 8 hours shift per day)
+    const laborRatePerHour = 160;
+    const shiftHoursPerDay = 8;
+    const totalLaborHours = days * shiftHoursPerDay;
+    const totalLaborCost = totalLaborHours * laborRatePerHour;
+    
+    overview.laborCost = totalLaborCost;
+    overview.laborCostRate = overview.netSales ? Math.round((totalLaborCost / overview.netSales) * 100) : 0;
+    overview.splh = totalLaborHours ? Math.round((overview.netSales / totalLaborHours) * 100) / 100 : 0;
+
     return res.status(200).json({
-      overview:   buildOverview(orders),
+      overview,
       revenue:    buildRevenueSeries(orders, days),
       topDishes:  buildTopDishes(orders),
       dayOfWeek:  buildDayOfWeek(orders),
       hourly:     buildHourly(orders),
       spice:      buildSpice(orders),
       sections:   buildSections(orders),
-      behaviour:  buildBehaviour(orders),
-      refunds:    buildRefunds(orders),
+      refunds,
       customers:  buildCustomers(orders),
+      geoZip:     buildGeoZip(orders),
+      funnel:     buildFunnel(drafts),
     });
   } catch (err) {
     console.error("Analytics error:", err);
@@ -63,14 +102,46 @@ async function fetchOrderRange(days) {
   return Array.from(orderMap.values());
 }
 
-// ── Aggregators ───────────────────────────────────────────────────
-function buildOverview(orders) {
-  const active   = orders.filter(o => o.status !== "refunded");
-  const revenue  = active.reduce((s, o) => s + (o.total ?? (o.subtotal + o.tax + o.tip)), 0);
-  const count    = active.length;
-  const avgOrder = count ? revenue / count : 0;
+// Fetch drafts from last X days
+async function fetchDrafts(days) {
+  try {
+    const keys = [];
+    let cursor = "0";
+    do {
+      const [nextCursor, scanKeys] = await kv.scan(cursor, { match: "draft:*", count: 1000 });
+      keys.push(...scanKeys);
+      cursor = nextCursor;
+    } while (cursor !== "0");
 
-  // Detailed breakdowns
+    if (keys.length === 0) return [];
+    
+    const draftData = await Promise.all(keys.map(k => kv.get(k)));
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - (days * 86400000));
+    
+    return draftData
+      .filter(Boolean)
+      .map(d => typeof d === "string" ? JSON.parse(d) : d)
+      .filter(d => new Date(d.createdAt) >= cutoff);
+  } catch (e) {
+    console.error("Failed to scan draft carts:", e);
+    return [];
+  }
+}
+
+// ── Aggregators ───────────────────────────────────────────────────
+function buildOverview(orders, days) {
+  const active   = orders.filter(o => o.status !== "refunded");
+  const refunds  = orders.filter(o => o.refundedTotal > 0);
+  const refundsAmt = refunds.reduce((s, o) => s + (o.refundedTotal ?? 0), 0);
+  
+  // Gross vs Net
+  const grossSales = orders.reduce((s, o) => s + (o.total ?? (o.subtotal + o.tax + o.tip)), 0);
+  const netSales   = Math.max(0, grossSales - refundsAmt);
+  
+  const count    = active.length;
+  const avgOrder = count ? netSales / count : 0;
+
   const netFood      = active.reduce((s, o) => s + o.subtotal, 0);
   const taxCollected = active.reduce((s, o) => s + o.tax, 0);
   const tipCollected = active.reduce((s, o) => s + (o.tip || 0), 0);
@@ -95,26 +166,59 @@ function buildOverview(orders) {
   const accountOrders = active.filter(o => o.clerkUserId).length;
   const accountRate   = count ? Math.round((accountOrders / count) * 100) : 0;
 
-  return { revenue, netFood, taxCollected, tipCollected, count, avgOrder, repeatRate, avgItems, smsRate, accountRate };
+  return { 
+    revenue: grossSales, 
+    netSales, 
+    netFood, 
+    taxCollected, 
+    tipCollected, 
+    count, 
+    avgOrder, 
+    repeatRate, 
+    avgItems, 
+    smsRate, 
+    accountRate 
+  };
+}
+
+function calculateEstimatedCOGS(orders) {
+  let totalCost = 0;
+  const active = orders.filter(o => o.status !== "refunded");
+  active.forEach(o => {
+    o.items.forEach(i => {
+      const weight = FOOD_COST_WEIGHTS[i.section] ?? 0.20;
+      totalCost += (i.price * i.qty) * weight;
+    });
+  });
+  return Math.round(totalCost * 100) / 100;
 }
 
 function buildRevenueSeries(orders, days) {
-  const map = {};
-  const active = orders.filter(o => o.status !== "refunded");
-  active.forEach(o => {
+  const grossMap = {};
+  const netMap = {};
+  
+  orders.forEach(o => {
     const d = o.createdAt.slice(0, 10);
-    map[d] = (map[d] ?? 0) + (o.total ?? (o.subtotal + o.tax + o.tip));
+    const orderTotal = o.total ?? (o.subtotal + o.tax + o.tip);
+    const refundVal = o.refundedTotal ?? 0;
+    
+    grossMap[d] = (grossMap[d] ?? 0) + orderTotal;
+    netMap[d]   = (netMap[d] ?? 0) + Math.max(0, orderTotal - refundVal);
   });
 
-  // Fill gaps with 0
   const series = [];
   const today  = new Date();
   const limit  = Math.min(days, 90); // chart max 90 points
+  
   for (let i = limit - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
-    series.push({ date: key, revenue: Math.round(map[key] ?? 0) });
+    series.push({ 
+      date: key, 
+      revenue: Math.round(grossMap[key] ?? 0),
+      netRevenue: Math.round(netMap[key] ?? 0)
+    });
   }
   return series;
 }
@@ -124,15 +228,33 @@ function buildTopDishes(orders) {
   const map    = {};
   active.forEach(o => {
     o.items.forEach(item => {
-      if (!map[item.name]) map[item.name] = { name: item.name, revenue: 0, qty: 0 };
+      if (!map[item.name]) {
+        map[item.name] = { 
+          name: item.name, 
+          revenue: 0, 
+          qty: 0,
+          section: item.section ?? "Sides"
+        };
+      }
       map[item.name].revenue += item.price * item.qty;
       map[item.name].qty     += item.qty;
     });
   });
+  
   return Object.values(map)
     .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 10)
-    .map(d => ({ ...d, revenue: Math.round(d.revenue * 100) / 100 }));
+    .map(d => {
+      // Calculate contribution margin
+      const costWeight = FOOD_COST_WEIGHTS[d.section] ?? 0.20;
+      const totalCost = d.revenue * costWeight;
+      const margin = d.revenue - totalCost;
+      
+      return { 
+        ...d, 
+        revenue: Math.round(d.revenue * 100) / 100,
+        margin: Math.round(margin * 100) / 100
+      };
+    });
 }
 
 function buildDayOfWeek(orders) {
@@ -144,15 +266,33 @@ function buildDayOfWeek(orders) {
   return days.map((label, i) => ({ label, count: counts[i] }));
 }
 
+// Convert hourly counts to 2D Day of Week vs Hour of Day matrix
 function buildHourly(orders) {
-  const counts = Array(24).fill(0);
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  
+  // Initialize 2D grid
+  const grid = [];
+  for (let d = 0; d < 7; d++) {
+    for (let h = 11; h <= 22; h++) { // 11 AM to 10 PM operating hours
+      grid.push({
+        day: days[d],
+        hourNum: h,
+        hour: h === 12 ? "12p" : h > 12 ? `${h-12}p` : `${h}a`,
+        count: 0
+      });
+    }
+  }
+
   orders.filter(o => o.status !== "refunded").forEach(o => {
-    counts[new Date(o.createdAt).getHours()]++;
+    const date = new Date(o.createdAt);
+    const dayName = days[date.getDay()];
+    const hour = date.getHours();
+    
+    const cell = grid.find(c => c.day === dayName && c.hourNum === hour);
+    if (cell) cell.count++;
   });
-  return counts.map((count, hour) => ({
-    label: hour === 0 ? "12a" : hour < 12 ? `${hour}a` : hour === 12 ? "12p" : `${hour-12}p`,
-    count
-  }));
+
+  return grid;
 }
 
 function buildSpice(orders) {
@@ -165,13 +305,6 @@ function buildSpice(orders) {
   return Object.entries(map).map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
 }
-
-const SECTION_MAP = {
-  "Lamb":"Lamb","Chicken":"Chicken","Medley":"Medley",
-  "Seafood":"Seafood","Vegetarian":"Vegetarian","Breads":"Breads",
-  "Appetizers":"Appetizers","Drinks":"Drinks","Sides":"Sides",
-  "Tandoori":"Tandoori","Soups":"Soups & Salads",
-};
 
 function buildSections(orders) {
   const map = {};
@@ -187,27 +320,8 @@ function buildSections(orders) {
     .slice(0, 6);
 }
 
-function buildBehaviour(orders) {
-  const active = orders.filter(o => o.status !== "refunded");
-  const emailMap = {};
-  active.forEach(o => {
-    const key = o.customerEmail ?? o.id;
-    if (!emailMap[key]) emailMap[key] = [];
-    emailMap[key].push(o);
-  });
-  const repeats = Object.values(emailMap).filter(os => os.length > 1).length;
-  const total   = Object.keys(emailMap).length;
-  return {
-    repeatRate:   total ? Math.round((repeats / total) * 100) : 0,
-    avgItems:     active.length ? (active.reduce((s,o) => s + o.items.reduce((is,i)=>is+i.qty,0),0) / active.length).toFixed(1) : 0,
-    smsRate:      active.length ? Math.round((active.filter(o=>o.smsOptIn).length / active.length) * 100) : 0,
-    accountRate:  active.length ? Math.round((active.filter(o=>o.clerkUserId).length / active.length) * 100) : 0,
-  };
-}
-
 function buildRefunds(orders) {
   const refunded = orders.filter(o => o.refundedTotal > 0);
-  const total    = orders.filter(o => o.status !== "refunded").length;
   const reasons  = {};
   refunded.forEach(o => {
     (o.refundHistory ?? []).forEach(r => {
@@ -223,7 +337,7 @@ function buildRefunds(orders) {
   };
 }
 
-// ── Customer directory for CRM ────────────────────────────────────
+// CRM directory build
 function buildCustomers(orders) {
   const map = {};
   const now = Date.now();
@@ -278,11 +392,11 @@ function buildCustomers(orders) {
     }));
     const favSection = Object.entries(secCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? "";
 
-    // Segment logic
+    // Segment logic (SevenRooms RFM rules)
     let segment = "new";
     if (orderCount >= 5 && avgOrder >= 60)         segment = "vip";
     else if (daysSinceLast >= 60)                  segment = "lapsed";
-    else if (orderCount >= 3 && favSection === "Lamb") segment = "lamb";
+    else if (daysSinceLast >= 30 && daysSinceLast < 60) segment = "regular"; // At risk
     else if (avgOrder >= 80)                       segment = "big";
     else if (orderCount === 1)                     segment = "new";
     else                                           segment = "regular";
@@ -308,6 +422,75 @@ function buildCustomers(orders) {
       favSection,
       smsOptIn:      c.smsOptIn,
       authMethod:    c.authMethod,
+      phone:         c.orders[0]?.customerPhone ?? null,
+      orderHistory:  c.orders.map(o => ({
+        id: o.id,
+        total: o.total,
+        date: o.date,
+        items: o.items.map(i => `${i.qty}x ${i.name}`).join(", ")
+      }))
     };
   }).sort((a, b) => b.orderCount - a.orderCount);
+}
+
+// Spatial ZIP Code Sales
+function buildGeoZip(orders) {
+  const map = {};
+  const active = orders.filter(o => o.status !== "refunded");
+  
+  active.forEach(o => {
+    if (o.orderMode === "delivery" && o.deliveryAddress?.zip) {
+      const zip = o.deliveryAddress.zip.trim().slice(0, 5);
+      const city = o.deliveryAddress.city || "Westchester";
+      if (!map[zip]) {
+        map[zip] = {
+          zip,
+          city,
+          revenue: 0,
+          count: 0,
+          aov: 0,
+          dishes: {}
+        };
+      }
+      map[zip].revenue += o.subtotal;
+      map[zip].count += 1;
+      
+      // Track dishes in this neighborhood
+      o.items.forEach(i => {
+        map[zip].dishes[i.name] = (map[zip].dishes[i.name] ?? 0) + i.qty;
+      });
+    }
+  });
+
+  return Object.values(map).map(z => {
+    const topDish = Object.entries(z.dishes).sort((a,b)=>b[1]-a[1])[0]?.[0] ?? "Garlic Naan";
+    return {
+      zip: z.zip,
+      city: z.city,
+      revenue: Math.round(z.revenue * 100) / 100,
+      count: z.count,
+      aov: Math.round((z.revenue / z.count) * 100) / 100,
+      topDish
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
+}
+
+// Funnel calculations
+function buildFunnel(drafts) {
+  const total = drafts.length;
+  const paid  = drafts.filter(d => d.status === "paid").length;
+  const abandoned = total - paid;
+  
+  // Calculate recovered revenue
+  const recoveredRevenue = drafts
+    .filter(d => d.status === "paid")
+    .reduce((sum, d) => sum + (d.total || 0), 0);
+
+  return {
+    total,
+    paid,
+    abandoned,
+    conversionRate: total ? Math.round((paid / total) * 100) : 0,
+    recoveredRevenue: Math.round(recoveredRevenue * 100) / 100
+  };
 }

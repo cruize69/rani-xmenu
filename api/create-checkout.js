@@ -204,6 +204,38 @@ export default async function handler(req, res) {
       cancel_url:  `${baseUrl}`,
     }, { idempotencyKey });
 
+    // Store draft cart in Vercel KV for abandoned cart analytics
+    try {
+      const { kv } = await import("@vercel/kv");
+      let customerName = "Guest";
+      if (clerkUserId) {
+        try {
+          const user = await clerk.users.getUser(clerkUserId);
+          customerName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Guest";
+        } catch (e) {}
+      }
+      const draftCart = {
+        id: session.id,
+        items: validatedItems,
+        subtotal,
+        deliveryFee: serverDeliveryFee,
+        tax,
+        tip,
+        ccFee,
+        total: grossBeforeCc + ccFee,
+        orderMode,
+        guestEmail: guestEmail ?? "",
+        clerkUserId: clerkUserId ?? "",
+        customerName,
+        deliveryAddress: fullDeliveryAddress,
+        status: "draft",
+        createdAt: new Date().toISOString()
+      };
+      await kv.set(`draft:${session.id}`, JSON.stringify(draftCart), { ex: 2592000 }); // 30-day TTL
+    } catch (e) {
+      console.error("Failed to save draft cart:", e);
+    }
+
     return res.status(200).json({ url: session.url });
 
   } catch (err) {
@@ -211,3 +243,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Failed to create checkout session. Please try again." });
   }
 }
+

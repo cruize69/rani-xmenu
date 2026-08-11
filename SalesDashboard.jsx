@@ -1,7 +1,7 @@
 // SalesDashboard.jsx — Rebuilt Next-Gen Sales Analytics & CRM Engine for Rani Mahal
 // Synthesized from Toast, Square, BentoBox, SevenRooms, and Popmenu analytics research
-// Features: Executive KPIs, Trend Lines, Channel Breakdown, Menu Engineering Matrix (BCG Mean Math),
-// Day of Week & Section Analytics, Peak Hour Heatmap, Spice Preference Analytics,
+// Features: Executive KPIs, Trend Lines, Channel Breakdown, Menu Engineering Matrix (BCG),
+// Day of Week & Section Analytics, Peak Hour 2D Heatmap Grid, Spice Preference Analytics,
 // RFM Customer CRM, Lapsed VIP Win-Back Triggers, and Mailchimp/Klaviyo Export.
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
@@ -30,8 +30,6 @@ const SEGMENTS = {
   vip:     { label: "👑 VIP Guests",    bg: "rgba(200, 133, 58, 0.2)",   color: "#F5B467" },
   lapsed:  { label: "⚠️ Lapsed 60d+",  bg: "rgba(239, 68, 68, 0.2)",    color: "#FCA5A5" },
   new:     { label: "🌱 First Timers",  bg: "rgba(34, 197, 94, 0.2)",    color: "#86EFAC" },
-  lamb:    { label: "🍖 Lamb Lovers",   bg: "rgba(168, 85, 247, 0.2)",   color: "#D8B4FE" },
-  big:     { label: "💎 High Spenders", bg: "rgba(14, 165, 233, 0.2)",   color: "#7DD3FC" },
   regular: { label: "🔄 Regulars",      bg: "rgba(107, 114, 128, 0.2)",  color: "#D1D5DB" },
 };
 
@@ -41,8 +39,6 @@ const SPICE_COLORS = {
   Medium: "rgba(200, 133, 58, 0.85)",
   Mild: "rgba(34, 197, 94, 0.85)",
 };
-
-const CHART_COLORS = ["#C8853A", "#38BDF8", "#4ADE80", "#F43F5E", "#A855F7", "#F59E0B", "#14B8A6"];
 
 // CSV Exporter
 function exportCSV(customers, filename = `rani-mahal-crm-${new Date().toISOString().slice(0, 10)}.csv`) {
@@ -137,8 +133,8 @@ function StatCard({ title, value, sub, icon, trend, color = GOLD }) {
   );
 }
 
-// Revenue Trend Chart
-function RevenueChart({ series }) {
+// Ledger Main Chart (Net Revenue line + Gross Revenue comparison)
+function RevenueLedgerChart({ series }) {
   const ref = useChartJs((canvas) => {
     const labels = series.map(s => {
       const d = new Date(s.date);
@@ -148,21 +144,31 @@ function RevenueChart({ series }) {
       type: "line",
       data: {
         labels,
-        datasets: [{
-          label: "Revenue",
-          data: series.map(s => s.revenue),
-          borderColor: GOLD,
-          backgroundColor: "rgba(200, 133, 58, 0.12)",
-          fill: true,
-          tension: 0.35,
-          pointRadius: series.length > 30 ? 0 : 3,
-          pointBackgroundColor: GOLD,
-          borderWidth: 2.5,
-        }]
+        datasets: [
+          {
+            label: "Net Sales",
+            data: series.map(s => s.netRevenue ?? s.revenue),
+            borderColor: "#4ADE80",
+            backgroundColor: "rgba(74, 222, 128, 0.08)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 3,
+          },
+          {
+            label: "Gross Sales",
+            data: series.map(s => s.revenue),
+            borderColor: GOLD,
+            backgroundColor: "transparent",
+            fill: false,
+            tension: 0.35,
+            borderWidth: 1.5,
+            borderDash: [5, 5],
+          }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: true, labels: { color: TEXT_MAIN } } },
         scales: {
           x: { ticks: { color: "#A39281", font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
           y: { ticks: { color: "#A39281", font: { size: 10 }, callback: v => "$" + v }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
@@ -172,126 +178,174 @@ function RevenueChart({ series }) {
   }, [series]);
 
   return (
-    <div style={{ position: "relative", width: "100%", height: 180 }}>
-      <canvas ref={ref} role="img" aria-label="Revenue Trend Chart" />
+    <div style={{ position: "relative", width: "100%", height: 260 }}>
+      <canvas ref={ref} role="img" aria-label="Sales Ledger Chart" />
     </div>
   );
 }
 
-// Day of Week Bar Chart
-function DayOfWeekChart({ data }) {
+// BCG Matrix Scatter Plot
+function BCGMatrixChart({ topDishes }) {
   const ref = useChartJs((canvas) => {
-    const max = Math.max(...data.map(d => d.count), 1);
+    if (!topDishes || topDishes.length === 0) return;
+    
+    const avgRev = topDishes.reduce((sum, d) => sum + d.revenue, 0) / topDishes.length;
+    const avgQty = topDishes.reduce((sum, d) => sum + d.qty, 0) / topDishes.length;
+
+    const dataset = topDishes.map(d => {
+      const highRev = d.revenue >= avgRev;
+      const highQty = d.qty >= avgQty;
+      let color = "#4ADE80"; // Star
+      if (!highRev && highQty) color = "#F59E0B"; // Plowhorse
+      else if (highRev && !highQty) color = "#38BDF8"; // Puzzle
+      else if (!highRev && !highQty) color = "#FCA5A5"; // Dog
+      
+      return {
+        x: d.margin,
+        y: d.qty,
+        label: d.name,
+        backgroundColor: color
+      };
+    });
+
     return new window.Chart(canvas, {
-      type: "bar",
+      type: "scatter",
       data: {
-        labels: data.map(d => d.label),
         datasets: [{
-          data: data.map(d => d.count),
-          backgroundColor: data.map(d => d.count === max ? GOLD : "rgba(200, 133, 58, 0.35)"),
-          borderRadius: 6,
+          data: dataset,
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          backgroundColor: dataset.map(d => d.backgroundColor),
         }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const item = dataset[ctx.dataIndex];
+                return `${item.label}: Margin: $${item.x}, Volume: ${item.y} units`;
+              }
+            }
+          }
+        },
         scales: {
-          x: { ticks: { color: "#A39281", font: { size: 11, weight: "bold" } }, grid: { display: false } },
-          y: { ticks: { color: "#A39281", font: { size: 10 } }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
+          x: { 
+            title: { display: true, text: "Margin ($)", color: TEXT_MAIN },
+            ticks: { color: "#A39281" }, 
+            grid: { color: "rgba(255,255,255,0.05)" } 
+          },
+          y: { 
+            title: { display: true, text: "Volume (Units Sold)", color: TEXT_MAIN },
+            ticks: { color: "#A39281" }, 
+            grid: { color: "rgba(255,255,255,0.05)" } 
+          }
         }
       }
-    });
-  }, [data]);
-
-  return (
-    <div style={{ position: "relative", width: "100%", height: 140 }}>
-      <canvas ref={ref} role="img" aria-label="Day of Week Order Chart" />
-    </div>
-  );
-}
-
-// Peak Hour Heatmap
-function HourlyHeatmap({ data }) {
-  const max = Math.max(...data.map(d => d.count), 1);
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 6, margin: "10px 0" }}>
-      {data.map((d) => {
-        const intensity = d.count / max;
-        const bg = intensity === 0 ? "rgba(255, 255, 255, 0.03)"
-          : intensity > 0.7 ? "#C8853A"
-          : intensity > 0.4 ? "rgba(200, 133, 58, 0.6)"
-          : "rgba(200, 133, 58, 0.25)";
-        return (
-          <div key={d.label} style={{
-            background: bg,
-            borderRadius: 6,
-            padding: "8px 2px",
-            textAlign: "center",
-            border: intensity > 0.7 ? "1px solid #F5B467" : "1px solid transparent"
-          }} title={`${d.label}: ${d.count} orders`}>
-            <div style={{ fontSize: 9, color: TEXT_MUTED }}>{d.label}</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: intensity > 0.4 ? "#FFF" : TEXT_MAIN, marginTop: 2 }}>{d.count}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Menu Engineering Matrix (BCG Stars vs Candidates with true mean math)
-function MenuEngineeringMatrix({ topDishes }) {
-  const categorized = useMemo(() => {
-    if (!topDishes || topDishes.length === 0) return [];
-    
-    // Accurate Statistical Mean Math (prevents outlier skew)
-    const avgRev = topDishes.reduce((sum, d) => sum + d.revenue, 0) / topDishes.length;
-    const avgQty = topDishes.reduce((sum, d) => sum + d.qty, 0) / topDishes.length;
-
-    return topDishes.map(d => {
-      const highRev = d.revenue >= avgRev;
-      const highQty = d.qty >= avgQty;
-      let cat = "Star";
-      let badge = "⭐ Star";
-      let color = "#4ADE80";
-      let desc = "High Revenue & High Volume";
-
-      if (!highRev && highQty) {
-        cat = "Plowhorse";
-        badge = "🐴 Plowhorse";
-        color = "#F59E0B";
-        desc = "High Volume, Low Price";
-      } else if (highRev && !highQty) {
-        cat = "Puzzle";
-        badge = "🧩 Puzzle";
-        color = "#38BDF8";
-        desc = "High Revenue, Lower Volume";
-      } else if (!highRev && !highQty) {
-        cat = "Dog";
-        badge = "🐶 Candidate";
-        color = "#FCA5A5";
-        desc = "Low Revenue & Low Volume";
-      }
-      return { ...d, cat, badge, color, desc };
     });
   }, [topDishes]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {categorized.slice(0, 6).map((d) => (
-        <div key={d.name} style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10,
-          border: "1px solid rgba(255,255,255,0.06)"
-        }}>
-          <div style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT_MAIN, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: d.color + "22", color: d.color }}>{d.badge}</span>
+    <div style={{ position: "relative", width: "100%", height: 320 }}>
+      <canvas ref={ref} role="img" aria-label="BCG Menu Engineering Matrix" />
+    </div>
+  );
+}
+
+// 2D Peak Hour Heatmap (Days on Y, Hours on X)
+function Grid2DHeatmap({ hourlyData }) {
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const hours = Array.from({ length: 12 }, (_, i) => 11 + i); // 11 AM to 10 PM
+  const max = Math.max(...hourlyData.map(d => d.count), 1);
+
+  return (
+    <div style={{ overflowX: "auto", paddingBottom: 10 }}>
+      <div style={{ minWidth: 640 }}>
+        {/* Hours header row */}
+        <div style={{ display: "flex", marginBottom: 6 }}>
+          <div style={{ width: 60, flexShrink: 0 }} />
+          {hours.map(h => (
+            <div key={h} style={{ flex: 1, textAlign: "center", fontSize: 10, color: TEXT_MUTED, fontWeight: 700 }}>
+              {h === 12 ? "12p" : h > 12 ? `${h-12}p` : `${h}a`}
             </div>
-            <span style={{ fontSize: 11, color: TEXT_MUTED }}>{d.qty} ordered · {d.desc}</span>
+          ))}
+        </div>
+
+        {/* Days grid */}
+        {days.map(d => (
+          <div key={d} style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ width: 60, flexShrink: 0, fontSize: 11, fontWeight: "bold", color: TEXT_MAIN }}>{d}</div>
+            {hours.map(h => {
+              const cell = hourlyData.find(c => c.day === d && c.hourNum === h);
+              const count = cell?.count ?? 0;
+              const intensity = count / max;
+              const bg = count === 0 ? "rgba(255, 255, 255, 0.02)"
+                : intensity > 0.75 ? "rgba(200, 133, 58, 0.95)"
+                : intensity > 0.50 ? "rgba(200, 133, 58, 0.65)"
+                : intensity > 0.25 ? "rgba(200, 133, 58, 0.4)"
+                : "rgba(200, 133, 58, 0.15)";
+              const border = intensity > 0.75 ? "1px solid #FAF6EF" : "1px solid transparent";
+              return (
+                <div key={h} style={{
+                  flex: 1,
+                  height: 34,
+                  background: bg,
+                  borderRadius: 4,
+                  margin: "0 2px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 11,
+                  fontWeight: "bold",
+                  color: intensity > 0.5 ? "#FFF" : TEXT_MAIN,
+                  border,
+                  transition: "background 0.2s"
+                }} title={`${d} @ ${h}: ${count} orders`}>
+                  {count > 0 ? count : ""}
+                </div>
+              );
+            })}
           </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <span style={{ fontSize: 14, fontWeight: 900, color: GOLD }}>{fmt(d.revenue)}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 5-Step Checkout Conversion Funnel UI
+function FunnelVisualizer({ funnel }) {
+  const steps = [
+    { label: "Visits / Checkouts Initiated", count: funnel.total, color: "rgba(200, 133, 58, 0.85)", width: "100%" },
+    { label: "Completed Orders", count: funnel.paid, color: "rgba(74, 222, 128, 0.85)", width: funnel.total ? `${(funnel.paid / funnel.total) * 100}%` : "0%" },
+    { label: "Abandoned Carts", count: funnel.abandoned, color: "rgba(239, 68, 68, 0.85)", width: funnel.total ? `${(funnel.abandoned / funnel.total) * 100}%` : "0%" },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "10px 0" }}>
+      {steps.map((s, idx) => (
+        <div key={idx}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: TEXT_MUTED, marginBottom: 4 }}>
+            <span>{s.label}</span>
+            <strong style={{ color: TEXT_MAIN }}>{s.count}</strong>
+          </div>
+          <div style={{ width: "100%", height: 26, background: "rgba(255,255,255,0.03)", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{
+              width: s.width,
+              height: "100%",
+              background: s.color,
+              borderRadius: "5px 0 0 5px",
+              display: "flex",
+              alignItems: "center",
+              paddingLeft: 10,
+              fontSize: 11,
+              fontWeight: 800,
+              color: "#FFF",
+              transition: "width 0.6s ease"
+            }}>
+              {s.count > 0 && s.width}
+            </div>
           </div>
         </div>
       ))}
@@ -299,67 +353,144 @@ function MenuEngineeringMatrix({ topDishes }) {
   );
 }
 
-// Contact Modal for CRM
-function ContactModal({ customer, onClose }) {
+// Detailed Customer CRM Timeline View
+function CustomerDetailsView({ customer, onClose }) {
   const seg = SEGMENTS[customer.segment] ?? SEGMENTS.regular;
   const initials = (customer.fullName ?? "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "#18120C", border: `1px solid ${CARD_BORDER}`, borderRadius: 20, width: "100%", maxWidth: 440, padding: 24, boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(10px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#18120C", border: `1px solid ${CARD_BORDER}`, borderRadius: 20, width: "100%", maxWidth: 520, padding: 24, boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 48, height: 48, borderRadius: 24, background: seg.bg, color: seg.color, fontSize: 16, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
               {initials}
             </div>
             <div>
               <h3 style={{ fontSize: 18, fontWeight: 800, color: TEXT_MAIN }}>{customer.fullName}</h3>
-              <p style={{ fontSize: 12, color: TEXT_MUTED }}>{customer.email || "Guest checkout (no email)"}</p>
+              <p style={{ fontSize: 12, color: TEXT_MUTED }}>{customer.email || "Guest Checkout"} · {customer.phone || "No Phone"}</p>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: TEXT_MUTED, fontSize: 20, cursor: "pointer" }}>✕</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 20 }}>
+        {/* Stats Summary Matrix */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 18 }}>
           {[
-            ["Total Orders", customer.orderCount],
-            ["Total Spend", fmt(customer.totalSpend)],
-            ["Avg Ticket", fmt(customer.avgOrder)],
-            ["Last Order", `${customer.daysSinceLast}d ago`],
-            ["Favorite Dish", customer.favDish || "—"],
-            ["Spice Preference", customer.favSpice || "—"],
-            ["Account Type", customer.authMethod === "account" ? "Registered Member" : "Guest"],
-            ["SMS Opt-In", customer.smsOptIn ? "Opted In ✓" : "No"],
+            ["Orders", customer.orderCount],
+            ["Spend", fmt(customer.totalSpend)],
+            ["AOV", fmt(customer.avgOrder)],
+            ["Last Visit", `${customer.daysSinceLast}d ago`],
           ].map(([lbl, val]) => (
-            <div key={lbl} style={{ background: "rgba(255,255,255,0.03)", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ fontSize: 10, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.06em" }}>{lbl}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: TEXT_MAIN, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{val}</div>
+            <div key={lbl} style={{ background: "rgba(255,255,255,0.03)", padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
+              <div style={{ fontSize: 9, color: TEXT_MUTED, textTransform: "uppercase" }}>{lbl}</div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: GOLD, marginTop: 4 }}>{val}</div>
             </div>
           ))}
         </div>
 
-        {/* 1-on-1 Direct VIP Outreach Actions */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        {/* Taste Profile Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontSize: 10, color: TEXT_MUTED }}>FAVORITE ENTRÉE</div>
+            <div style={{ fontSize: 13, fontWeight: "bold", color: TEXT_MAIN, marginTop: 4 }}>{customer.favDish || "—"}</div>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontSize: 10, color: TEXT_MUTED }}>SPICE TOLERANCE</div>
+            <div style={{ fontSize: 13, fontWeight: "bold", color: customer.favSpice ? SPICE_COLORS[customer.favSpice] || GOLD : TEXT_MAIN, marginTop: 4 }}>
+              {customer.favSpice || "—"}
+            </div>
+          </div>
+        </div>
+
+        {/* Order History Timeline */}
+        <h4 style={{ fontSize: 12, fontWeight: 800, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Order History Timeline</h4>
+        <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4, marginBottom: 18 }}>
+          {customer.orderHistory?.map((ord, idx) => (
+            <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 8, padding: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: "bold", color: TEXT_MAIN }}>{ord.date}</div>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>{ord.items}</div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: "bold", color: GOLD }}>{fmt(ord.total)}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Concierge Marketing Actions */}
+        <div style={{ display: "flex", gap: 10 }}>
           {customer.email && (
             <a href={`mailto:${customer.email}`}
-              style={{ flex: 1, height: 42, borderRadius: 10, background: "rgba(200, 133, 58, 0.15)", border: `1px solid ${CARD_BORDER}`, color: GOLD, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+              style={{ flex: 1, height: 44, borderRadius: 10, background: "rgba(200, 133, 58, 0.15)", border: `1px solid ${CARD_BORDER}`, color: GOLD, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               ✉ Email Guest
             </a>
           )}
+          {customer.phone && (
+            <a href={`tel:${customer.phone}`}
+              style={{ flex: 1, height: 44, borderRadius: 10, background: "rgba(74, 222, 128, 0.12)", border: "1px solid rgba(74, 222, 128, 0.2)", color: "#4ADE80", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+              📞 Call Guest
+            </a>
+          )}
         </div>
-
-        <button onClick={() => exportCSV([customer])}
-          style={{ width: "100%", height: 46, borderRadius: 12, background: GOLD, color: "#FFF", border: "none", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
-          Export Contact to Mailchimp / CSV
-        </button>
       </div>
     </div>
   );
 }
 
-// CRM Tab
-function CRMTab({ customers }) {
+// TAB 1: Executive Ledger View
+function SalesLedgerTab({ overview, revenue, refunds }) {
+  const stripeFeesEst = Math.round(overview.netSales * 0.029 + (overview.count * 0.3));
+  const profitMarginRate = overview.netSales ? Math.round((overview.grossProfit / overview.netSales) * 100) : 0;
+  
+  // Commission savings calculator (30% savings bypassing standard DoorDash margins)
+  const ddCommissionEst = Math.round(overview.netSales * 0.30);
+  const totalCommissionSavings = ddCommissionEst - stripeFeesEst;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* 5-Metrics Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+        <StatCard title="Gross Sales" value={fmtK(overview.revenue)} icon="💰" color={GOLD} sub="Total charged volume" />
+        <StatCard title="Net Sales" value={fmtK(overview.netSales)} icon="📈" color="#4ADE80" sub="Gross minus refunds" />
+        <StatCard title="Gross Profit" value={fmtK(overview.grossProfit)} icon="🏛️" color="#38BDF8" sub={`Est. Profit (${profitMarginRate}%)`} />
+        <StatCard title="Labor Cost Rate" value={`${overview.laborCostRate}%`} icon="👥" color="#A855F7" sub={`SPLH: ${fmt(overview.splh)}`} />
+        <StatCard title="Refund Rate" value={`${refunds.rate}%`} icon="⚠️" color="#F43F5E" sub={`Loss: ${fmt(refunds.amount)}`} />
+      </div>
+
+      {/* Main Ledger Chart */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Sales Ledger & Voids Overview</h3>
+        <RevenueLedgerChart series={revenue} />
+      </div>
+
+      {/* Savings Ledger breakdown */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>Direct Online Savings Ledger</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
+            <span style={{ fontSize: 11, color: TEXT_MUTED }}>3RD PARTY COMMISSION AVOIDED</span>
+            <div style={{ fontSize: 22, fontWeight: 900, color: GOLD, marginTop: 6 }}>{fmt(ddCommissionEst)}</div>
+            <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Estimated 30% DoorDash/Uber commission on net sales</p>
+          </div>
+          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
+            <span style={{ fontSize: 11, color: TEXT_MUTED }}>NET CC PROCESSING FEES</span>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#F43F5E", marginTop: 6 }}>{fmt(stripeFeesEst)}</div>
+            <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Standard Stripe fee structure (2.9% + 30¢)</p>
+          </div>
+          <div style={{ background: "rgba(74, 222, 128, 0.05)", border: "1px solid rgba(74, 222, 128, 0.15)", borderRadius: 12, padding: 16 }}>
+            <span style={{ fontSize: 11, color: "#4ADE80" }}>TOTAL COMMISSION SAVINGS</span>
+            <div style={{ fontSize: 24, fontWeight: 900, color: "#4ADE80", marginTop: 6 }}>{fmt(totalCommissionSavings)}</div>
+            <p style={{ fontSize: 11, color: "#86EFAC", marginTop: 4 }}>Direct margin saved by bypassing third party apps</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// TAB 2: Guest CRM View
+function GuestCRMTab({ customers }) {
   const [activeSeg, setActiveSeg] = useState("all");
   const [search, setSearch]       = useState("");
   const [viewContact, setViewContact] = useState(null);
@@ -385,7 +516,7 @@ function CRMTab({ customers }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {viewContact && <ContactModal customer={viewContact} onClose={() => setViewContact(null)} />}
+      {viewContact && <CustomerDetailsView customer={viewContact} onClose={() => setViewContact(null)} />}
 
       {/* Segment filter pills */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -450,83 +581,188 @@ function CRMTab({ customers }) {
   );
 }
 
-// Analytics Main Tab
-function AnalyticsTab({ data }) {
-  const { overview, revenue, topDishes, dayOfWeek, hourly, spice, refunds } = data;
-  const netSales = Math.max(0, (overview.revenue || 0) - (refunds?.amount || 0));
-
+// TAB 3: Menu Intelligence View
+function MenuIntelligenceTab({ topDishes, spice }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Overview Stat Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        <StatCard title="Gross Revenue" value={fmtK(overview.revenue)} trend={12.4} icon="💰" color={GOLD} sub="Total sales before refunds" />
-        <StatCard title="Net Sales" value={fmtK(netSales)} icon="📈" color="#4ADE80" sub="Gross sales minus refunds" />
-        <StatCard title="Completed Orders" value={overview.count} trend={8.1} icon="🛍️" color="#38BDF8" sub="Successful checkouts" />
-        <StatCard title="Avg Ticket (AOV)" value={fmt(overview.avgOrder)} trend={3.5} icon="📊" color="#A855F7" sub="Per order average" />
-        <StatCard title="Repeat Guest Rate" value={`${overview.repeatRate}%`} icon="🔄" color="#F59E0B" sub="Loyal returning diners" />
-      </div>
-
-      {/* Revenue Trend Line Chart */}
-      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Revenue Trend & Sales Pace</h3>
-        {revenue?.length > 0 ? <RevenueChart series={revenue} /> : <div style={{ color: TEXT_MUTED, textAlign: "center", padding: 20 }}>No revenue data</div>}
-      </div>
-
-      {/* Day of Week Order Distribution */}
-      {dayOfWeek?.length > 0 && (
-        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>📅 Order Density by Day of Week</h3>
-          <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12 }}>Identify peak dining days for targeted social promotions</p>
-          <DayOfWeekChart data={dayOfWeek} />
-        </div>
-      )}
-
-      {/* Peak Hour Heatmap */}
-      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>⚡ Peak Kitchen Rush Heatmap</h3>
-        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12 }}>Hourly order density to optimize line prep & staffing</p>
-        {hourly?.length > 0 ? <HourlyHeatmap data={hourly} /> : <div style={{ color: TEXT_MUTED, textAlign: "center", padding: 20 }}>No hourly data</div>}
-      </div>
-
-      {/* Split Section: Menu Engineering Matrix & Spice Breakdown */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
-        {/* Menu Engineering (Stars vs Candidates) */}
+        {/* BCG Matrix Plot */}
         <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>⭐ Menu Engineering Matrix</h3>
-          {topDishes?.length > 0 ? <MenuEngineeringMatrix topDishes={topDishes} /> : <div style={{ color: TEXT_MUTED }}>No dish data</div>}
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>⭐ Menu Engineering Matrix</h3>
+          <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>Contribution Margin vs. Volume sold splits</p>
+          <BCGMatrixChart topDishes={topDishes} />
         </div>
 
-        {/* Spice Level & Section Analytics */}
-        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>🌶️ Indian Spice Level Preferences</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {(spice ?? []).map(s => (
-                <div key={s.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: SPICE_COLORS[s.label] || TEXT_MAIN, fontWeight: 800 }}>{s.label}</span>
-                  <span style={{ color: TEXT_MUTED, fontWeight: 700 }}>{s.count} orders</span>
-                </div>
+        {/* Categories Details Table */}
+        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>BCG Product Performance</h3>
+          <MenuEngineeringMatrix topDishes={topDishes} />
+        </div>
+      </div>
+
+      {/* Spice preferences */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>🌶️ Spice Preference Metrics</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+          {spice?.map(s => (
+            <div key={s.label} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 14, textAlign: "center" }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: SPICE_COLORS[s.label] || GOLD }}>{s.label}</span>
+              <div style={{ fontSize: 20, fontWeight: 900, color: TEXT_MAIN, marginTop: 6 }}>{s.count}</div>
+              <span style={{ fontSize: 11, color: TEXT_MUTED }}>orders</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// TAB 4: Geo Spatial & Neighborhoods
+function GeoSpatialTab({ geoZip, hourly }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>📍 Neighborhood Geo Revenue Breakdown</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12 }}>Delivery metrics grouped by Zip code and city limits</p>
+        
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: TEXT_MUTED }}>
+                <th style={{ padding: "10px 8px" }}>ZIP Code</th>
+                <th style={{ padding: "10px 8px" }}>City</th>
+                <th style={{ padding: "10px 8px" }}>Total Orders</th>
+                <th style={{ padding: "10px 8px" }}>AOV</th>
+                <th style={{ padding: "10px 8px" }}>Revenue</th>
+                <th style={{ padding: "10px 8px" }}>Top Entrée</th>
+              </tr>
+            </thead>
+            <tbody>
+              {geoZip?.map((z, idx) => (
+                <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: GOLD }}>{z.zip}</td>
+                  <td style={{ padding: "12px 8px" }}>{z.city}</td>
+                  <td style={{ padding: "12px 8px" }}>{z.count}</td>
+                  <td style={{ padding: "12px 8px" }}>{fmt(z.aov)}</td>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: "#4ADE80" }}>{fmt(z.revenue)}</td>
+                  <td style={{ padding: "12px 8px", color: TEXT_MUTED }}>{z.topDish}</td>
+                </tr>
               ))}
+              {(!geoZip || geoZip.length === 0) && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 20, color: TEXT_MUTED }}>No delivery geo data available yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2D Heatmap Grid */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>⚡ Peak Kitchen Operations Heatmap</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 12 }}>2D Day of Week vs. Hour of Day matrix to schedule staffing SLA</p>
+        {hourly?.length > 0 ? <Grid2DHeatmap hourlyData={hourly} /> : <div style={{ color: TEXT_MUTED, textAlign: "center", padding: 20 }}>No operations data</div>}
+      </div>
+    </div>
+  );
+}
+
+
+// TAB 5: Recovery & Conversion Funnel
+function CartRecoveryTab({ funnel }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+        {/* Funnel chart */}
+        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>🛒 eCommerce Checkout Conversion Funnel</h3>
+          <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>Track drop-off percentage across Stripe checkout phases</p>
+          <FunnelVisualizer funnel={funnel} />
+        </div>
+
+        {/* Recovery stats summary */}
+        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", justify: "space-between" }}>
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>Abandoned Cart Recovery Success</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              <div style={{ background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
+                <span style={{ fontSize: 10, color: TEXT_MUTED }}>RECOVERY RATE</span>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#4ADE80", marginTop: 4 }}>{funnel.conversionRate}%</div>
+              </div>
+              <div style={{ background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
+                <span style={{ fontSize: 10, color: TEXT_MUTED }}>RECOVERED REVENUE</span>
+                <div style={{ fontSize: 24, fontWeight: 900, color: GOLD, marginTop: 4 }}>{fmt(funnel.recoveredRevenue)}</div>
+              </div>
             </div>
           </div>
-
-          <hr style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.06)" }} />
-
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>⚠️ Refund Audit & Loss Prevention</h3>
-            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-              <div style={{ flex: 1, background: "rgba(239,68,68,0.1)", padding: 12, borderRadius: 10, border: "1px solid rgba(239,68,68,0.2)" }}>
-                <div style={{ fontSize: 10, color: "#FCA5A5", textTransform: "uppercase", fontWeight: 800 }}>Refund Rate</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#FCA5A5" }}>{refunds?.rate ?? 0}%</div>
-              </div>
-              <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ fontSize: 10, color: TEXT_MUTED, textTransform: "uppercase", fontWeight: 800 }}>Total Refunded</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: TEXT_MAIN }}>{fmt(refunds?.amount ?? 0)}</div>
-              </div>
-            </div>
+          <div style={{ background: "rgba(200, 133, 58, 0.05)", border: `1px solid ${CARD_BORDER}`, borderRadius: 10, padding: 14 }}>
+            <span style={{ fontSize: 11, fontWeight: "bold", color: GOLD }}>💡 Smart Insight: Abandoned Carts Timing</span>
+            <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 4, lineHeight: 1.5 }}>
+              Trigger recovery messages exactly 15 minutes post-abandonment to achieve the highest conversion. Ensure coupon codes (e.g., SPICE15) are pre-loaded in Stripe for 1-click apply.
+            </p>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Auxiliary Component for Menu Matrix quadrants
+function MenuEngineeringMatrix({ topDishes }) {
+  const categorized = useMemo(() => {
+    if (!topDishes || topDishes.length === 0) return [];
+    const avgRev = topDishes.reduce((sum, d) => sum + d.revenue, 0) / topDishes.length;
+    const avgQty = topDishes.reduce((sum, d) => sum + d.qty, 0) / topDishes.length;
+
+    return topDishes.map(d => {
+      const highRev = d.revenue >= avgRev;
+      const highQty = d.qty >= avgQty;
+      let cat = "Star";
+      let badge = "⭐ Star";
+      let color = "#4ADE80";
+      let desc = "High Margin & Volume";
+
+      if (!highRev && highQty) {
+        cat = "Plowhorse";
+        badge = "🐴 Plowhorse";
+        color = "#F59E0B";
+        desc = "High Volume, Low Price";
+      } else if (highRev && !highQty) {
+        cat = "Puzzle";
+        badge = "🧩 Puzzle";
+        color = "#38BDF8";
+        desc = "High Margin, Low Volume";
+      } else if (!highRev && !highQty) {
+        cat = "Dog";
+        badge = "🐶 Candidate";
+        color = "#FCA5A5";
+        desc = "Low Volume & Margin";
+      }
+      return { ...d, cat, badge, color, desc };
+    });
+  }, [topDishes]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 310, overflowY: "auto" }}>
+      {categorized.map((d) => (
+        <div key={d.name} style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 10,
+          border: "1px solid rgba(255,255,255,0.04)"
+        }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT_MAIN }}>{d.name}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: d.color + "22", color: d.color }}>{d.badge}</span>
+            </div>
+            <span style={{ fontSize: 11, color: TEXT_MUTED }}>{d.qty} sold · {d.desc}</span>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: GOLD }}>{fmt(d.revenue)}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -572,8 +808,8 @@ export default function SalesDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/RaniMahalLogo.png" alt="Rani Mahal" style={{ height: 32 }} onError={e => e.target.style.display='none'} />
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 900, color: CREAM, letterSpacing: "-0.01em" }}>RANI MAHAL — SALES & CRM INTELLIGENCE</h1>
-            <p style={{ fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: "0.08em" }}>EXECUTIVE ANALYTICS DASHBOARD</p>
+            <h1 style={{ fontSize: 18, fontWeight: 900, color: CREAM, letterSpacing: "-0.01em" }}>RANI MAHAL — SALES & CRM V2</h1>
+            <p style={{ fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: "0.08em" }}>GUEST INTELLIGENCE & PROFITABILITY</p>
           </div>
         </div>
 
@@ -593,18 +829,22 @@ export default function SalesDashboard() {
         </div>
       </header>
 
-      {/* Main Tab Navigation */}
+      {/* Tab Navigation */}
       <div style={{ background: "rgba(28, 22, 17, 0.5)", borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 24px" }}>
-        <div style={{ display: "flex", gap: 20, maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ display: "flex", gap: 20, maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
           {[
-            ["analytics", "📊 Executive Analytics"],
-            ["crm", "👥 Guest CRM & Directory"],
+            ["analytics", "📊 Sales Ledger"],
+            ["crm", "👥 Guest CRM"],
+            ["menu", "🍽️ Menu Intelligence"],
+            ["geo", "📍 Geo Spatial"],
+            ["recovery", "🛒 Cart Recovery"],
           ].map(([k, lbl]) => (
             <button key={k} onClick={() => setTab(k)}
               style={{
                 padding: "14px 4px", background: "none", border: "none",
                 borderBottom: tab === k ? `3px solid ${GOLD}` : "3px solid transparent",
-                color: tab === k ? GOLD : TEXT_MUTED, fontSize: 14, fontWeight: 800, cursor: "pointer"
+                color: tab === k ? GOLD : TEXT_MUTED, fontSize: 14, fontWeight: 800, cursor: "pointer",
+                whiteSpace: "nowrap"
               }}>
               {lbl}
             </button>
@@ -616,14 +856,20 @@ export default function SalesDashboard() {
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 60px" }}>
         {loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>
-            <div style={{ fontSize: 24, marginBottom: 12 }}>⚡ Loading Sales Intelligence...</div>
+            <div style={{ fontSize: 24, marginBottom: 12 }}>⚡ Compiling Sales Intelligence...</div>
           </div>
         ) : error ? (
           <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 14, padding: 20, color: "#FCA5A5" }}>
-            ⚠️ Error loading analytics: {error}
+            ⚠️ Error loading dashboard: {error}
           </div>
         ) : data ? (
-          tab === "analytics" ? <AnalyticsTab data={data} /> : <CRMTab customers={data.customers ?? []} />
+          <>
+            {tab === "analytics" && <SalesLedgerTab overview={data.overview} revenue={data.revenue} refunds={data.refunds} />}
+            {tab === "crm" && <GuestCRMTab customers={data.customers ?? []} />}
+            {tab === "menu" && <MenuIntelligenceTab topDishes={data.topDishes} spice={data.spice} />}
+            {tab === "geo" && <GeoSpatialTab geoZip={data.geoZip} hourly={data.hourly} />}
+            {tab === "recovery" && <CartRecoveryTab funnel={data.funnel} />}
+          </>
         ) : null}
       </main>
     </div>
