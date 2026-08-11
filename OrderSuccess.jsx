@@ -33,13 +33,13 @@ function AccountClaimCard({ email }) {
   return (
     <div style={{ background: "#0F0800", borderRadius: 16, padding: "20px 22px", marginBottom: 20, border: "1px solid rgba(200,133,58,0.4)", color: "#F5E6C8" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <span style={{ fontSize: 20 }}>✨</span>
+        <span style={{ fontSize: 20 }}>👑</span>
         <h4 style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "#FFFFFF", margin: 0 }}>
-          Save order history & earn rewards
+          Join the Rani Royal Club & Earn Rewards
         </h4>
       </div>
       <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
-        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to track orders live, save payment details, and reorder your favorites in seconds next time.
+        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to join. Save your order history for easy 1-tap reordering, earn loyalty rewards, and gain access to exclusive off-menu specials.
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
         <button
@@ -314,6 +314,65 @@ function LiveTracker({ orderId, initialStatus }) {
   );
 }
 
+function ReferralCard() {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    const inviteLink = "https://ranimahal.food/?invite=royal10";
+    navigator.clipboard.writeText(inviteLink)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      })
+      .catch(() => {});
+  };
+
+  return (
+    <div style={{
+      background: "#FAFAF5",
+      borderRadius: 16,
+      border: "0.5px solid rgba(0,0,0,0.08)",
+      padding: "20px 22px",
+      marginBottom: 20,
+      boxShadow: "0 2px 20px rgba(0,0,0,0.04)"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 20 }}>🎉</span>
+        <h4 style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "#0F0800", margin: 0 }}>
+          Share the Feast & Save 10%
+        </h4>
+      </div>
+      <p style={{ fontSize: 13, color: "#8A7560", marginBottom: 14, lineHeight: 1.55 }}>
+        Send your friends a <strong>10% discount</strong> on their first order. Once they order, we'll automatically email you a <strong>10% off voucher</strong> for your next visit!
+      </p>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <button
+          onClick={handleCopy}
+          style={{
+            padding: "11px 22px",
+            background: "#0F0800",
+            color: "#F5E6C8",
+            border: "none",
+            borderRadius: 24,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "'Inter',sans-serif",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            transition: "transform 0.1s ease"
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+          <span>{copied ? "Link Copied! ✓" : "Copy Invite Link 🔗"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────
 export default function OrderSuccess() {
   const [order, setOrder]     = useState(null);
@@ -452,6 +511,9 @@ export default function OrderSuccess() {
 
         {/* ── Account Save / Claim Card ── */}
         <AccountClaimCard email={order.customerEmail} />
+
+        {/* ── Viral Referral Card ── */}
+        <ReferralCard />
 
         {/* ── Footer CTA ── */}
         <div style={{ textAlign:"center", marginBottom:32 }}>

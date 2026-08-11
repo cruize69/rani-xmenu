@@ -11,6 +11,24 @@ import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
 
+export function GoogleTrustBadge() {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      margin: "12px 0 10px",
+      fontSize: "12.5px",
+      color: "#B8A995",
+      fontFamily: "'Inter', sans-serif"
+    }}>
+      <span style={{ color: "#E8A82E", letterSpacing: "1px" }}>⭐⭐⭐⭐⭐</span>
+      <span style={{ fontWeight: 500 }}>Rated 4.8 on Google (700+ reviews) · Secure Checkout</span>
+    </div>
+  );
+}
+
 // Custom Luxury Royal Dining Crest SVG Icon for Rani Mahal
 function LuxuryRoyalCrestIcon({ size = 22, color = "#E8A82E" }) {
   return (
@@ -165,7 +183,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
           <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
         </svg>
       </span>
-      Sign in to save your order history
+      Sign in to join the Rani Royal Club & earn rewards
     </button>
   );
 }
@@ -448,9 +466,12 @@ export function CheckoutGate({
                   )
                 )}
                 {!(error && error.includes("minimum food subtotal")) && (
-                  <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
-                    {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}
-                  </button>
+                  <>
+                    <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
+                      {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}
+                    </button>
+                    <GoogleTrustBadge />
+                  </>
                 )}
               </form>
             </>
@@ -631,25 +652,28 @@ export function CartDrawer({
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={handleCheckout}
-                  style={{
-                    display:"block",
-                    width:"100%",
-                    padding:14,
-                    background:"#E8A82E",
-                    border:"none",
-                    color:"#080706",
-                    fontSize:15,
-                    fontWeight:600,
-                    borderRadius:10,
-                    cursor:"pointer",
-                    transition:"background 0.15s",
-                    boxShadow:"0 4px 20px rgba(232,168,46,0.3)"
-                  }}
-                >
-                  Proceed to checkout — {fmt(total)}
-                </button>
+                <>
+                  <GoogleTrustBadge />
+                  <button
+                    onClick={handleCheckout}
+                    style={{
+                      display:"block",
+                      width:"100%",
+                      padding:14,
+                      background:"#E8A82E",
+                      border:"none",
+                      color:"#080706",
+                      fontSize:15,
+                      fontWeight:600,
+                      borderRadius:10,
+                      cursor:"pointer",
+                      transition:"background 0.15s",
+                      boxShadow:"0 4px 20px rgba(232,168,46,0.3)"
+                    }}
+                  >
+                    Proceed to checkout — {fmt(total)}
+                  </button>
+                </>
               )}
             </div>
           </>

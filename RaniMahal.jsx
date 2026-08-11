@@ -473,6 +473,25 @@ export default function RaniMahal() {
     <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", color: "#FAF6EF" }}>
       <style>{css}</style>
 
+      {/* Announcement Bar */}
+      <div style={{
+        background: "linear-gradient(90deg, #0f0800 0%, #170d02 50%, #0f0800 100%)",
+        borderBottom: "1px solid rgba(232, 168, 46, 0.15)",
+        padding: "8px 16px",
+        textAlign: "center",
+        fontSize: "12px",
+        fontWeight: 500,
+        color: "#F5E6C8",
+        letterSpacing: "0.03em",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 6
+      }}>
+        <span style={{ color: "#E8A82E" }}>👑</span>
+        <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>
+      </div>
+
       {/* Header */}
       <RaniHeader
         activeSection={activeSection}
