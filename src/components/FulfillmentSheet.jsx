@@ -263,7 +263,10 @@ export function FulfillmentSheet({
                 style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
               />
               <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
-                We'll text you about this order — msg &amp; data rates may apply. Reply STOP anytime to opt out.
+                By checking this box, you agree to receive SMS text messages from Rani Mahal — order
+                confirmations, prep/delivery status updates, and occasional cart reminders. Message frequency
+                varies. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. Optional —
+                you can place your order without checking this box.{" "}
                 See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
               </span>
