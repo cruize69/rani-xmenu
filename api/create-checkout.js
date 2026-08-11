@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { createClerkClient } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
+import { graduateLead } from "../lib/abandonedCart.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
-    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress } = req.body || {};
+    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId } = req.body || {};
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -204,7 +205,10 @@ export default async function handler(req, res) {
       cancel_url:  `${baseUrl}`,
     }, { idempotencyKey });
 
-    // Store draft cart in Vercel KV for abandoned cart analytics
+    // Store draft cart in Vercel KV for abandoned cart analytics + recovery.
+    // If this checkout carries a draftId from an earlier fulfillment-step
+    // capture, graduate that lead (stops Stage-A recovery messaging) and
+    // carry its phone/consent into this record for Stage-B recovery.
     try {
       const { kv } = await import("@vercel/kv");
       let customerName = "Guest";
@@ -214,6 +218,7 @@ export default async function handler(req, res) {
           customerName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Guest";
         } catch (e) {}
       }
+      const lead = draftId ? await graduateLead(draftId).catch(() => null) : null;
       const draftCart = {
         id: session.id,
         items: validatedItems,
@@ -229,7 +234,12 @@ export default async function handler(req, res) {
         customerName,
         deliveryAddress: fullDeliveryAddress,
         status: "draft",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // Abandoned-cart recovery fields
+        phone:        lead?.phone ?? null,
+        smsConsent:   !!lead?.smsConsent,
+        touch1SentAt: null,
+        touch2SentAt: null,
       };
       await kv.set(`draft:${session.id}`, JSON.stringify(draftCart), { ex: 2592000 }); // 30-day TTL
     } catch (e) {

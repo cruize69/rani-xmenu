@@ -185,6 +185,8 @@ export function CheckoutGate({
   onGuestIdentified,
   guestEmail = "",
   setGuestEmail,
+  draftId = null,
+  onSaveLead,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   const [step,       setStep]       = useState("choice");
@@ -243,7 +245,8 @@ export function CheckoutGate({
           tip,
           orderMode,
           deliveryAddress: fullDeliveryAddress,
-          deliveryFee: orderMode === "delivery" ? deliveryFee : 0
+          deliveryFee: orderMode === "delivery" ? deliveryFee : 0,
+          draftId,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -265,6 +268,7 @@ export function CheckoutGate({
     if (!guestEmail.includes("@")) { setError("Please enter a valid email for your receipt"); return; }
     if (!validateDelivery()) return;
     onGuestIdentified?.(guestEmail);
+    onSaveLead?.({ email: guestEmail });
     goToStripe({ guestEmail });
   };
 

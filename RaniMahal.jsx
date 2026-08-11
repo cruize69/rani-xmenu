@@ -87,6 +87,30 @@ const GUEST_EMAIL_KEY = "rani_guest_email";
 const loadGuestEmail  = () => { try { return localStorage.getItem(GUEST_EMAIL_KEY) || null; } catch { return null; } };
 const saveGuestEmail  = email => { try { localStorage.setItem(GUEST_EMAIL_KEY, email); } catch {} };
 
+const PHONE_KEY = "rani_guest_phone";
+const loadPhone = () => { try { return localStorage.getItem(PHONE_KEY) || ""; } catch { return ""; } };
+const savePhone = phone => { try { localStorage.setItem(PHONE_KEY, phone); } catch {} };
+
+const SMS_CONSENT_KEY = "rani_sms_consent";
+const loadSmsConsent = () => { try { return localStorage.getItem(SMS_CONSENT_KEY) === "1"; } catch { return false; } };
+const saveSmsConsent = v => { try { localStorage.setItem(SMS_CONSENT_KEY, v ? "1" : "0"); } catch {} };
+
+// Stable per-browser id used to progressively capture cart/contact info
+// pre-checkout for abandoned-cart recovery (see lib/abandonedCart.js).
+const DRAFT_ID_KEY = "rani_draft_id";
+function loadOrCreateDraftId() {
+  try {
+    let id = localStorage.getItem(DRAFT_ID_KEY);
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem(DRAFT_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
 const FULFILLMENT_STORAGE_KEY = "rani_fulfillment_v1";
 function loadStoredFulfillment() {
   try {
@@ -128,6 +152,10 @@ export default function RaniMahal() {
   const [tipPct, setTipPct] = useState(() => (loadStoredFulfillment().mode === "delivery" ? 0.18 : 0));
   const [tipCustom, setTipCustom] = useState("");
   const [guestEmail, setGuestEmail] = useState(loadGuestEmail);
+  const [guestPhone, setGuestPhone] = useState(loadPhone);
+  const [smsConsent, setSmsConsent] = useState(loadSmsConsent);
+  const draftIdRef = useRef(null);
+  if (!draftIdRef.current) draftIdRef.current = loadOrCreateDraftId();
 
   useEffect(() => {
     if (orderMode === "delivery") {
@@ -271,6 +299,27 @@ export default function RaniMahal() {
       return { ...prev, [key]:{ name:item.name, price:item.price, qty, spice, note, baseId:item.id } };
     });
   }, [updateCart]);
+
+  // Best-effort abandoned-cart capture — fire-and-forget, never blocks the
+  // UI or surfaces an error. Progressively enriches the same draftId as the
+  // customer gives phone (fulfillment step) and/or email (checkout step).
+  const saveDraftLead = useCallback(({ phone, email, smsConsent: consent } = {}) => {
+    const cartItems = Object.values(cart).map(i => ({ baseId: i.baseId, qty: i.qty }));
+    if (cartItems.length === 0) return;
+    fetch("/api/cart/save-draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        draftId: draftIdRef.current,
+        phone: phone ?? undefined,
+        email: email ?? undefined,
+        smsConsent: consent ?? undefined,
+        items: cartItems,
+        orderMode,
+        deliveryAddress: orderMode === "delivery" ? deliveryAddress : undefined,
+      }),
+    }).catch(() => {});
+  }, [cart, orderMode, deliveryAddress]);
 
   const cartKeyFor = (baseId) => (baseId.startsWith("qa-") ? baseId : baseId + "_1");
 
@@ -418,6 +467,8 @@ export default function RaniMahal() {
           setGuestEmail={(email) => { setGuestEmail(email); saveGuestEmail(email); }}
           onCancel={() => { setShowCheckoutGate(false); setDrawerOpen(true); }}
           onGuestIdentified={email => { setGuestEmail(email); saveGuestEmail(email); }}
+          draftId={draftIdRef.current}
+          onSaveLead={saveDraftLead}
         />
       )}
 
@@ -450,6 +501,12 @@ export default function RaniMahal() {
         setOrderMode={setOrderMode}
         deliveryAddress={deliveryAddress}
         setDeliveryAddress={setDeliveryAddress}
+        phone={guestPhone}
+        setPhone={p => { setGuestPhone(p); savePhone(p); }}
+        smsConsent={smsConsent}
+        setSmsConsent={c => { setSmsConsent(c); saveSmsConsent(c); }}
+        hasCartItems={Object.keys(cart).length > 0}
+        onSaveLead={saveDraftLead}
       />
 
       {showFloatingJump && (

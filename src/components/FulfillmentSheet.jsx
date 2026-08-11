@@ -31,15 +31,25 @@ export function FulfillmentSheet({
   setOrderMode,
   deliveryAddress = {},
   setDeliveryAddress,
+  phone = "",
+  setPhone,
+  smsConsent = false,
+  setSmsConsent,
+  hasCartItems = false,
+  onSaveLead,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [selectedMode, setSelectedMode] = useState(orderMode);
   const [error, setError] = useState(null);
+  const [localPhone, setLocalPhone] = useState(phone);
+  const [localConsent, setLocalConsent] = useState(smsConsent);
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setSelectedMode(orderMode || "pickup");
+      setLocalPhone(phone || "");
+      setLocalConsent(!!smsConsent);
       setError(null);
     }
     wasOpenRef.current = isOpen;
@@ -53,9 +63,15 @@ export function FulfillmentSheet({
   const city = addr.city || "";
   const street = addr.street || "";
   const isZipValid = zip.trim().length >= 5 && isZipInDeliveryZone(zip);
+  const phoneDigits = localPhone.replace(/\D/g, "");
+  const isPhoneValid = phoneDigits.length === 0 || phoneDigits.length === 10;
 
   const handleSave = () => {
     setError(null);
+    if (localPhone && phoneDigits.length !== 10) {
+      setError("Please enter a valid 10-digit phone number, or leave it blank.");
+      return;
+    }
     if (selectedMode === "delivery") {
       if (!street.trim()) {
         setError("Please enter your street address for delivery.");
@@ -71,6 +87,12 @@ export function FulfillmentSheet({
       }
     }
     setOrderMode(selectedMode);
+    const cleanPhone = phoneDigits.length === 10 ? `+1${phoneDigits}` : "";
+    setPhone?.(cleanPhone);
+    setSmsConsent?.(cleanPhone ? localConsent : false);
+    if (cleanPhone && localConsent && hasCartItems) {
+      onSaveLead?.({ phone: cleanPhone, smsConsent: true });
+    }
     onClose();
   };
 
@@ -213,6 +235,39 @@ export function FulfillmentSheet({
             />
           </div>
         )}
+
+        {/* Phone — optional, used for ready/delivery texts */}
+        <div style={{ padding: "1.25rem 1.25rem 0" }}>
+          <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#B8A995", display: "block", marginBottom: 6 }}>
+            Phone (optional)
+          </label>
+          <input
+            type="tel"
+            inputMode="tel"
+            placeholder="(914) 555-0123"
+            value={localPhone}
+            onChange={e => setLocalPhone(e.target.value)}
+            style={{
+              width: "100%", padding: "12px 14px", borderRadius: 10,
+              border: `1.5px solid ${isPhoneValid ? "rgba(250,246,239,0.15)" : "rgba(217,72,44,0.5)"}`,
+              background: "#1c1814", color: "#FAF6EF", fontSize: 15, fontFamily: "'Inter', sans-serif",
+              outline: "none", boxSizing: "border-box",
+            }}
+          />
+          {localPhone && (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={localConsent}
+                onChange={e => setLocalConsent(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
+              />
+              <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
+                We'll text you about this order — msg &amp; data rates may apply. Reply STOP anytime to opt out.
+              </span>
+            </label>
+          )}
+        </div>
 
         {/* Error */}
         {error && (

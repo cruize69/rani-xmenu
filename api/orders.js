@@ -18,6 +18,7 @@ import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
+import { sweepAbandonedCarts } from "../lib/abandonedCart.js";
 import { isManagerSecretValid } from "../lib/auth.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
@@ -143,6 +144,12 @@ async function handleGet(req, res) {
 
     // Auto-sync missing paid Stripe sessions into KV asynchronously (non-blocking)
     syncStripeSessions().catch(err => console.error("Async syncStripeSessions error:", err));
+
+    // Opportunistically sweep for abandoned carts to message — this repo has
+    // no Vercel Cron headroom (Hobby-plan 12-function cap already maxed out
+    // elsewhere), so this piggybacks on the staff dashboard's frequent
+    // polling instead. Self-throttled to ~once/minute inside the function.
+    sweepAbandonedCarts().catch(err => console.error("Async sweepAbandonedCarts error:", err));
 
     if (req.query.id) {
       const order = await getOrder(req.query.id);
