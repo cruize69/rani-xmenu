@@ -33,6 +33,16 @@ button{cursor:pointer;font-family:'Inter',sans-serif}
   90%  { opacity:1; }
   100% { opacity:0; transform:translateX(-6px); }
 }
+@media (min-width: 1024px) {
+  .desktop-golden-frame {
+    max-width: 1200px;
+    margin: 0 auto;
+    border-left: 1px solid rgba(232, 168, 46, 0.1);
+    border-right: 1px solid rgba(232, 168, 46, 0.1);
+    background: rgba(23, 20, 18, 0.3);
+    box-shadow: 0 0 100px rgba(0, 0, 0, 0.45);
+  }
+}
 `;
 
 export class ErrorBoundary extends React.Component {
@@ -492,41 +502,44 @@ export default function RaniMahal() {
         <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>
       </div>
 
-      {/* Header */}
-      <RaniHeader
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        setShowSectionSheet={setShowSectionSheet}
-        setView={setView}
-        orderMode={orderMode}
-        setOrderMode={setOrderMode}
-        deliveryAddress={deliveryAddress}
-        onOpenFulfillmentSheet={() => setShowFulfillmentSheet(true)}
-      />
+      {/* Desktop Golden Frame Container */}
+      <div className="desktop-golden-frame">
+        {/* Header */}
+        <RaniHeader
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          setShowSectionSheet={setShowSectionSheet}
+          setView={setView}
+          orderMode={orderMode}
+          setOrderMode={setOrderMode}
+          deliveryAddress={deliveryAddress}
+          onOpenFulfillmentSheet={() => setShowFulfillmentSheet(true)}
+        />
 
-      {/* Menu Body */}
-      <div style={{ maxWidth:1100, margin:"0 auto", padding:"0 1rem 140px" }}>
-        <div style={{ paddingTop:"2rem" }}>
-          <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
-            {section?.id !== "appetizers" && (
-              <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
-            )}
-            {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
-          </div>
-
-          {section?.subsections.map(sub => (
-            <div key={sub.label||"main"} style={{ marginBottom:sub.label?"2rem":0 }}>
-              {sub.label && (
-                <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.2em", textTransform:"uppercase", color:"#B8A995", paddingBottom:8, borderBottom:"0.5px solid rgba(232,168,46,0.2)", marginBottom:10, textAlign:"center" }}>{sub.label}</p>
+        {/* Menu Body */}
+        <div style={{ maxWidth:1100, margin:"0 auto", padding:"0 1rem 140px" }}>
+          <div style={{ paddingTop:"2rem" }}>
+            <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
+              {section?.id !== "appetizers" && (
+                <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
               )}
-              <div style={{ background:"#1B1714", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)", border:"1px solid rgba(232, 168, 46, 0.08)" }}>
-                {sub.ids.map(id => {
-                  const item = ITEM_MAP[id]; if (!item) return null;
-                  return <ItemCard key={id} item={item} cartEntry={cart[id+"_1"]} onOpen={setModalItem} imageUrl={cloudImages[id] ?? localStorage.getItem("img_"+id) ?? null} />;
-                })}
-              </div>
+              {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
             </div>
-          ))}
+
+            {section?.subsections.map(sub => (
+              <div key={sub.label||"main"} style={{ marginBottom:sub.label?"2rem":0 }}>
+                {sub.label && (
+                  <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.2em", textTransform:"uppercase", color:"#B8A995", paddingBottom:8, borderBottom:"0.5px solid rgba(232,168,46,0.2)", marginBottom:10, textAlign:"center" }}>{sub.label}</p>
+                )}
+                <div style={{ background:"#1B1714", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)", border:"1px solid rgba(232, 168, 46, 0.08)" }}>
+                  {sub.ids.map(id => {
+                    const item = ITEM_MAP[id]; if (!item) return null;
+                    return <ItemCard key={id} item={item} cartEntry={cart[id+"_1"]} onOpen={setModalItem} imageUrl={cloudImages[id] ?? localStorage.getItem("img_"+id) ?? null} />;
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
