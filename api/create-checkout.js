@@ -13,6 +13,7 @@ import { createClerkClient } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
+import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -52,11 +53,31 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
-    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId } = req.body || {};
+    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId, reorderToken } = req.body || {};
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "No items in cart" });
+    }
+
+    // Validate reorder discount token if provided
+    let hasDiscount = false;
+    if (reorderToken) {
+      const rawToken = await kv.get(`reorder-token:${reorderToken}`);
+      if (rawToken) {
+        const tokenData = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
+        const isUnused = tokenData.status === "unused";
+        const isPendingCheckout = tokenData.status === "checkout_created" && 
+          ((new Date() - new Date(tokenData.updatedAt || tokenData.createdAt)) / 3600000 >= 2); // unlock after 2 hours
+        
+        if ((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt)) {
+          hasDiscount = true;
+        } else {
+          return res.status(400).json({ error: "Reorder voucher is invalid or has already been redeemed." });
+        }
+      } else {
+        return res.status(400).json({ error: "Invalid reorder voucher token." });
+      }
     }
 
     // Re-price every line item from the canonical menu — client-submitted
@@ -71,10 +92,11 @@ export default async function handler(req, res) {
       if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY_PER_LINE) {
         return res.status(400).json({ error: `Invalid quantity for ${canonical.name}` });
       }
+      const itemPrice = hasDiscount ? parseFloat((canonical.price * 0.90).toFixed(2)) : canonical.price;
       validatedItems.push({
         baseId: raw.baseId,
         name:   canonical.name,
-        price:  canonical.price,
+        price:  itemPrice,
         qty,
         spice:  typeof raw.spice === "string" ? raw.spice.slice(0, 40)  : null,
         note:   typeof raw.note  === "string" ? raw.note.slice(0, 200)  : "",
@@ -200,17 +222,30 @@ export default async function handler(req, res) {
         deliveryFee:         serverDeliveryFee.toFixed(2),
         deliveryAddress:     isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress).slice(0, 500) : "",
         source:              "online_ordering",
+        reorderToken:        reorderToken || "",
       },
       success_url: `${baseUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${baseUrl}`,
     }, { idempotencyKey });
+
+    // Lock the token status in KV
+    if (reorderToken && hasDiscount) {
+      const tokenKey = `reorder-token:${reorderToken}`;
+      const rawToken = await kv.get(tokenKey);
+      if (rawToken) {
+        const tData = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
+        tData.status = "checkout_created";
+        tData.stripeSessionId = session.id;
+        tData.updatedAt = new Date().toISOString();
+        await kv.set(tokenKey, JSON.stringify(tData), { ex: 1296000 }); // keep same 15-day TTL
+      }
+    }
 
     // Store draft cart in Vercel KV for abandoned cart analytics + recovery.
     // If this checkout carries a draftId from an earlier fulfillment-step
     // capture, graduate that lead (stops Stage-A recovery messaging) and
     // carry its phone/consent into this record for Stage-B recovery.
     try {
-      const { kv } = await import("@vercel/kv");
       let customerName = "Guest";
       if (clerkUserId) {
         try {

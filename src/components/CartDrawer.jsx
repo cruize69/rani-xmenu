@@ -187,6 +187,7 @@ export function CheckoutGate({
   setGuestEmail,
   draftId = null,
   onSaveLead,
+  reorderToken = null,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   const [step,       setStep]       = useState("choice");
@@ -247,6 +248,7 @@ export function CheckoutGate({
           deliveryAddress: fullDeliveryAddress,
           deliveryFee: orderMode === "delivery" ? deliveryFee : 0,
           draftId,
+          reorderToken,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -471,6 +473,8 @@ export function CartDrawer({
   tipCustom,
   setTipCustom,
   subtotal,
+  reorderDiscountAmt = 0,
+  reorderToken = "",
   tax,
   tip,
   ccFee,
@@ -578,16 +582,27 @@ export function CartDrawer({
               <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
                 {[
                   ["Subtotal", fmt(subtotal), false],
+                  reorderDiscountAmt > 0 ? ["👑 10% Return Guest Discount", `-${fmt(reorderDiscountAmt)}`, false] : null,
                   isDelivery ? ["Delivery fee ($6.99 | Free over $99)", deliveryFee === 0 ? "FREE" : fmt(6.99), false] : null,
                   ["Tax (est. 8.375%)", fmt(tax), false],
                   ["Tip", fmt(tip), false],
                   ["Credit card processing fee", fmt(ccFee), false],
                   ["Total", fmt(total), true],
-                ].filter(Boolean).map(([l, v, isTotal]) => (
-                  <div key={l} style={{ display:"flex", justifyContent:"space-between", fontSize:isTotal?16:14, fontWeight:isTotal?500:400, color:isTotal?"#FAF6EF":"#B8A995", padding:"3px 0", borderTop:isTotal?"0.5px solid rgba(250,246,239,0.08)":"none", marginTop:isTotal?6:0 }}>
-                    <span>{l}</span><span>{v}</span>
-                  </div>
-                ))}
+                ].filter(Boolean).map(([l, v, isTotal]) => {
+                  const isDiscount = l.includes("Discount");
+                  return (
+                    <div key={l} style={{
+                      display:"flex", justifyContent:"space-between",
+                      fontSize:isTotal?16:14, fontWeight:isTotal?500:400,
+                      color:isTotal?"#FAF6EF":isDiscount?"#10B981":"#B8A995",
+                      padding:"3px 0",
+                      borderTop:isTotal?"0.5px solid rgba(250,246,239,0.08)":"none",
+                      marginTop:isTotal?6:0
+                    }}>
+                      <span>{l}</span><span>{v}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

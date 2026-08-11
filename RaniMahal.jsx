@@ -154,6 +154,8 @@ export default function RaniMahal() {
   const [guestEmail, setGuestEmail] = useState(loadGuestEmail);
   const [guestPhone, setGuestPhone] = useState(loadPhone);
   const [smsConsent, setSmsConsent] = useState(loadSmsConsent);
+  const [reorderDiscount, setReorderDiscount] = useState(0);
+  const [reorderToken, setReorderToken]       = useState(() => localStorage.getItem("reorder_discount_token") || "");
   const draftIdRef = useRef(null);
   if (!draftIdRef.current) draftIdRef.current = loadOrCreateDraftId();
 
@@ -247,6 +249,45 @@ export default function RaniMahal() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const token = params.get("reorder");
+    if (token) {
+      fetch(`/api/reorder-claim?token=${token}`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.text()))
+        .then(data => {
+          if (!data || !data.items || data.items.length === 0) return;
+          setCart(() => {
+            const next = {};
+            data.items.forEach(item => {
+              const isQA = item.baseId.startsWith("qa-");
+              const canonical = isQA ? QA[item.baseId] : ITEM_MAP[item.baseId];
+              if (!canonical) return;
+              const key = isQA ? item.baseId : item.baseId + "_1";
+              next[key] = {
+                name: canonical.name,
+                price: canonical.price,
+                qty: item.qty,
+                spice: item.spice ?? null,
+                note: item.note ?? "",
+                baseId: item.baseId,
+              };
+            });
+            return next;
+          });
+          setReorderDiscount(0.10);
+          setReorderToken(token);
+          localStorage.setItem("reorder_discount_token", token);
+          showNotice("Welcome Back! 👑 10% Return Guest Discount Applied.");
+        })
+        .catch(() => {
+          showNotice("⚠️ Reorder voucher has expired or been redeemed.");
+        });
+
+      params.delete("reorder");
+      const rest = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
+      return;
+    }
+
     const addParam = params.get("add");
     if (!addParam) return;
 
@@ -282,6 +323,23 @@ export default function RaniMahal() {
     const rest = params.toString();
     window.history.replaceState({}, "", window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash);
   }, []);
+
+  // Sync token validation if loaded from localStorage on cold start
+  useEffect(() => {
+    const storedToken = localStorage.getItem("reorder_discount_token");
+    if (storedToken && !reorderToken) {
+      fetch(`/api/reorder-claim?token=${storedToken}`)
+        .then(r => {
+          if (r.ok) {
+            setReorderDiscount(0.10);
+            setReorderToken(storedToken);
+          } else {
+            localStorage.removeItem("reorder_discount_token");
+          }
+        })
+        .catch(() => {});
+    }
+  }, [reorderToken]);
 
   useEffect(() => {
     try {
@@ -384,17 +442,19 @@ export default function RaniMahal() {
     setShowCheckoutGate(true);
   };
 
-  const { entries, itemCount, subtotal, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
+  const { entries, itemCount, subtotal, reorderDiscountAmt, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
     const entriesList = Object.values(cart);
     const count       = entriesList.reduce((s,v)=>s+v.qty, 0);
-    const sub         = entriesList.reduce((s,v)=>s+v.price*v.qty, 0);
+    const rawSub      = entriesList.reduce((s,v)=>s+v.price*v.qty, 0);
+    const discAmt     = reorderDiscount > 0 ? parseFloat((rawSub * reorderDiscount).toFixed(2)) : 0;
+    const sub         = rawSub - discAmt;
     const fee         = orderMode === "delivery" ? calcDeliveryFee(sub) : 0;
     const taxAmt      = sub * TAX;
-    const tipAmt      = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : sub * tipPct;
+    const tipAmt      = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : rawSub * tipPct;
     const cardFee     = count > 0 ? parseFloat(((sub + fee + taxAmt + tipAmt + 0.30) / (1 - 0.029) - (sub + fee + taxAmt + tipAmt)).toFixed(2)) : 0;
     const totalAmt    = sub + fee + taxAmt + tipAmt + cardFee;
-    return { entries: entriesList, itemCount: count, subtotal: sub, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
-  }, [cart, orderMode, tipPct, tipCustom]);
+    return { entries: entriesList, itemCount: count, subtotal: rawSub, reorderDiscountAmt: discAmt, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
+  }, [cart, orderMode, tipPct, tipCustom, reorderDiscount]);
 
   const section = SECTIONS.find(s=>s.id===activeSection);
 
@@ -469,6 +529,7 @@ export default function RaniMahal() {
           onGuestIdentified={email => { setGuestEmail(email); saveGuestEmail(email); }}
           draftId={draftIdRef.current}
           onSaveLead={saveDraftLead}
+          reorderToken={reorderToken}
         />
       )}
 
@@ -576,6 +637,8 @@ export default function RaniMahal() {
         tipCustom={tipCustom}
         setTipCustom={setTipCustom}
         subtotal={subtotal}
+        reorderDiscountAmt={reorderDiscountAmt}
+        reorderToken={reorderToken}
         tax={tax}
         tip={tip}
         ccFee={ccFee}

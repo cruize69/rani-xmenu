@@ -122,11 +122,63 @@ async function poll() {
 
     console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed 2 tickets successfully!`);
 
+    // ── Ticket 3: Reorder Fast Pass Voucher ──────────────────────
+    if (order.reorderToken) {
+      console.log(`[${ts()}] 🎟️ Printing Ticket 3: Reorder Fast Pass Voucher (${orderId.slice(-6).toUpperCase()})...`);
+      
+      const qrPath = path.join(os.tmpdir(), `reorder_${order.reorderToken}.png`);
+      try {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${CONFIG.apiBase}/?reorder=${order.reorderToken}`)}`;
+        const qrRes = await fetch(qrUrl);
+        if (qrRes.ok) {
+          const buffer = await qrRes.arrayBuffer();
+          fs.writeFileSync(qrPath, Buffer.from(buffer));
+          
+          const voucherText = buildReorderVoucherText(order, qrPath);
+          if (CONFIG.printer.type === "tcp") {
+            console.log("Reorder voucher skip in TCP mode (unsupported)");
+          } else {
+            await sendWindowsDriver(CONFIG.printer.winName, voucherText);
+          }
+        } else {
+          console.error(`[${ts()}] QR Code API returned HTTP ${qrRes.status}`);
+        }
+      } catch (err) {
+        console.error(`[${ts()}] Failed to download or print reorder voucher:`, err.message);
+      }
+    }
+
   } catch (err) {
     console.error(`[${ts()}] ❌ Print Error:`, err.message);
   } finally {
     isRunning = false;
   }
+}
+
+function buildReorderVoucherText(order, qrPath) {
+  const expiryDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const options = { weekday: "long", year: "numeric", month: "short", day: "numeric" };
+  const expiryStr = expiryDate.toLocaleDateString("en-US", options);
+
+  const lines = [];
+  lines.push("========================================");
+  lines.push("HEADER:RANI MAHAL");
+  lines.push("========================================");
+  lines.push("");
+  lines.push("MODE:** 1-TAP FAST PASS **");
+  lines.push(" (Scan to reorder these items)");
+  lines.push("");
+  lines.push("MODE:*** 10% OFF DISCOUNT ***");
+  lines.push("");
+  lines.push(`QRCODE:${qrPath}`);
+  lines.push("");
+  lines.push("          VALID FOR 14 DAYS UNTIL:");
+  lines.push(`          ${expiryStr}`);
+  lines.push("");
+  lines.push("========================================");
+  lines.push("\n\n\n");
+
+  return lines.join("\r\n");
 }
 
 /**
@@ -242,6 +294,16 @@ $pd.add_PrintPage({
       $txt = $line.Substring(10)
       $e.Graphics.DrawString($txt, $fontKInstruct, [System.Drawing.Brushes]::Black, 0, $y)
       $y += $fontKInstruct.GetHeight($e.Graphics) + 2
+    }
+    elseif ($line.StartsWith('QRCODE:')) {
+      $path = $line.Substring(7)
+      if (Test-Path $path) {
+        $img = [System.Drawing.Image]::FromFile($path)
+        $x = [Math]::Max(0, ($e.PageBounds.Width - 144) / 2)
+        $e.Graphics.DrawImage($img, $x, $y, 144, 144)
+        $y += 144 + 8
+        $img.Dispose()
+      }
     }
 
     # Regular Lines
