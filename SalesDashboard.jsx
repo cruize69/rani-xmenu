@@ -3,31 +3,31 @@
 // Features: Executive KPIs, Trend Lines, Channel Breakdown, Menu Engineering Matrix (BCG),
 // Day of Week & Section Analytics, Peak Hour 2D Heatmap Grid, Spice Preference Analytics,
 // RFM Customer CRM, Lapsed VIP Win-Back Triggers, and Mailchimp/Klaviyo Export.
+//
+// Midnight Slate Visual Design Overhaul (Radical Contrast & Indigo Theme)
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
 
 const API_BASE = "";
 
-// Design Tokens (Warm Gold & Dark Obsidian Luxury Theme)
-const GOLD        = "#C8853A";
-const GOLD_LIGHT  = "#F5E6C8";
-const INK         = "#0F0800";
-const CREAM       = "#FAF6EF";
-const BG          = "#0F0B07"; // Dark Obsidian
-const CARD_BG     = "rgba(28, 22, 17, 0.85)";
-const CARD_BORDER = "rgba(200, 133, 58, 0.18)";
-const TEXT_MAIN   = "#FAF6EF";
-const TEXT_MUTED  = "#A39281";
+// Design Tokens (Midnight Slate Theme)
+const ACCENT      = "#6366F1"; // Indigo Accent
+const ACCENT_LIGHT= "rgba(99, 102, 241, 0.15)";
+const BG          = "#0A0B0E"; // Deep Navy-Zinc
+const CARD_BG     = "#141519"; // Slate card surface
+const CARD_BORDER = "#27282F"; // Subtle borders
+const TEXT_MAIN   = "#F2F3F5"; // Crisp white-gray
+const TEXT_MUTED  = "#A1A3AB"; // Silver-gray
 
 const fmt    = (n) => "$" + Number(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtK   = (n) => n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : fmt(n);
 const fmtPct = (n) => Number(n ?? 0).toFixed(1) + "%";
 
-// Segment definitions for CRM
+// Segment definitions for CRM (Midnight Slate style)
 const SEGMENTS = {
-  all:     { label: "All Contacts",     bg: "#C8853A",                   color: "#FFFFFF" },
-  vip:     { label: "👑 VIP Guests",    bg: "rgba(200, 133, 58, 0.2)",   color: "#F5B467" },
+  all:     { label: "All Contacts",     bg: "#6366F1",                   color: "#FFFFFF" },
+  vip:     { label: "👑 VIP Guests",    bg: "rgba(99, 102, 241, 0.2)",   color: "#818CF8" },
   lapsed:  { label: "⚠️ Lapsed 60d+",  bg: "rgba(239, 68, 68, 0.2)",    color: "#FCA5A5" },
   new:     { label: "🌱 First Timers",  bg: "rgba(34, 197, 94, 0.2)",    color: "#86EFAC" },
   regular: { label: "🔄 Regulars",      bg: "rgba(107, 114, 128, 0.2)",  color: "#D1D5DB" },
@@ -36,8 +36,8 @@ const SEGMENTS = {
 const SPICE_COLORS = {
   Hot: "rgba(220, 38, 38, 0.85)",
   Spicy: "rgba(234, 88, 12, 0.85)",
-  Medium: "rgba(200, 133, 58, 0.85)",
-  Mild: "rgba(34, 197, 94, 0.85)",
+  Medium: "rgba(99, 102, 241, 0.85)",
+  Mild: "rgba(16, 185, 129, 0.85)",
 };
 
 // CSV Exporter
@@ -97,7 +97,7 @@ function useChartJs(cb, deps) {
 }
 
 // Stat KPI Card
-function StatCard({ title, value, sub, icon, trend, color = GOLD }) {
+function StatCard({ title, value, sub, icon, trend, color = ACCENT }) {
   return (
     <div style={{
       background: CARD_BG,
@@ -119,8 +119,8 @@ function StatCard({ title, value, sub, icon, trend, color = GOLD }) {
           <span style={{
             fontSize: 11,
             fontWeight: 800,
-            color: trend >= 0 ? "#4ADE80" : "#FCA5A5",
-            background: trend >= 0 ? "rgba(74, 222, 128, 0.12)" : "rgba(252, 165, 165, 0.12)",
+            color: trend >= 0 ? "#10B981" : "#F43F5E",
+            background: trend >= 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(244, 63, 94, 0.12)",
             padding: "2px 6px",
             borderRadius: 6,
           }}>
@@ -129,6 +129,79 @@ function StatCard({ title, value, sub, icon, trend, color = GOLD }) {
         )}
       </div>
       {sub && <span style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>{sub}</span>}
+    </div>
+  );
+}
+
+// Revenue Trend Chart
+function RevenueChart({ series }) {
+  const ref = useChartJs((canvas) => {
+    const labels = series.map(s => {
+      const d = new Date(s.date);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    });
+    return new window.Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Revenue",
+          data: series.map(s => s.revenue),
+          borderColor: ACCENT,
+          backgroundColor: "rgba(99, 102, 241, 0.12)",
+          fill: true,
+          tension: 0.35,
+          pointRadius: series.length > 30 ? 0 : 3,
+          pointBackgroundColor: ACCENT,
+          borderWidth: 2.5,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: TEXT_MUTED, font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+          y: { ticks: { color: TEXT_MUTED, font: { size: 10 }, callback: v => "$" + v }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
+        }
+      }
+    });
+  }, [series]);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: 180 }}>
+      <canvas ref={ref} role="img" aria-label="Revenue Trend Chart" />
+    </div>
+  );
+}
+
+// Day of Week Bar Chart
+function DayOfWeekChart({ data }) {
+  const ref = useChartJs((canvas) => {
+    const max = Math.max(...data.map(d => d.count), 1);
+    return new window.Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: data.map(d => d.label),
+        datasets: [{
+          data: data.map(d => d.count),
+          backgroundColor: data.map(d => d.count === max ? ACCENT : "rgba(99, 102, 241, 0.35)"),
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: TEXT_MUTED, font: { size: 11, weight: "bold" } }, grid: { display: false } },
+          y: { ticks: { color: TEXT_MUTED, font: { size: 10 } }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
+        }
+      }
+    });
+  }, [data]);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: 140 }}>
+      <canvas ref={ref} role="img" aria-label="Day of Week Order Chart" />
     </div>
   );
 }
@@ -148,8 +221,8 @@ function RevenueLedgerChart({ series }) {
           {
             label: "Net Sales",
             data: series.map(s => s.netRevenue ?? s.revenue),
-            borderColor: "#4ADE80",
-            backgroundColor: "rgba(74, 222, 128, 0.08)",
+            borderColor: "#10B981",
+            backgroundColor: "rgba(16, 185, 129, 0.08)",
             fill: true,
             tension: 0.35,
             borderWidth: 3,
@@ -157,7 +230,7 @@ function RevenueLedgerChart({ series }) {
           {
             label: "Gross Sales",
             data: series.map(s => s.revenue),
-            borderColor: GOLD,
+            borderColor: ACCENT,
             backgroundColor: "transparent",
             fill: false,
             tension: 0.35,
@@ -170,8 +243,8 @@ function RevenueLedgerChart({ series }) {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: true, labels: { color: TEXT_MAIN } } },
         scales: {
-          x: { ticks: { color: "#A39281", font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
-          y: { ticks: { color: "#A39281", font: { size: 10 }, callback: v => "$" + v }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
+          x: { ticks: { color: TEXT_MUTED, font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+          y: { ticks: { color: TEXT_MUTED, font: { size: 10 }, callback: v => "$" + v }, grid: { color: "rgba(255, 255, 255, 0.05)" } }
         }
       }
     });
@@ -195,10 +268,10 @@ function BCGMatrixChart({ topDishes }) {
     const dataset = topDishes.map(d => {
       const highRev = d.revenue >= avgRev;
       const highQty = d.qty >= avgQty;
-      let color = "#4ADE80"; // Star
-      if (!highRev && highQty) color = "#F59E0B"; // Plowhorse
-      else if (highRev && !highQty) color = "#38BDF8"; // Puzzle
-      else if (!highRev && !highQty) color = "#FCA5A5"; // Dog
+      let color = "#10B981"; // Star (Emerald)
+      if (!highRev && highQty) color = "#F59E0B"; // Plowhorse (Amber)
+      else if (highRev && !highQty) color = "#38BDF8"; // Puzzle (Sky)
+      else if (!highRev && !highQty) color = "#F43F5E"; // Dog (Rose)
       
       return {
         x: d.margin,
@@ -234,12 +307,12 @@ function BCGMatrixChart({ topDishes }) {
         scales: {
           x: { 
             title: { display: true, text: "Margin ($)", color: TEXT_MAIN },
-            ticks: { color: "#A39281" }, 
+            ticks: { color: TEXT_MUTED }, 
             grid: { color: "rgba(255,255,255,0.05)" } 
           },
           y: { 
             title: { display: true, text: "Volume (Units Sold)", color: TEXT_MAIN },
-            ticks: { color: "#A39281" }, 
+            ticks: { color: TEXT_MUTED }, 
             grid: { color: "rgba(255,255,255,0.05)" } 
           }
         }
@@ -282,10 +355,10 @@ function Grid2DHeatmap({ hourlyData }) {
               const count = cell?.count ?? 0;
               const intensity = count / max;
               const bg = count === 0 ? "rgba(255, 255, 255, 0.02)"
-                : intensity > 0.75 ? "rgba(200, 133, 58, 0.95)"
-                : intensity > 0.50 ? "rgba(200, 133, 58, 0.65)"
-                : intensity > 0.25 ? "rgba(200, 133, 58, 0.4)"
-                : "rgba(200, 133, 58, 0.15)";
+                : intensity > 0.75 ? "rgba(99, 102, 241, 0.95)"
+                : intensity > 0.50 ? "rgba(99, 102, 241, 0.65)"
+                : intensity > 0.25 ? "rgba(99, 102, 241, 0.4)"
+                : "rgba(99, 102, 241, 0.15)";
               const border = intensity > 0.75 ? "1px solid #FAF6EF" : "1px solid transparent";
               return (
                 <div key={h} style={{
@@ -317,9 +390,9 @@ function Grid2DHeatmap({ hourlyData }) {
 // 5-Step Checkout Conversion Funnel UI
 function FunnelVisualizer({ funnel }) {
   const steps = [
-    { label: "Visits / Checkouts Initiated", count: funnel.total, color: "rgba(200, 133, 58, 0.85)", width: "100%" },
-    { label: "Completed Orders", count: funnel.paid, color: "rgba(74, 222, 128, 0.85)", width: funnel.total ? `${(funnel.paid / funnel.total) * 100}%` : "0%" },
-    { label: "Abandoned Carts", count: funnel.abandoned, color: "rgba(239, 68, 68, 0.85)", width: funnel.total ? `${(funnel.abandoned / funnel.total) * 100}%` : "0%" },
+    { label: "Visits / Checkouts Initiated", count: funnel.total, color: "rgba(99, 102, 241, 0.85)", width: "100%" },
+    { label: "Completed Orders", count: funnel.paid, color: "rgba(16, 185, 129, 0.85)", width: funnel.total ? `${(funnel.paid / funnel.total) * 100}%` : "0%" },
+    { label: "Abandoned Carts", count: funnel.abandoned, color: "rgba(244, 63, 94, 0.85)", width: funnel.total ? `${(funnel.abandoned / funnel.total) * 100}%` : "0%" },
   ];
 
   return (
@@ -385,7 +458,7 @@ function CustomerDetailsView({ customer, onClose }) {
           ].map(([lbl, val]) => (
             <div key={lbl} style={{ background: "rgba(255,255,255,0.03)", padding: 10, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
               <div style={{ fontSize: 9, color: TEXT_MUTED, textTransform: "uppercase" }}>{lbl}</div>
-              <div style={{ fontSize: 12, fontWeight: 900, color: GOLD, marginTop: 4 }}>{val}</div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: ACCENT, marginTop: 4 }}>{val}</div>
             </div>
           ))}
         </div>
@@ -398,7 +471,7 @@ function CustomerDetailsView({ customer, onClose }) {
           </div>
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 10, padding: 12 }}>
             <div style={{ fontSize: 10, color: TEXT_MUTED }}>SPICE TOLERANCE</div>
-            <div style={{ fontSize: 13, fontWeight: "bold", color: customer.favSpice ? SPICE_COLORS[customer.favSpice] || GOLD : TEXT_MAIN, marginTop: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: "bold", color: customer.favSpice ? SPICE_COLORS[customer.favSpice] || ACCENT : TEXT_MAIN, marginTop: 4 }}>
               {customer.favSpice || "—"}
             </div>
           </div>
@@ -413,7 +486,7 @@ function CustomerDetailsView({ customer, onClose }) {
                 <div style={{ fontSize: 11, fontWeight: "bold", color: TEXT_MAIN }}>{ord.date}</div>
                 <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>{ord.items}</div>
               </div>
-              <div style={{ fontSize: 12, fontWeight: "bold", color: GOLD }}>{fmt(ord.total)}</div>
+              <div style={{ fontSize: 12, fontWeight: "bold", color: ACCENT }}>{fmt(ord.total)}</div>
             </div>
           ))}
         </div>
@@ -422,13 +495,13 @@ function CustomerDetailsView({ customer, onClose }) {
         <div style={{ display: "flex", gap: 10 }}>
           {customer.email && (
             <a href={`mailto:${customer.email}`}
-              style={{ flex: 1, height: 44, borderRadius: 10, background: "rgba(200, 133, 58, 0.15)", border: `1px solid ${CARD_BORDER}`, color: GOLD, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+              style={{ flex: 1, height: 44, borderRadius: 10, background: ACCENT_LIGHT, border: `1px solid ${CARD_BORDER}`, color: ACCENT, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               ✉ Email Guest
             </a>
           )}
           {customer.phone && (
             <a href={`tel:${customer.phone}`}
-              style={{ flex: 1, height: 44, borderRadius: 10, background: "rgba(74, 222, 128, 0.12)", border: "1px solid rgba(74, 222, 128, 0.2)", color: "#4ADE80", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+              style={{ flex: 1, height: 44, borderRadius: 10, background: "rgba(74, 222, 128, 0.12)", border: "1px solid rgba(74, 222, 128, 0.2)", color: "#10B981", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
               📞 Call Guest
             </a>
           )}
@@ -451,8 +524,8 @@ function SalesLedgerTab({ overview, revenue, refunds }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {/* 5-Metrics Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        <StatCard title="Gross Sales" value={fmtK(overview.revenue)} icon="💰" color={GOLD} sub="Total charged volume" />
-        <StatCard title="Net Sales" value={fmtK(overview.netSales)} icon="📈" color="#4ADE80" sub="Gross minus refunds" />
+        <StatCard title="Gross Sales" value={fmtK(overview.revenue)} icon="💰" color={ACCENT} sub="Total charged volume" />
+        <StatCard title="Net Sales" value={fmtK(overview.netSales)} icon="📈" color="#10B981" sub="Gross minus refunds" />
         <StatCard title="Gross Profit" value={fmtK(overview.grossProfit)} icon="🏛️" color="#38BDF8" sub={`Est. Profit (${profitMarginRate}%)`} />
         <StatCard title="Labor Cost Rate" value={`${overview.laborCostRate}%`} icon="👥" color="#A855F7" sub={`SPLH: ${fmt(overview.splh)}`} />
         <StatCard title="Refund Rate" value={`${refunds.rate}%`} icon="⚠️" color="#F43F5E" sub={`Loss: ${fmt(refunds.amount)}`} />
@@ -470,7 +543,7 @@ function SalesLedgerTab({ overview, revenue, refunds }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
             <span style={{ fontSize: 11, color: TEXT_MUTED }}>3RD PARTY COMMISSION AVOIDED</span>
-            <div style={{ fontSize: 22, fontWeight: 900, color: GOLD, marginTop: 6 }}>{fmt(ddCommissionEst)}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: ACCENT, marginTop: 6 }}>{fmt(ddCommissionEst)}</div>
             <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Estimated 30% DoorDash/Uber commission on net sales</p>
           </div>
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
@@ -478,9 +551,9 @@ function SalesLedgerTab({ overview, revenue, refunds }) {
             <div style={{ fontSize: 22, fontWeight: 900, color: "#F43F5E", marginTop: 6 }}>{fmt(stripeFeesEst)}</div>
             <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Standard Stripe fee structure (2.9% + 30¢)</p>
           </div>
-          <div style={{ background: "rgba(74, 222, 128, 0.05)", border: "1px solid rgba(74, 222, 128, 0.15)", borderRadius: 12, padding: 16 }}>
-            <span style={{ fontSize: 11, color: "#4ADE80" }}>TOTAL COMMISSION SAVINGS</span>
-            <div style={{ fontSize: 24, fontWeight: 900, color: "#4ADE80", marginTop: 6 }}>{fmt(totalCommissionSavings)}</div>
+          <div style={{ background: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.15)", borderRadius: 12, padding: 16 }}>
+            <span style={{ fontSize: 11, color: "#10B981" }}>TOTAL COMMISSION SAVINGS</span>
+            <div style={{ fontSize: 24, fontWeight: 900, color: "#10B981", marginTop: 6 }}>{fmt(totalCommissionSavings)}</div>
             <p style={{ fontSize: 11, color: "#86EFAC", marginTop: 4 }}>Direct margin saved by bypassing third party apps</p>
           </div>
         </div>
@@ -542,7 +615,7 @@ function GuestCRMTab({ customers }) {
           style={{ flex: 1, height: 44, padding: "0 14px", borderRadius: 10, border: `1px solid ${CARD_BORDER}`, background: CARD_BG, color: TEXT_MAIN, fontSize: 13, outline: "none" }}
         />
         <button onClick={() => exportCSV(filtered)}
-          style={{ height: 44, padding: "0 18px", borderRadius: 10, background: GOLD, color: "#FFF", border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
+          style={{ height: 44, padding: "0 18px", borderRadius: 10, background: ACCENT, color: "#FFF", border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
           Export Filtered ({filtered.length})
         </button>
       </div>
@@ -566,11 +639,11 @@ function GuestCRMTab({ customers }) {
                   <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 10, background: seg.bg, color: seg.color }}>{seg.label}</span>
                 </div>
                 <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 2 }}>
-                  {c.email || "Guest"} · Fave: <strong style={{ color: GOLD }}>{c.favDish || "—"}</strong>
+                  {c.email || "Guest"} · Fave: <strong style={{ color: ACCENT }}>{c.favDish || "—"}</strong>
                 </div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: GOLD }}>{fmt(c.totalSpend)}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: ACCENT }}>{fmt(c.totalSpend)}</div>
                 <div style={{ fontSize: 11, color: TEXT_MUTED }}>{c.orderCount} orders · {c.daysSinceLast}d ago</div>
               </div>
             </div>
@@ -606,7 +679,7 @@ function MenuIntelligenceTab({ topDishes, spice }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
           {spice?.map(s => (
             <div key={s.label} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 14, textAlign: "center" }}>
-              <span style={{ fontSize: 14, fontWeight: 800, color: SPICE_COLORS[s.label] || GOLD }}>{s.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: SPICE_COLORS[s.label] || ACCENT }}>{s.label}</span>
               <div style={{ fontSize: 20, fontWeight: 900, color: TEXT_MAIN, marginTop: 6 }}>{s.count}</div>
               <span style={{ fontSize: 11, color: TEXT_MUTED }}>orders</span>
             </div>
@@ -640,11 +713,11 @@ function GeoSpatialTab({ geoZip, hourly }) {
             <tbody>
               {geoZip?.map((z, idx) => (
                 <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: GOLD }}>{z.zip}</td>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: ACCENT }}>{z.zip}</td>
                   <td style={{ padding: "12px 8px" }}>{z.city}</td>
                   <td style={{ padding: "12px 8px" }}>{z.count}</td>
                   <td style={{ padding: "12px 8px" }}>{fmt(z.aov)}</td>
-                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: "#4ADE80" }}>{fmt(z.revenue)}</td>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: "#10B981" }}>{fmt(z.revenue)}</td>
                   <td style={{ padding: "12px 8px", color: TEXT_MUTED }}>{z.topDish}</td>
                 </tr>
               ))}
@@ -668,7 +741,6 @@ function GeoSpatialTab({ geoZip, hourly }) {
   );
 }
 
-
 // TAB 5: Recovery & Conversion Funnel
 function CartRecoveryTab({ funnel }) {
   return (
@@ -688,16 +760,16 @@ function CartRecoveryTab({ funnel }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
               <div style={{ background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
                 <span style={{ fontSize: 10, color: TEXT_MUTED }}>RECOVERY RATE</span>
-                <div style={{ fontSize: 24, fontWeight: 900, color: "#4ADE80", marginTop: 4 }}>{funnel.conversionRate}%</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#10B981", marginTop: 4 }}>{funnel.conversionRate}%</div>
               </div>
               <div style={{ background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
                 <span style={{ fontSize: 10, color: TEXT_MUTED }}>RECOVERED REVENUE</span>
-                <div style={{ fontSize: 24, fontWeight: 900, color: GOLD, marginTop: 4 }}>{fmt(funnel.recoveredRevenue)}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: ACCENT, marginTop: 4 }}>{fmt(funnel.recoveredRevenue)}</div>
               </div>
             </div>
           </div>
-          <div style={{ background: "rgba(200, 133, 58, 0.05)", border: `1px solid ${CARD_BORDER}`, borderRadius: 10, padding: 14 }}>
-            <span style={{ fontSize: 11, fontWeight: "bold", color: GOLD }}>💡 Smart Insight: Abandoned Carts Timing</span>
+          <div style={{ background: "rgba(99, 102, 241, 0.05)", border: `1px solid ${CARD_BORDER}`, borderRadius: 10, padding: 14 }}>
+            <span style={{ fontSize: 11, fontWeight: "bold", color: ACCENT }}>💡 Smart Insight: Abandoned Carts Timing</span>
             <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 4, lineHeight: 1.5 }}>
               Trigger recovery messages exactly 15 minutes post-abandonment to achieve the highest conversion. Ensure coupon codes (e.g., SPICE15) are pre-loaded in Stripe for 1-click apply.
             </p>
@@ -720,7 +792,7 @@ function MenuEngineeringMatrix({ topDishes }) {
       const highQty = d.qty >= avgQty;
       let cat = "Star";
       let badge = "⭐ Star";
-      let color = "#4ADE80";
+      let color = "#10B981";
       let desc = "High Margin & Volume";
 
       if (!highRev && highQty) {
@@ -736,7 +808,7 @@ function MenuEngineeringMatrix({ topDishes }) {
       } else if (!highRev && !highQty) {
         cat = "Dog";
         badge = "🐶 Candidate";
-        color = "#FCA5A5";
+        color = "#F43F5E";
         desc = "Low Volume & Margin";
       }
       return { ...d, cat, badge, color, desc };
@@ -759,7 +831,7 @@ function MenuEngineeringMatrix({ topDishes }) {
             <span style={{ fontSize: 11, color: TEXT_MUTED }}>{d.qty} sold · {d.desc}</span>
           </div>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 14, fontWeight: 900, color: GOLD }}>{fmt(d.revenue)}</span>
+            <span style={{ fontSize: 14, fontWeight: 900, color: ACCENT }}>{fmt(d.revenue)}</span>
           </div>
         </div>
       ))}
@@ -798,7 +870,7 @@ export default function SalesDashboard() {
     <div style={{ background: BG, color: TEXT_MAIN, minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Top Header */}
       <header style={{
-        background: "rgba(15, 11, 7, 0.95)",
+        background: "rgba(10, 11, 14, 0.95)",
         borderBottom: `1px solid ${CARD_BORDER}`,
         padding: "14px 24px",
         position: "sticky", top: 0, zIndex: 100,
@@ -808,8 +880,8 @@ export default function SalesDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/RaniMahalLogo.png" alt="Rani Mahal" style={{ height: 32 }} onError={e => e.target.style.display='none'} />
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 900, color: CREAM, letterSpacing: "-0.01em" }}>RANI MAHAL — SALES & CRM V2</h1>
-            <p style={{ fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: "0.08em" }}>GUEST INTELLIGENCE & PROFITABILITY</p>
+            <h1 style={{ fontSize: 18, fontWeight: 900, color: TEXT_MAIN, letterSpacing: "-0.01em" }}>RANI MAHAL — SALES & CRM V2</h1>
+            <p style={{ fontSize: 11, color: ACCENT, fontWeight: 700, letterSpacing: "0.08em" }}>GUEST INTELLIGENCE & PROFITABILITY</p>
           </div>
         </div>
 
@@ -823,14 +895,14 @@ export default function SalesDashboard() {
           </select>
 
           <button onClick={loadData}
-            style={{ height: 38, padding: "0 14px", borderRadius: 10, background: "rgba(200, 133, 58, 0.15)", border: `1px solid ${CARD_BORDER}`, color: GOLD, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+            style={{ height: 38, padding: "0 14px", borderRadius: 10, background: ACCENT_LIGHT, border: `1px solid ${CARD_BORDER}`, color: ACCENT, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
             ↺ Refresh
           </button>
         </div>
       </header>
 
       {/* Tab Navigation */}
-      <div style={{ background: "rgba(28, 22, 17, 0.5)", borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 24px" }}>
+      <div style={{ background: "rgba(20, 21, 25, 0.5)", borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 24px" }}>
         <div style={{ display: "flex", gap: 20, maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
           {[
             ["analytics", "📊 Sales Ledger"],
@@ -842,8 +914,8 @@ export default function SalesDashboard() {
             <button key={k} onClick={() => setTab(k)}
               style={{
                 padding: "14px 4px", background: "none", border: "none",
-                borderBottom: tab === k ? `3px solid ${GOLD}` : "3px solid transparent",
-                color: tab === k ? GOLD : TEXT_MUTED, fontSize: 14, fontWeight: 800, cursor: "pointer",
+                borderBottom: tab === k ? `3px solid ${ACCENT}` : "3px solid transparent",
+                color: tab === k ? ACCENT : TEXT_MUTED, fontSize: 14, fontWeight: 800, cursor: "pointer",
                 whiteSpace: "nowrap"
               }}>
               {lbl}
