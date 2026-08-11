@@ -1,6 +1,6 @@
 // ── Star TSP100/TSP143 receipt formatter ─────────────────────────
-// Generates Star Line Mode & ESC/POS dual-compatible byte sequences
-// Used by both the Vercel webhook (via print bridge) and local bridge script
+// Generates Star Line Mode & ESC/POS dual-compatible byte sequences & plain text formatters
+// Supports 2-ticket workflow: Ticket 1 (Guest Receipt) + Ticket 2 (Giant Kitchen Ticket)
 
 const ESC = 0x1B;
 const GS  = 0x1D;
@@ -15,7 +15,7 @@ const ALIGN_CENTER = Buffer.from([ESC, 0x1D, 0x61, 0x01, ESC, 0x61, 0x01]);     
 const ALIGN_LEFT   = Buffer.from([ESC, 0x1D, 0x61, 0x00, ESC, 0x61, 0x00]);           // ESC GS a 0 & ESC a 0 (Left)
 const CUT_PAPER    = Buffer.from([0x0A, 0x0A, ESC, 0x64, 0x02, GS, 0x56, 0x00, 0x0A]); // Star & ESC/POS Auto Cut
 
-const RECEIPT_WIDTH = 33; // 33 chars exact fit to prevent right margin truncation
+const RECEIPT_WIDTH = 33; // 33 chars exact fit for 9.0pt Bold Courier New (no right edge truncation)
 
 function line(text = "") {
   return Buffer.from(text.slice(0, RECEIPT_WIDTH) + "\n", "utf8");
@@ -42,7 +42,7 @@ export function formatPhoneNumber(raw) {
 }
 
 /**
- * Build full binary receipt buffer for Star TSP143 / TSP100 thermal printers
+ * Build full binary receipt buffer for Star TSP143 / TSP100 thermal printers (RAW TCP Mode)
  */
 export function buildReceipt(order) {
   const chunks = [];
@@ -51,7 +51,7 @@ export function buildReceipt(order) {
   chunks.push(INIT);
   chunks.push(ALIGN_CENTER);
 
-  // Store Header (Double-wide & Double-high)
+  // Store Header
   chunks.push(DOUBLE_ON);
   chunks.push(line("RANI MAHAL"));
   chunks.push(DOUBLE_OFF);
@@ -107,13 +107,13 @@ export function buildReceipt(order) {
 
   chunks.push(divider("-"));
 
-  // Items Header — Clean POS Alignment
+  // Items Header — POS Alignment
   chunks.push(BOLD_ON);
   chunks.push(twoCol("QTY  ITEM", "PRICE"));
   chunks.push(BOLD_OFF);
   chunks.push(divider("-"));
 
-  // Item List — Same Line Alignment (QTY  ITEM NAME                 PRICE)
+  // Item List — Single Line Alignment (QTY  ITEM NAME  PRICE)
   (order.items || []).forEach(item => {
     const qty = `${item.qty}x`.padEnd(3);
     const price = `$${(item.price * item.qty).toFixed(2)}`;
@@ -176,8 +176,7 @@ export function buildReceipt(order) {
 }
 
 /**
- * Build formatted plain text receipt string for Windows Driver GDI Spooler
- * Formatted to 33-column width with perfect single-line QTY  ITEM  PRICE alignment!
+ * TICKET 1: Build Guest Receipt plain text string (with prices & payment)
  */
 export function buildPlainTextReceipt(order) {
   const shortId = order.id ? order.id.slice(-6).toUpperCase() : "------";
@@ -237,10 +236,8 @@ export function buildPlainTextReceipt(order) {
     const maxNameLen = W - qty.length - price.length - 2;
     const name = item.name.toUpperCase().slice(0, maxNameLen);
 
-    // Line 1: QTY  ITEM NAME               PRICE (all on same line!)
     lines.push(twoCol(`${qty} ${name}`, price));
 
-    // Sub-lines for spice & note if present
     if (item.spice) {
       lines.push(`    [SPICE: ${item.spice.toUpperCase()}]`.slice(0, W));
     }
@@ -268,6 +265,75 @@ export function buildPlainTextReceipt(order) {
 
   lines.push(center("Thank you for your order!"));
   lines.push(center("ranimahal.cc"));
+  lines.push("\r\n\r\n\r\n\r\n");
+
+  return lines.join("\r\n");
+}
+
+/**
+ * TICKET 2: Build GIANT Kitchen Ticket plain text string (NO PRICES / NO PAYMENT)
+ * Tagged for Windows System.Drawing renderer:
+ *   KHEADER:   18pt Bold (*** KITCHEN TICKET ***)
+ *   KMODE:     22pt Bold (PICKUP #A1B2C3)
+ *   KMETA:     12pt Bold (TIME & GUEST)
+ *   KQTY:      26pt Bold ([ 2x ])
+ *   KITEM:     18pt Bold (CHICKEN TIKKA MASALA)
+ *   KMOD:      14pt Bold (↳ SPICE: MEDIUM)
+ *   KINSTRUCT: 16pt Bold (SPECIAL INSTRUCTIONS)
+ */
+export function buildKitchenChit(order) {
+  const shortId = order.id ? order.id.slice(-6).toUpperCase() : "------";
+  const isDelivery = order.orderMode === "delivery";
+  const lines = [];
+
+  lines.push("KHEADER:*** KITCHEN TICKET ***");
+  lines.push("---------------------------------");
+  lines.push(isDelivery ? `KMODE:DELIVERY  #${shortId}` : `KMODE:PICKUP  #${shortId}`);
+  lines.push("---------------------------------");
+
+  const time = new Date(order.createdAt || Date.now()).toLocaleString("en-US", {
+    hour: "2-digit", minute: "2-digit",
+  });
+  lines.push(`KMETA:TIME:  ${time}`);
+  lines.push(`KMETA:GUEST: ${(order.customerName || "Guest").toUpperCase()}`);
+  if (order.customerPhone) {
+    lines.push(`KMETA:PHONE: ${formatPhoneNumber(order.customerPhone)}`);
+  }
+
+  if (isDelivery && order.deliveryAddress) {
+    lines.push("---------------------------------");
+    lines.push(`KMETA:DELIVER TO: ${order.deliveryAddress.street}`);
+    if (order.deliveryAddress.notes) {
+      lines.push(`KMETA:DRIVER NOTE: ${order.deliveryAddress.notes}`);
+    }
+  }
+
+  lines.push("=================================");
+
+  (order.items || []).forEach(item => {
+    // Quantity in GIANT 26pt Bold
+    lines.push(`KQTY:[ ${item.qty}x ]`);
+
+    // Item name in 18pt Bold
+    lines.push(`KITEM:${item.name.toUpperCase()}`);
+
+    // Modifiers in 14pt Bold
+    if (item.spice) {
+      lines.push(`KMOD:   ↳ SPICE: ${item.spice.toUpperCase()}`);
+    }
+    if (item.note) {
+      lines.push(`KMOD:   ↳ NOTE: ${item.note.toUpperCase()}`);
+    }
+
+    lines.push("---------------------------------");
+  });
+
+  if (order.specialInstructions) {
+    lines.push("KINSTRUCT:📝 SPECIAL INSTRUCTIONS:");
+    lines.push(`KINSTRUCT:${order.specialInstructions.toUpperCase()}`);
+    lines.push("=================================");
+  }
+
   lines.push("\r\n\r\n\r\n\r\n");
 
   return lines.join("\r\n");

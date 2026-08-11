@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // print-bridge.js — Rani Mahal Thermal Printer Bridge
 // ─────────────────────────────────────────────────────────────────
-// Supports Star TSP143 / TSP100 receipt printers on Windows
-// Uses Windows Printer Driver Spooler with System.Drawing.Printing
-// (0 margins, Courier New 9.0pt Bold, W=33 columns) for zero right edge truncation!
-// Renders MODE: (*** PICKUP ORDER *** / *** DELIVERY ORDER ***) in 15pt Bold Centered!
+// Automatic 2-Ticket Workflow:
+//   Ticket 1: Guest Receipt (Full pricing, subtotal, tax, Stripe paid)
+//   Ticket 2: Kitchen Ticket (Prices stripped — 26pt QTY & 18pt ITEM text)
 // ─────────────────────────────────────────────────────────────────
 
 import net  from "net";
@@ -12,7 +11,7 @@ import fs   from "fs";
 import path from "path";
 import os   from "os";
 import { exec } from "child_process";
-import { buildReceipt, buildPlainTextReceipt } from "./lib/printer.js";
+import { buildReceipt, buildPlainTextReceipt, buildKitchenChit } from "./lib/printer.js";
 
 // ── Configuration ────────────────────────────────────────────────
 const CONFIG = {
@@ -74,7 +73,7 @@ async function poll() {
     const { orderId } = await res.json();
     if (!orderId) return; // queue empty — normal
 
-    console.log(`[${ts()}] 🖨️ New order received: ${orderId.slice(-6).toUpperCase()} — printing...`);
+    console.log(`[${ts()}] 🖨️ New order received: ${orderId.slice(-6).toUpperCase()} — printing 2 tickets...`);
 
     // Fetch full order data
     const orderRes = await fetch(`${CONFIG.apiBase}/api/orders?id=${orderId}`, {
@@ -88,13 +87,27 @@ async function poll() {
 
     const order = await orderRes.json();
 
-    // Print receipt based on mode
+    // ── Ticket 1: Guest Receipt ─────────────────────────────────
+    console.log(`[${ts()}] 🎟️ Printing Ticket 1: Guest Receipt (${orderId.slice(-6).toUpperCase()})...`);
     if (CONFIG.printer.type === "tcp") {
       const binaryReceipt = buildReceipt(order);
       await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, binaryReceipt);
     } else {
-      const textContent = buildPlainTextReceipt(order);
-      await sendWindowsDriver(CONFIG.printer.winName, textContent);
+      const guestText = buildPlainTextReceipt(order);
+      await sendWindowsDriver(CONFIG.printer.winName, guestText);
+    }
+
+    // Small delay between print jobs
+    await new Promise(r => setTimeout(r, 1000));
+
+    // ── Ticket 2: Giant Kitchen Ticket ──────────────────────────
+    console.log(`[${ts()}] 👨‍🍳 Printing Ticket 2: Giant Kitchen Ticket (${orderId.slice(-6).toUpperCase()})...`);
+    if (CONFIG.printer.type === "tcp") {
+      const binaryReceipt = buildReceipt(order); // TCP binary fallback
+      await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, binaryReceipt);
+    } else {
+      const kitchenText = buildKitchenChit(order);
+      await sendWindowsDriver(CONFIG.printer.winName, kitchenText);
     }
 
     // Mark as printed on server
@@ -107,7 +120,7 @@ async function poll() {
       body: JSON.stringify({ id: orderId, printed: true }),
     });
 
-    console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed successfully!`);
+    console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed 2 tickets successfully!`);
 
   } catch (err) {
     console.error(`[${ts()}] ❌ Print Error:`, err.message);
@@ -118,7 +131,7 @@ async function poll() {
 
 /**
  * Send receipt text to Windows printer driver using System.Drawing.Printing
- * Enforces 0 margins, Courier New 9.0pt Bold body text (W=33 cols), 15pt Header, and 15pt MODE Header!
+ * Supports dual modes: Guest Receipt & Giant Kitchen Ticket with dynamic font sizes
  */
 function sendWindowsDriver(printerName, textContent) {
   return new Promise((resolve, reject) => {
@@ -134,9 +147,19 @@ function sendWindowsDriver(printerName, textContent) {
     $pd.PrinterSettings.PrinterName = '${printerName}';
     $pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0);
     
-    $fontBody   = New-Object System.Drawing.Font('Courier New', 9.0, [System.Drawing.FontStyle]::Bold);
-    $fontHeader = New-Object System.Drawing.Font('Courier New', 15.0, [System.Drawing.FontStyle]::Bold);
-    $fontMode   = New-Object System.Drawing.Font('Courier New', 14.0, [System.Drawing.FontStyle]::Bold);
+    // Guest Receipt Fonts
+    $fontBody     = New-Object System.Drawing.Font('Courier New', 9.0,  [System.Drawing.FontStyle]::Bold);
+    $fontHeader   = New-Object System.Drawing.Font('Courier New', 15.0, [System.Drawing.FontStyle]::Bold);
+    $fontMode     = New-Object System.Drawing.Font('Courier New', 14.0, [System.Drawing.FontStyle]::Bold);
+
+    // Giant Kitchen Chit Fonts
+    $fontKHeader  = New-Object System.Drawing.Font('Courier New', 16.0, [System.Drawing.FontStyle]::Bold);
+    $fontKMode    = New-Object System.Drawing.Font('Courier New', 18.0, [System.Drawing.FontStyle]::Bold);
+    $fontKMeta    = New-Object System.Drawing.Font('Courier New', 12.0, [System.Drawing.FontStyle]::Bold);
+    $fontKQty     = New-Object System.Drawing.Font('Courier New', 26.0, [System.Drawing.FontStyle]::Bold);
+    $fontKItem    = New-Object System.Drawing.Font('Courier New', 17.0, [System.Drawing.FontStyle]::Bold);
+    $fontKMod     = New-Object System.Drawing.Font('Courier New', 13.5, [System.Drawing.FontStyle]::Bold);
+    $fontKInstruct= New-Object System.Drawing.Font('Courier New', 15.0, [System.Drawing.FontStyle]::Bold);
 
     $lineIndex = 0;
     $pd.add_PrintPage({
@@ -144,6 +167,8 @@ function sendWindowsDriver(printerName, textContent) {
       $y = 0;
       while ($lineIndex -lt $lines.Count) {
         $line = $lines[$lineIndex];
+
+        # ── Guest Receipt Lines ─────────────────────────────────
         if ($line.StartsWith('HEADER:')) {
           $txt = $line.Substring(7);
           $size = $e.Graphics.MeasureString($txt, $fontHeader);
@@ -158,6 +183,65 @@ function sendWindowsDriver(printerName, textContent) {
           $e.Graphics.DrawString($txt, $fontMode, [System.Drawing.Brushes]::Black, $x, $y);
           $y += $fontMode.GetHeight($e.Graphics) + 4;
         }
+
+        # ── Kitchen Chit Lines (Giant Fonts) ────────────────────
+        elseif ($line.StartsWith('KHEADER:')) {
+          $txt = $line.Substring(8);
+          $size = $e.Graphics.MeasureString($txt, $fontKHeader);
+          $x = [Math]::Max(0, ($e.PageBounds.Width - $size.Width) / 2);
+          $e.Graphics.DrawString($txt, $fontKHeader, [System.Drawing.Brushes]::Black, $x, $y);
+          $y += $fontKHeader.GetHeight($e.Graphics) + 2;
+        }
+        elseif ($line.StartsWith('KMODE:')) {
+          $txt = $line.Substring(6);
+          $size = $e.Graphics.MeasureString($txt, $fontKMode);
+          $x = [Math]::Max(0, ($e.PageBounds.Width - $size.Width) / 2);
+          $e.Graphics.DrawString($txt, $fontKMode, [System.Drawing.Brushes]::Black, $x, $y);
+          $y += $fontKMode.GetHeight($e.Graphics) + 4;
+        }
+        elseif ($line.StartsWith('KMETA:')) {
+          $txt = $line.Substring(6);
+          $e.Graphics.DrawString($txt, $fontKMeta, [System.Drawing.Brushes]::Black, 0, $y);
+          $y += $fontKMeta.GetHeight($e.Graphics) + 2;
+        }
+        elseif ($line.StartsWith('KQTY:')) {
+          $txt = $line.Substring(5);
+          $e.Graphics.DrawString($txt, $fontKQty, [System.Drawing.Brushes]::Black, 0, $y);
+          $y += $fontKQty.GetHeight($e.Graphics) + 2;
+        }
+        elseif ($line.StartsWith('KITEM:')) {
+          $txt = $line.Substring(6);
+          // Auto-wrap giant 17pt item name
+          $words = $txt.Split(' ');
+          $curLine = '';
+          foreach ($word in $words) {
+            $test = ($curLine + ' ' + $word).Trim();
+            $sz = $e.Graphics.MeasureString($test, $fontKItem);
+            if ($sz.Width -gt $e.PageBounds.Width) {
+              $e.Graphics.DrawString($curLine, $fontKItem, [System.Drawing.Brushes]::Black, 0, $y);
+              $y += $fontKItem.GetHeight($e.Graphics) + 1;
+              $curLine = $word;
+            } else {
+              $curLine = $test;
+            }
+          }
+          if ($curLine.Length -gt 0) {
+            $e.Graphics.DrawString($curLine, $fontKItem, [System.Drawing.Brushes]::Black, 0, $y);
+            $y += $fontKItem.GetHeight($e.Graphics) + 3;
+          }
+        }
+        elseif ($line.StartsWith('KMOD:')) {
+          $txt = $line.Substring(5);
+          $e.Graphics.DrawString($txt, $fontKMod, [System.Drawing.Brushes]::Black, 0, $y);
+          $y += $fontKMod.GetHeight($e.Graphics) + 2;
+        }
+        elseif ($line.StartsWith('KINSTRUCT:')) {
+          $txt = $line.Substring(10);
+          $e.Graphics.DrawString($txt, $fontKInstruct, [System.Drawing.Brushes]::Black, 0, $y);
+          $y += $fontKInstruct.GetHeight($e.Graphics) + 2;
+        }
+
+        # ── Regular Lines ───────────────────────────────────────
         else {
           $e.Graphics.DrawString($line, $fontBody, [System.Drawing.Brushes]::Black, 0, $y);
           $y += $fontBody.GetHeight($e.Graphics) + 1;
@@ -170,6 +254,13 @@ function sendWindowsDriver(printerName, textContent) {
     $fontBody.Dispose();
     $fontHeader.Dispose();
     $fontMode.Dispose();
+    $fontKHeader.Dispose();
+    $fontKMode.Dispose();
+    $fontKMeta.Dispose();
+    $fontKQty.Dispose();
+    $fontKItem.Dispose();
+    $fontKMod.Dispose();
+    $fontKInstruct.Dispose();
     `.trim().replace(/\r?\n/g, " ");
 
     exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${psScript}"`, { timeout: 15000 }, (err, stdout, stderr) => {
@@ -218,8 +309,9 @@ const ts = () => new Date().toLocaleTimeString();
 
 console.log(`
 ╔════════════════════════════════════════════════════════════╗
-║  Rani Mahal — Star Thermal Print Bridge                    ║
+║  Rani Mahal — Star Thermal Print Bridge (2-Ticket Mode)    ║
 ║  Mode: Windows Driver (${CONFIG.printer.winName})                  ║
+║  Tickets: [1] Guest Receipt + [2] Giant Kitchen Ticket     ║
 ║  Polling Queue: Every ${CONFIG.pollMs / 1000} seconds                         ║
 ╚════════════════════════════════════════════════════════════╝
 `);
