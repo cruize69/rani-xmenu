@@ -264,6 +264,8 @@ export function FulfillmentSheet({
               />
               <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
                 We'll text you about this order — msg &amp; data rates may apply. Reply STOP anytime to opt out.
+                See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
               </span>
             </label>
           )}

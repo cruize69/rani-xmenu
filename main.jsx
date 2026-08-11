@@ -7,6 +7,10 @@ import StaffGate from "./StaffGate.jsx";
 // Order confirmation is public — Stripe's success_url redirects here.
 const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 
+// Privacy/Terms — public, linked from checkout SMS consent + A2P registration.
+const PrivacyPolicy  = lazy(() => import("./Legal.jsx").then(m => ({ default: m.PrivacyPolicy })));
+const TermsOfService = lazy(() => import("./Legal.jsx").then(m => ({ default: m.TermsOfService })));
+
 // Internal tools — code-split so their JS never ships to customer visits,
 // and gated behind StaffGate (see StaffGate.jsx for why).
 const OrderManager     = lazy(() => import("./OrderManager.jsx"));
@@ -24,6 +28,8 @@ function MaybeClerkProvider({ children }) {
 
 const ROUTES = {
   "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
+  "/privacy": () => <PrivacyPolicy />,
+  "/terms":   () => <TermsOfService />,
   "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
   "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
