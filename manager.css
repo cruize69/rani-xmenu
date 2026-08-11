@@ -469,22 +469,25 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 .rm-refund-log-entry { font-size: 12px; color: var(--rm-panel-text); margin-bottom: 3px; }
 
 /* ── Action Bar ───────────────────────────────────────────────── */
-/* Sticky to bottom of right panel. Never wraps — all buttons stay on one line. */
+/* Sticky to bottom of right panel / drawer */
 .rm-action-bar {
   flex-shrink: 0;
-  padding: 12px 18px;
+  padding: 12px 16px max(14px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--rm-divider);
   background: var(--rm-panel-bg);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   display: flex; align-items: center; gap: 8px;
-  flex-wrap: nowrap;   /* never push buttons to a second row */
-  overflow: hidden;    /* clip if somehow too tight */
+  flex-wrap: wrap;       /* allow wrapping into 2 rows on mobile screens */
+}
+
+.rm-action-chips-group {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
 }
 
 /* Delay chips: fixed small squares */
 .rm-action-chip {
   flex-shrink: 0;
-  height: 48px; width: 56px; padding: 0;
+  height: 48px; width: 50px; padding: 0;
   border-radius: 12px;
   border: 1px solid var(--rm-panel-border); background: var(--rm-pill-bg);
   color: var(--rm-panel-text); font-size: 13px; font-weight: 700; cursor: pointer;
@@ -495,38 +498,46 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 .rm-action-chip:hover  { background: var(--rm-card-bg-hover); }
 .rm-action-chip:active { transform: scale(0.94); }
 
-/* All action buttons: fixed 48px height, never shrink, never grow (except primary) */
+/* All action buttons */
 .rm-action-btn {
-  flex-shrink: 0;
-  height: 48px; padding: 0 18px; border-radius: 14px;
-  border: none; font-size: 14px; font-weight: 800; cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 95px;
+  height: 48px; padding: 0 14px; border-radius: 14px;
+  border: none; font-size: 13px; font-weight: 800; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 6px;
   white-space: nowrap;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: all 0.2s ease;
 }
 .rm-action-btn:active   { transform: scale(0.97); opacity: 0.9; }
-.rm-action-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.rm-action-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
-/* Primary CTA grows to fill remaining space but has a minimum width */
+/* Primary CTA ("MARK READY") */
 .rm-action-btn.primary {
-  flex: 1 1 auto;
-  min-width: 120px;
-  max-width: 220px;
+  flex: 2 1 140px;
+  min-width: 140px;
   color: #FFF;
+  font-size: 14px;
 }
 
-/* Secondary and danger buttons never grow */
+/* Secondary and danger buttons */
 .rm-action-btn.secondary {
-  flex: 0 0 auto;
   background: var(--rm-pill-bg);
   border: 1px solid var(--rm-panel-border);
   color: var(--rm-panel-text);
 }
 .rm-action-btn.danger {
-  flex: 0 0 auto;
   background: transparent;
   border: 1px solid rgba(248, 113, 113, 0.35);
   color: #FCA5A5;
+}
+
+/* Anti-Spam Cooldown active state for Reprint button */
+.rm-action-btn--cooldown {
+  background: rgba(34, 197, 94, 0.14) !important;
+  border: 1.5px solid rgba(34, 197, 94, 0.4) !important;
+  color: #4ADE80 !important;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
 }
 
 /* ── Panel Empty State ────────────────────────────────────────── */
@@ -549,23 +560,39 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 /* ── Slide-Over Drawer (<1024px) ──────────────────────────────── */
 .rm-drawer-backdrop {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0, 0, 0, 0.62); backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px);
   animation: rm-fade-in 0.2s ease;
 }
 .rm-drawer {
   position: absolute; right: 0; top: 0; bottom: 0;
-  width: 92%; max-width: 500px;
+  width: 95%; max-width: 480px;
   background: var(--rm-panel-bg);
   border-left: 1px solid var(--rm-panel-border);
   display: flex; flex-direction: column;
   overflow: hidden;
   animation: rm-slide-in 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.5);
 }
 @keyframes rm-fade-in  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rm-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
-.rm-drawer-scroll { flex: 1; overflow-y: auto; padding: 18px 20px; }
+.rm-drawer-scroll { flex: 1; overflow-y: auto; padding: 18px 18px 10px; }
+
+/* Mobile action bar inside drawer — full width primary button on row 2 */
+@media (max-width: 767px) {
+  .rm-action-bar {
+    padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+  }
+  .rm-action-btn.primary {
+    width: 100%;
+    flex: 1 0 100%;
+    height: 52px;
+    font-size: 15px;
+    order: 10;
+    margin-top: 4px;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);
+  }
+}
 
 /* ── New Order Alert Overlay ──────────────────────────────────── */
 .rm-alert-overlay {

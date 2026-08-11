@@ -2,7 +2,7 @@
 // Layout: rm-detail-wrap (scrollable content) + rm-action-bar (sticky bottom)
 // Used as persistent right pane (isPersistentPane=true) or slide-over drawer (false)
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { formatPhoneNumber } from "./OrderCard.jsx";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
@@ -31,7 +31,8 @@ function spiceClass(spice) {
 export default function OrderDetailPanel({
   order, onClose, onStatusChange, onPrint, onDelay, onOpenRefund, statusInfo, isPersistentPane = false
 }) {
-  const [updating, setUpdating] = useState(false);
+  const [updating, setUpdating]               = useState(false);
+  const [reprintCooldown, setReprintCooldown] = useState(0); // seconds remaining in print cooldown
   const s = statusInfo;
 
   const shortId    = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
@@ -46,6 +47,21 @@ export default function OrderDetailPanel({
     const a = order.deliveryAddress;
     return `${a.street}${a.apt ? `, Apt ${a.apt}` : ""}${a.city ? `, ${a.city}` : ""}${a.zip ? ` ${a.zip}` : ""}`;
   }, [isDelivery, order.deliveryAddress]);
+
+  // Intelligent Reprint Cooldown Timer (5 seconds)
+  useEffect(() => {
+    if (reprintCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setReprintCooldown(prev => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [reprintCooldown]);
+
+  const handlePrintClick = () => {
+    if (reprintCooldown > 0) return;
+    onPrint(order.id);
+    setReprintCooldown(5); // 5-second anti-spam cooldown
+  };
 
   const handleStatus = async () => {
     if (!s?.next || updating) return;
@@ -63,7 +79,7 @@ export default function OrderDetailPanel({
         </span>
         <span className="rm-detail-order-id">{shortId}</span>
         {!isPersistentPane && (
-          <button className="rm-detail-close" onClick={onClose}>✕</button>
+          <button className="rm-detail-close" onClick={onClose} aria-label="Close modal">✕</button>
         )}
       </div>
 
@@ -177,26 +193,31 @@ export default function OrderDetailPanel({
     </div>
   );
 
-  // The sticky action bar
+  // The sticky action bar — responsive & anti-spam protected
   const actionBar = (
     <div className="rm-action-bar">
       {s?.next && (
-        <>
+        <div className="rm-action-chips-group">
           <button className="rm-action-chip" onClick={() => onDelay?.(order.id, 5)}>+5m</button>
           <button className="rm-action-chip" onClick={() => onDelay?.(order.id, 10)}>+10m</button>
-        </>
+        </div>
       )}
+
       <button
-        className="rm-action-btn secondary"
-        onClick={() => onPrint(order.id)}
+        className={`rm-action-btn secondary ${reprintCooldown > 0 ? "rm-action-btn--cooldown" : ""}`}
+        onClick={handlePrintClick}
+        disabled={reprintCooldown > 0}
+        title={reprintCooldown > 0 ? `Print job queued (${reprintCooldown}s)` : "Print receipt"}
       >
-        🖨 {order.printed ? "REPRINT" : "PRINT"}
+        {reprintCooldown > 0 ? `✓ QUEUED (${reprintCooldown}s)` : `🖨 ${order.printed ? "REPRINT" : "PRINT"}`}
       </button>
+
       {canRefund && (
         <button className="rm-action-btn danger" onClick={() => onOpenRefund(order)}>
           ↩ REFUND
         </button>
       )}
+
       {s?.next && (
         <button
           className="rm-action-btn primary"
