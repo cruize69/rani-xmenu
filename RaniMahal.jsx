@@ -470,7 +470,7 @@ export default function RaniMahal() {
   }
 
   return (
-    <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", color: "#FAF6EF" }}>
+    <div style={{ background: "radial-gradient(ellipse at 50% 0%, #26211C 0%, #171412 60%, #110E0D 100%)", minHeight: "100vh", color: "#FAF6EF" }}>
       <style>{css}</style>
 
       {/* Announcement Bar */}
@@ -519,7 +519,7 @@ export default function RaniMahal() {
               {sub.label && (
                 <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.2em", textTransform:"uppercase", color:"#B8A995", paddingBottom:8, borderBottom:"0.5px solid rgba(232,168,46,0.2)", marginBottom:10, textAlign:"center" }}>{sub.label}</p>
               )}
-              <div style={{ background:"#12100e", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)" }}>
+              <div style={{ background:"#1B1714", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)", border:"1px solid rgba(232, 168, 46, 0.08)" }}>
                 {sub.ids.map(id => {
                   const item = ITEM_MAP[id]; if (!item) return null;
                   return <ItemCard key={id} item={item} cartEntry={cart[id+"_1"]} onOpen={setModalItem} imageUrl={cloudImages[id] ?? localStorage.getItem("img_"+id) ?? null} />;
