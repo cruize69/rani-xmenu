@@ -111,7 +111,7 @@ async function fetchDrafts(days) {
       const [nextCursor, scanKeys] = await kv.scan(cursor, { match: "draft:*", count: 1000 });
       keys.push(...scanKeys);
       cursor = nextCursor;
-    } while (cursor !== "0");
+    } while (String(cursor) !== "0");
 
     if (keys.length === 0) return [];
     
