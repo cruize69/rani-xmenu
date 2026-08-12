@@ -24,19 +24,8 @@ export function GoogleTrustBadge() {
       fontFamily: "'Inter', sans-serif"
     }}>
       <span style={{ color: "#E8A82E", letterSpacing: "1px" }}>⭐⭐⭐⭐⭐</span>
-      <span style={{ fontWeight: 500 }}>Rated 4.8 on Google (700+ reviews) · Secure Checkout</span>
+      <span style={{ fontWeight: 500 }}>Secure Checkout via Stripe</span>
     </div>
-  );
-}
-
-// Custom Luxury Royal Dining Crest SVG Icon for Rani Mahal
-function LuxuryRoyalCrestIcon({ size = 22, color = "#E8A82E" }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v3M12 6a7 7 0 0 1 7 7H5a7 7 0 0 1 7-7z" />
-      <path d="M4 16h16" />
-      <path d="M9 19c1.5 1 4.5 1 6 0" />
-    </svg>
   );
 }
 
@@ -206,9 +195,14 @@ export function CheckoutGate({
   draftId = null,
   onSaveLead,
   reorderToken = null,
+  scheduledFor = null,
+  utm = {},
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
-  const [step,       setStep]       = useState("choice");
+  // Guest email is the default screen — sign-in is offered as a compact
+  // link inside it rather than a separate "how would you like to checkout?"
+  // screen, so guests reach payment in one fewer tap.
+  const [step,       setStep]       = useState("guest-email");
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   // CLERK_ENABLED is a build-time constant (never changes across renders),
@@ -267,6 +261,8 @@ export function CheckoutGate({
           deliveryFee: orderMode === "delivery" ? deliveryFee : 0,
           draftId,
           reorderToken,
+          scheduledFor,
+          utm,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -352,84 +348,36 @@ export function CheckoutGate({
         </div>
 
         <div style={{ padding:"16px 20px 32px" }}>
-          {step === "choice" && (
-            <div style={{ background:"#161310", border:"0.5px solid rgba(232,168,46,0.25)", borderRadius:16, padding:"20px 16px", textAlign:"center", boxShadow:"0 10px 30px rgba(0,0,0,0.5)" }}>
-              <div style={{ width:46, height:46, borderRadius:"50%", background:"rgba(232,168,46,0.12)", border:"1px solid rgba(232,168,46,0.35)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
-                <LuxuryRoyalCrestIcon size={22} color="#E8A82E" />
-              </div>
-              <h3 style={{ fontFamily:"'Fraunces',serif", fontSize:19, color:"#FAF6EF", margin:"0 0 6px", fontWeight:500 }}>
-                How would you like to checkout?
-              </h3>
-              <p style={{ fontSize:13, color:"#B8A995", margin:"0 0 18px", lineHeight:1.5 }}>
-                Sign in to save order history & reorder in 1 tap, or proceed directly as a guest.
-              </p>
+          {step === "guest-email" && (
+            <>
+              <button onClick={onCancel} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back to cart</button>
 
-              {error && <p style={{ fontSize:12, color:"#F0846A", marginBottom:14 }}>{error}</p>}
-
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, maxWidth:320, margin:"6px auto 0" }}>
-                {CLERK_ENABLED && (
+              {/* Sign-in offered as a compact strip, not a separate screen —
+                  guests reach the payment button one tap sooner. */}
+              {CLERK_ENABLED && (
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:"#161310", border:"0.5px solid rgba(232,168,46,0.2)", borderRadius:12, padding:"10px 14px", marginBottom:16 }}>
+                  <span style={{ fontSize:12.5, color:"#B8A995" }}>Have an account?</span>
                   <ClerkSignInButton
                     style={{
-                      width:"100%",
-                      minHeight:44,
-                      padding:"11px 24px",
-                      background:"#E8A82E",
-                      color:"#080706",
-                      border:"none",
-                      borderRadius:24,
-                      fontSize:13.5,
+                      padding:"7px 14px",
+                      background:"transparent",
+                      color:"#E8A82E",
+                      border:"1px solid rgba(232,168,46,0.4)",
+                      borderRadius:20,
+                      fontSize:12,
                       fontWeight:600,
                       cursor:"pointer",
                       fontFamily:"'Inter',sans-serif",
-                      boxShadow:"0 4px 16px rgba(232,168,46,0.28)",
                       display:"inline-flex",
                       alignItems:"center",
-                      justifyContent:"center",
-                      gap:8,
-                      transition:"transform 0.15s ease, opacity 0.15s ease",
+                      gap:6,
+                      whiteSpace:"nowrap",
                     }}
                     disabled={loading}
                     onSignedIn={clerkUserId => goToStripe({ clerkUserId })}
                   />
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setStep("guest-email")}
-                  style={{
-                    width:"100%",
-                    minHeight:44,
-                    padding:"10px 22px",
-                    background:"transparent",
-                    color:"#FAF6EF",
-                    border:"1px solid rgba(250,246,239,0.2)",
-                    borderRadius:24,
-                    fontSize:13,
-                    fontWeight:500,
-                    cursor:"pointer",
-                    fontFamily:"'Inter',sans-serif",
-                    display:"inline-flex",
-                    alignItems:"center",
-                    justifyContent:"center",
-                    gap:6,
-                    transition:"all 0.15s ease",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor="#E8A82E"; e.currentTarget.style.color="#E8A82E"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(250,246,239,0.2)"; e.currentTarget.style.color="#FAF6EF"; }}
-                >
-                  <span>Continue as Guest</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === "guest-email" && (
-            <>
-              <button onClick={() => { setStep("choice"); setError(null); }} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back</button>
+                </div>
+              )}
 
               {/* Universal Delivery Address Form — 1 Universal Truth */}
               {orderMode === "delivery" && (

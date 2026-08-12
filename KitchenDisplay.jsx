@@ -248,7 +248,7 @@ export default function KitchenDisplay() {
   }, []);
 
   const { active, done, shown, newCount, doneCount } = useMemo(() => {
-    const act  = orders.filter(o => o.status !== "done" && o.status !== "refunded");
+    const act  = orders.filter(o => o.status !== "done" && o.status !== "refunded" && o.status !== "scheduled");
     const dn   = orders.filter(o => o.status === "done");
     const sh   = filter === "active" ? act : filter === "done" ? dn : orders;
     const nc   = orders.filter(o => o.status === "new").length;

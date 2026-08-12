@@ -3,6 +3,12 @@ import ReactDOM from "react-dom/client";
 import { ClerkProvider } from "@clerk/clerk-react";
 import RaniMahal, { ErrorBoundary } from "./RaniMahal.jsx";
 import StaffGate from "./StaffGate.jsx";
+import { captureUtmFromUrl } from "./src/utils/analytics.js";
+
+// Capture ?utm_source= etc. once at boot, before RaniMahal.jsx's own effects
+// strip other query params — this only reads, never mutates the URL, so it
+// has no ordering dependency on anything else that touches location.search.
+captureUtmFromUrl();
 
 // Order confirmation is public — Stripe's success_url redirects here.
 const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));

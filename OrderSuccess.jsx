@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useUser, useClerk } from "@clerk/clerk-react";
+import { trackEvent } from "./src/utils/analytics.js";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
@@ -39,7 +40,7 @@ function AccountClaimCard({ email }) {
         </h4>
       </div>
       <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
-        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to join. Save your order history for easy 1-tap reordering, earn loyalty rewards, and gain access to exclusive off-menu specials.
+        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click to join. Save your order history for easy 1-tap reordering, and get an automatic 10% off voucher every 5th order — no punch card, no tracking required.
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
         <button
@@ -241,6 +242,17 @@ function LiveTracker({ orderId, initialStatus }) {
         </div>
       )}
 
+      {/* Review ask — shown once the customer has the food in hand, not before */}
+      {isReady && (
+        <div style={{ background:"#FAFAF5", borderRadius:14, border:"0.5px solid rgba(0,0,0,0.08)", padding:"16px 20px", marginBottom:20, textAlign:"center" }}>
+          <p style={{ fontSize:13, color:"#8A7560", marginBottom:10 }}>Enjoying your meal? A quick review helps us more than you'd think.</p>
+          <a href="https://search.google.com/local/writereview?placeid=ChIJ-e8g42CPwkARJ8x0N64s04E" target="_blank" rel="noopener noreferrer"
+            style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:12.5, fontWeight:700, color:"#C8853A", textDecoration:"none", border:"1px solid rgba(200,133,58,0.4)", borderRadius:20, padding:"9px 18px" }}>
+            ⭐ Leave a Google Review
+          </a>
+        </div>
+      )}
+
       {/* Progress track */}
       <div style={{ background:"#FFFFFF", borderRadius:16, border:"0.5px solid rgba(0,0,0,0.08)", boxShadow:"0 2px 20px rgba(0,0,0,0.06)", padding:"24px 20px", marginBottom:20 }}>
 
@@ -314,10 +326,10 @@ function LiveTracker({ orderId, initialStatus }) {
   );
 }
 
-function ReferralCard() {
+function ReferralCard({ referralCode }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
-    const inviteLink = "https://ranimahal.food/?invite=royal10";
+    const inviteLink = `https://ranimahal.food/?invite=${referralCode}`;
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
         setCopied(true);
@@ -342,7 +354,7 @@ function ReferralCard() {
         </h4>
       </div>
       <p style={{ fontSize: 13, color: "#8A7560", marginBottom: 14, lineHeight: 1.55 }}>
-        Send your friends a <strong>10% discount</strong> on their first order. Once they order, we'll automatically email you a <strong>10% off voucher</strong> for your next visit!
+        Send your friends a <strong>10% discount</strong> on their first order. Once they order, we'll automatically email you a <strong>10% off voucher</strong> for your next visit — no need to track anything.
       </p>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <button
@@ -395,7 +407,16 @@ export default function OrderSuccess() {
 
     fetch(`/api/orders?session_id=${sessionId}`)
       .then(r => { if (!r.ok) throw new Error("Not found"); return r.json(); })
-      .then(data => { setOrder(data); setLoading(false); })
+      .then(data => {
+        setOrder(data);
+        setLoading(false);
+        trackEvent("purchase", {
+          transaction_id: data.id,
+          currency: "USD",
+          value: data.total,
+          items: (data.items || []).map(i => ({ item_id: i.baseId, item_name: i.name, quantity: i.qty, price: i.price })),
+        });
+      })
       .catch(() => { setLoading(false); });
   }, []);
 
@@ -513,7 +534,7 @@ export default function OrderSuccess() {
         <AccountClaimCard email={order.customerEmail} />
 
         {/* ── Viral Referral Card ── */}
-        <ReferralCard />
+        {order.reorderToken && <ReferralCard referralCode={order.reorderToken} />}
 
         {/* ── Footer CTA ── */}
         <div style={{ textAlign:"center", marginBottom:32 }}>

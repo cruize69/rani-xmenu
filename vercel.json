@@ -6,7 +6,8 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/sweep-abandoned-carts", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/sweep-abandoned-carts", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/promote-scheduled-orders", "schedule": "*/5 * * * *" }
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

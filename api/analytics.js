@@ -102,29 +102,34 @@ async function fetchOrderRange(days) {
   return Array.from(orderMap.values());
 }
 
-// Fetch drafts from last X days
+// Fetch drafts from the last X days via the drafts:date:{date} index
+// (api/create-checkout.js writes it) — range-reads just the requested
+// window instead of scanning the entire draft:* keyspace and discarding
+// most of what it paid for. Same shape as fetchOrderRange() above.
+//
+// Drafts created before this index existed won't show up here (there's no
+// way to retroactively index them without a full scan) — acceptable since
+// they're purely historical funnel data, not something being acted on.
 async function fetchDrafts(days) {
   try {
-    const keys = [];
-    let cursor = "0";
-    do {
-      const [nextCursor, scanKeys] = await kv.scan(cursor, { match: "draft:*", count: 1000 });
-      keys.push(...scanKeys);
-      cursor = nextCursor;
-    } while (String(cursor) !== "0");
+    const today = new Date();
+    const idPromises = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = getNYDateString(d);
+      idPromises.push(kv.zrange(`drafts:date:${dateStr}`, 0, -1));
+    }
+    const idLists = await Promise.all(idPromises);
+    const sessionIds = [...new Set(idLists.flat())];
+    if (sessionIds.length === 0) return [];
 
-    if (keys.length === 0) return [];
-    
-    const draftData = await Promise.all(keys.map(k => kv.get(k)));
-    const now = new Date();
-    const cutoff = new Date(now.getTime() - (days * 86400000));
-    
+    const draftData = await Promise.all(sessionIds.map(id => kv.get(`draft:${id}`)));
     return draftData
       .filter(Boolean)
-      .map(d => typeof d === "string" ? JSON.parse(d) : d)
-      .filter(d => new Date(d.createdAt) >= cutoff);
+      .map(d => (typeof d === "string" ? JSON.parse(d) : d));
   } catch (e) {
-    console.error("Failed to scan draft carts:", e);
+    console.error("Failed to fetch draft carts:", e);
     return [];
   }
 }

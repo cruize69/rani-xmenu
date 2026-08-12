@@ -62,8 +62,10 @@ export function RaniHeader({
             </svg>
           </button>
 
-          {/* Centered — logo emblem + name/tagline stacked */}
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {/* Centered — logo emblem + name/tagline stacked, linking back to
+              the marketing site (ranimahal.cc carries the full brand story;
+              this app is deliberately thin) */}
+          <a href="https://ranimahal.cc" style={{ display:"flex", alignItems:"center", gap:12, textDecoration:"none" }}>
             <img
               src="/logo/apsara-logo.png"
               alt="Rani Mahal Logo"
@@ -82,7 +84,7 @@ export function RaniHeader({
                 Fine Indian Cuisine
               </p>
             </div>
-          </div>
+          </a>
         </div>
 
         {/* Integrated Interactive Fulfillment Bar — enlarged now that it sits above the gold line */}

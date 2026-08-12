@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
+import { getOpenStatus, getUpcomingWindows, formatTime } from "./lib/hours.js";
+import { trackEvent, getStoredUtm } from "./src/utils/analytics.js";
 import AccountPortal from "./AccountPortal.jsx";
 import { useSwipeToClose } from "./src/hooks/useSwipeToClose.js";
 import { SectionJumpSheet, JumpIcon } from "./src/components/SectionTabsNav.jsx";
@@ -169,6 +171,29 @@ export default function RaniMahal() {
   const draftIdRef = useRef(null);
   if (!draftIdRef.current) draftIdRef.current = loadOrCreateDraftId();
 
+  // Open/closed awareness — recomputed every minute so the banner and
+  // schedule picker never drift stale during a long-open tab.
+  const [openStatus, setOpenStatus] = useState(() => getOpenStatus());
+  const [upcomingWindows, setUpcomingWindows] = useState(() => getUpcomingWindows());
+  // null = ASAP (only valid while open); otherwise { date, time }
+  const [scheduledFor, setScheduledFor] = useState(null);
+
+  useEffect(() => {
+    const tick = () => { setOpenStatus(getOpenStatus()); setUpcomingWindows(getUpcomingWindows()); };
+    const timer = setInterval(tick, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // While closed, ordering can only ever be "for later" — auto-select the
+  // very next opening so checkout never silently blocks; the customer can
+  // still change it to a further slot from the picker.
+  useEffect(() => {
+    if (!openStatus.isOpen && !scheduledFor && upcomingWindows[0]) {
+      const w = upcomingWindows[0];
+      setScheduledFor({ date: w.date, time: w.opens });
+    }
+  }, [openStatus.isOpen, upcomingWindows]);
+
   useEffect(() => {
     if (orderMode === "delivery") {
       setTipPct(0.18);
@@ -259,6 +284,28 @@ export default function RaniMahal() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    const inviteCode = params.get("invite");
+    if (inviteCode) {
+      fetch(`/api/referral-claim?code=${inviteCode}`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.text()))
+        .then(data => {
+          if (!data?.token) return;
+          setReorderDiscount(0.10);
+          setReorderToken(data.token);
+          localStorage.setItem("reorder_discount_token", data.token);
+          showNotice("🎉 Welcome! Enjoy 10% off your first order, on us.");
+        })
+        .catch(() => {
+          showNotice("⚠️ That invite link has expired.");
+        });
+
+      params.delete("invite");
+      const restInvite = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (restInvite ? `?${restInvite}` : "") + window.location.hash);
+      return;
+    }
+
     const token = params.get("reorder");
     if (token) {
       fetch(`/api/reorder-claim?token=${token}`)
@@ -366,6 +413,7 @@ export default function RaniMahal() {
       if (qty===0) { const n={...prev}; delete n[key]; return n; }
       return { ...prev, [key]:{ name:item.name, price:item.price, qty, spice, note, baseId:item.id } };
     });
+    if (qty > 0) trackEvent("add_to_cart", { currency: "USD", value: item.price * qty, items: [{ item_id: item.id, item_name: item.name, quantity: qty, price: item.price }] });
   }, [updateCart]);
 
   // Best-effort abandoned-cart capture — fire-and-forget, never blocks the
@@ -448,6 +496,7 @@ export default function RaniMahal() {
 
   const handleCheckout = () => {
     if (itemCount === 0) return;
+    trackEvent("begin_checkout", { currency: "USD", value: total });
     setDrawerOpen(false);
     setShowCheckoutGate(true);
   };
@@ -501,6 +550,28 @@ export default function RaniMahal() {
         <span style={{ color: "#E8A82E" }}>👑</span>
         <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>
       </div>
+
+      {!openStatus.isOpen && (
+        <div style={{
+          background: "rgba(217,72,44,0.12)",
+          borderBottom: "1px solid rgba(217,72,44,0.3)",
+          padding: "9px 16px",
+          textAlign: "center",
+          fontSize: 12.5,
+          fontWeight: 500,
+          color: "#F5E6C8",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+        }}>
+          <span style={{ color: "#D9482C", fontWeight: 700 }}>We're closed right now</span>
+          <span style={{ color: "#B8A995" }}>
+            — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}. You can still order — we'll fire it{scheduledFor ? ` at ${formatTime(scheduledFor.time)}` : ""} as soon as we reopen.
+          </span>
+        </div>
+      )}
 
       {/* Desktop Golden Frame Container */}
       <div className="desktop-golden-frame">
@@ -562,6 +633,8 @@ export default function RaniMahal() {
           draftId={draftIdRef.current}
           onSaveLead={saveDraftLead}
           reorderToken={reorderToken}
+          scheduledFor={scheduledFor}
+          utm={getStoredUtm()}
         />
       )}
 
@@ -600,6 +673,10 @@ export default function RaniMahal() {
         setSmsConsent={c => { setSmsConsent(c); saveSmsConsent(c); }}
         hasCartItems={Object.keys(cart).length > 0}
         onSaveLead={saveDraftLead}
+        openStatus={openStatus}
+        upcomingWindows={upcomingWindows}
+        scheduledFor={scheduledFor}
+        setScheduledFor={setScheduledFor}
       />
 
       {showFloatingJump && (

@@ -12,9 +12,10 @@ import "./manager.css";
 const API_BASE = "";
 
 const STATUS = {
-  new:      { label: "NEW",      color: "#F98A32", next: "done", nextLabel: "Mark Ready", nextColor: "#16A34A" },
-  done:     { label: "READY",    color: "#22C55E", next: null, nextLabel: null, nextColor: null },
-  refunded: { label: "REFUNDED", color: "#EF4444", next: null, nextLabel: null, nextColor: null },
+  new:       { label: "NEW",       color: "#F98A32", next: "done", nextLabel: "Mark Ready", nextColor: "#16A34A" },
+  scheduled: { label: "SCHEDULED", color: "#8B5CF6", next: null, nextLabel: null, nextColor: null },
+  done:      { label: "READY",     color: "#22C55E", next: null, nextLabel: null, nextColor: null },
+  refunded:  { label: "REFUNDED",  color: "#EF4444", next: null, nextLabel: null, nextColor: null },
 };
 
 function getInitialTheme() {
@@ -144,13 +145,19 @@ export default function OrderManager() {
     const nc = orders.filter(o => o.status === "new").length;
     const dc = orders.filter(o => o.status === "done").length;
     const rc = orders.filter(o => o.status === "refunded").length;
+    const sc = orders.filter(o => o.status === "scheduled").length;
     const list = orders.filter(o => {
-      if (filter === "active")   return o.status !== "done" && o.status !== "refunded";
-      if (filter === "done")     return o.status === "done";
-      if (filter === "refunded") return o.status === "refunded";
+      // "scheduled" orders aren't actionable yet — a cron job promotes them
+      // to "new" at their scheduled time, which is when the kitchen should
+      // see them. Kept out of Active so they don't read as something to
+      // prepare right now.
+      if (filter === "active")    return o.status !== "done" && o.status !== "refunded" && o.status !== "scheduled";
+      if (filter === "scheduled") return o.status === "scheduled";
+      if (filter === "done")      return o.status === "done";
+      if (filter === "refunded")  return o.status === "refunded";
       return true;
     });
-    return { filtered: list, counts: { new: nc, done: dc, refunded: rc, all: orders.length } };
+    return { filtered: list, counts: { new: nc, done: dc, refunded: rc, scheduled: sc, all: orders.length } };
   }, [orders, filter]);
 
   // Auto-select first order on wide screens
@@ -168,10 +175,11 @@ export default function OrderManager() {
   }, [orders, selectedOrder]);
 
   const FILTERS = [
-    { key: "active",   label: "Active",   count: counts.new + (orders.filter(o => o.status === "in_progress").length) },
-    { key: "done",     label: "Done",     count: counts.done },
-    { key: "refunded", label: "Refunded", count: counts.refunded },
-    { key: "all",      label: "All",      count: counts.all },
+    { key: "active",    label: "Active",    count: counts.new + (orders.filter(o => o.status === "in_progress").length) },
+    { key: "scheduled", label: "Scheduled", count: counts.scheduled },
+    { key: "done",      label: "Done",      count: counts.done },
+    { key: "refunded",  label: "Refunded",  count: counts.refunded },
+    { key: "all",       label: "All",       count: counts.all },
   ];
 
   return (

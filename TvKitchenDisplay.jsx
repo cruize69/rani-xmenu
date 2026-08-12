@@ -432,7 +432,7 @@ export default function TvKitchenDisplay() {
 
   // Filter & Group ACTIVE orders (new or in_progress) by Destination Town / Mode
   const { displayOrders, activeCount, totalPages } = useMemo(() => {
-    const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded");
+    const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded" && o.status !== "scheduled");
     const groupedClusters = {};
     activeOrders.forEach(o => {
       const groupKey = o.orderMode === "delivery" ? (o.deliveryAddress?.city || "Other Delivery") : "Pickup";

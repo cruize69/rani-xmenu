@@ -17,9 +17,10 @@ export const S = {
 };
 
 // ── Upsell logic ─────────────────────────────────────────────────
-export const QA_BREADS  = ["qa-garlic-naan","qa-peshwari","qa-onion-naan","qa-rani-naan","qa-aloo-paratha","qa-plain-naan","qa-keema-paratha"];
-export const QA_DRINKS  = ["qa-mango-lassi","qa-sweet-lassi","qa-nimbu-pani"];
-export const QA_COOLING = ["qa-raita","qa-mango-chutney"];
+export const QA_BREADS     = ["qa-garlic-naan","qa-peshwari","qa-onion-naan","qa-rani-naan","qa-aloo-paratha","qa-plain-naan","qa-keema-paratha"];
+export const QA_DRINKS     = ["qa-mango-lassi","qa-sweet-lassi","qa-nimbu-pani"];
+export const QA_COOLING    = ["qa-raita","qa-mango-chutney"];
+export const QA_APPETIZERS = ["qa-samosa","qa-pakora"];
 
 export const QA_ITEM_ID = {
   "qa-garlic-naan":   "item-garlic-naan",
@@ -34,6 +35,8 @@ export const QA_ITEM_ID = {
   "qa-mango-lassi":   "item-mango-lassi",
   "qa-sweet-lassi":   "item-sweet-lassi",
   "qa-nimbu-pani":    "item-nimbu-pani",
+  "qa-samosa":        "item-samosa",
+  "qa-pakora":        "item-pakora",
 };
 
 export function cartHasType(cart, set) { return Object.values(cart).some(v => set.has(v.baseId)); }
@@ -101,19 +104,60 @@ export function getModalUpsells(baseId, cart) {
   return sections;
 }
 
-export function rankedQuickAdds(cart) {
-  const hasBread    = cartHasBread(cart);
-  const hasDrink    = cartHasDrink(cart);
-  const hasCooling  = cartHasCooling(cart);
+function qaCategory(id) {
+  if (QA_BREADS.includes(id))     return "bread";
+  if (QA_DRINKS.includes(id))     return "drink";
+  if (QA_APPETIZERS.includes(id)) return "appetizer";
+  if (QA_COOLING.includes(id))    return "cooling";
+  return "other";
+}
+
+// Capped at 4 so the single best recommendation doesn't get diluted across
+// a dozen near-duplicate breads, and diversity-aware so the 4 slots aren't
+// all the same category — one bread, one drink, one appetizer/cooling item,
+// then the next-best overall, rather than 4 naans.
+export function rankedQuickAdds(cart, limit = 4) {
+  const hasBread     = cartHasBread(cart);
+  const hasDrink     = cartHasDrink(cart);
+  const hasCooling   = cartHasCooling(cart);
+  const hasAppetizer = QA_APPETIZERS.some(k => cart[k]);
   const priority = id => {
-    if (QA_BREADS.includes(id)  && !hasBread)   return 0;
-    if (QA_DRINKS.includes(id)  && !hasDrink)   return 0;
-    if (QA_COOLING.includes(id) && !hasCooling) return 1;
+    if (QA_BREADS.includes(id)     && !hasBread)     return 0;
+    if (QA_DRINKS.includes(id)     && !hasDrink)     return 0;
+    if (QA_APPETIZERS.includes(id) && !hasAppetizer) return 1;
+    if (QA_COOLING.includes(id)    && !hasCooling)   return 1;
     return 2;
   };
-  return Object.entries(QA)
+
+  const sorted = Object.entries(QA)
     .map(([id, item]) => ({ id, ...item }))
-    .sort((a, b) => priority(a.id) - priority(b.id));
+    .sort((a, b) => {
+      const p = priority(a.id) - priority(b.id);
+      if (p !== 0) return p;
+      return (b.star ? 1 : 0) - (a.star ? 1 : 0); // proven best-sellers first within a tier
+    });
+
+  const picked = [];
+  const usedCategories = new Set();
+
+  // Pass 1 — best item per still-needed category, so the first few slots
+  // span bread/drink/appetizer rather than clustering one type.
+  for (const item of sorted) {
+    if (picked.length >= limit) break;
+    const cat = qaCategory(item.id);
+    if (usedCategories.has(cat)) continue;
+    usedCategories.add(cat);
+    picked.push(item);
+  }
+  // Pass 2 — fill any remaining slots with the next-best items overall
+  // (e.g. a returning customer who already has bread+drink+appetizer still
+  // sees a 4th relevant suggestion instead of an empty rail).
+  for (const item of sorted) {
+    if (picked.length >= limit) break;
+    if (!picked.some(p => p.id === item.id)) picked.push(item);
+  }
+
+  return picked;
 }
 
 export const SPICE_LEVELS = [

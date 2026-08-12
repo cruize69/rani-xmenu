@@ -37,12 +37,20 @@ export function FulfillmentSheet({
   setSmsConsent,
   hasCartItems = false,
   onSaveLead,
+  openStatus = { isOpen: true, label: "" },
+  upcomingWindows = [],
+  scheduledFor = null,
+  setScheduledFor,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [selectedMode, setSelectedMode] = useState(orderMode);
   const [error, setError] = useState(null);
   const [localPhone, setLocalPhone] = useState(phone);
   const [localConsent, setLocalConsent] = useState(smsConsent);
+  // "Order for later" is forced open once the restaurant is closed (there's
+  // no ASAP option then); while open it's an optional toggle a customer can
+  // use to pre-order for a later window.
+  const [showSchedulePicker, setShowSchedulePicker] = useState(!openStatus.isOpen);
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
@@ -51,6 +59,7 @@ export function FulfillmentSheet({
       setLocalPhone(phone || "");
       setLocalConsent(!!smsConsent);
       setError(null);
+      setShowSchedulePicker(!openStatus.isOpen);
     }
     wasOpenRef.current = isOpen;
   }, [isOpen]);
@@ -86,12 +95,21 @@ export function FulfillmentSheet({
         return;
       }
     }
+    if (!openStatus.isOpen && !scheduledFor) {
+      setError("Please pick a time for us to prepare your order — we're closed right now.");
+      return;
+    }
     setOrderMode(selectedMode);
     const cleanPhone = phoneDigits.length === 10 ? `+1${phoneDigits}` : "";
     setPhone?.(cleanPhone);
     setSmsConsent?.(cleanPhone ? localConsent : false);
-    if (cleanPhone && localConsent && hasCartItems) {
-      onSaveLead?.({ phone: cleanPhone, smsConsent: true });
+    // Save the lead whenever a phone is given, even without SMS consent —
+    // consent only gates whether SMS is allowed, not whether the lead
+    // record exists. Without this, someone who types a phone but leaves the
+    // box unchecked produces no lead at all, so email-fallback recovery
+    // (lib/abandonedCart.js sendDraftTouch1/2) never has anything to use.
+    if (cleanPhone && hasCartItems) {
+      onSaveLead?.({ phone: cleanPhone, smsConsent: localConsent });
     }
     onClose();
   };
@@ -271,6 +289,58 @@ export function FulfillmentSheet({
                 <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
               </span>
             </label>
+          )}
+        </div>
+
+        {/* Order-for-later */}
+        <div style={{ margin: "1.25rem 1.25rem 0", padding: "14px 16px", background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
+                {openStatus.isOpen ? "Order for later" : "We're closed right now"}
+              </p>
+              <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0" }}>
+                {openStatus.isOpen ? openStatus.label : `${openStatus.label} — schedule your order for when we reopen`}
+              </p>
+            </div>
+            {openStatus.isOpen && (
+              <button
+                type="button"
+                onClick={() => { setShowSchedulePicker(v => !v); if (showSchedulePicker) setScheduledFor?.(null); }}
+                style={{
+                  flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${showSchedulePicker ? "#E8A82E" : "rgba(250,246,239,0.2)"}`,
+                  background: showSchedulePicker ? "rgba(232,168,46,0.14)" : "transparent",
+                  color: showSchedulePicker ? "#E8A82E" : "#FAF6EF", cursor: "pointer",
+                }}
+              >
+                {showSchedulePicker ? "ASAP instead" : "Schedule"}
+              </button>
+            )}
+          </div>
+
+          {showSchedulePicker && (
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2 }}>
+              {upcomingWindows.map((w, i) => {
+                const active = scheduledFor?.date === w.date && scheduledFor?.time === w.opens;
+                return (
+                  <button
+                    key={`${w.date}-${w.opens}-${i}`}
+                    type="button"
+                    onClick={() => setScheduledFor?.({ date: w.date, time: w.opens })}
+                    style={{
+                      flexShrink: 0, padding: "9px 14px", borderRadius: 12, textAlign: "left",
+                      border: `1px solid ${active ? "#E8A82E" : "rgba(250,246,239,0.12)"}`,
+                      background: active ? "rgba(232,168,46,0.14)" : "#1c1814",
+                      color: active ? "#E8A82E" : "#FAF6EF", cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{w.dayLabel}</div>
+                    <div style={{ fontSize: 11, opacity: 0.85 }}>{w.serviceName} · opens then</div>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 

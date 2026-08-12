@@ -57,6 +57,20 @@ export default async function handler(req, res) {
     { ex: 60 * 60 * 24 }
   );
 
+  // Separately, persist to a standing marketing list — the 24h key above is
+  // purely for order-status delivery and was previously the only place this
+  // number was kept, so every subscriber was silently discarded a day later.
+  // This opt-in is for order-update SMS specifically; it is not itself
+  // consent for promotional SMS (that's the separate, explicit checkbox at
+  // the fulfillment step — see FulfillmentSheet.jsx), so this list is kept
+  // distinct from lib/abandonedCart.js's marketing-consent leads.
+  await kv.sadd("sms-subscribers", normalized);
+  await kv.hset(`sms-subscriber:${normalized}`, {
+    phone: normalized,
+    firstOrderId: orderId,
+    subscribedAt: new Date().toISOString(),
+  });
+
   // Send immediate confirmation SMS
   await sendSMS(normalized,
     `Rani Mahal: You're signed up for order updates! We'll text you when your order is being prepared and when it's ready. Reply STOP to unsubscribe.`

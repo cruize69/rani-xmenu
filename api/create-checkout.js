@@ -13,6 +13,8 @@ import { createClerkClient } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
+import { isWithinServiceWindow, getOpenStatus } from "../lib/hours.js";
+import { getNYDateString } from "../lib/orders.js";
 import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -53,25 +55,46 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
-    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId, reorderToken } = req.body || {};
+    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId, reorderToken, scheduledFor, utm } = req.body || {};
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "No items in cart" });
     }
 
-    // Validate reorder discount token if provided
+    // Never trust a client-supplied schedule time — it must land inside a
+    // real published service window, and if the restaurant is currently
+    // open, an order with no scheduledFor is only valid because it's for
+    // right now. If the restaurant is closed, the client is required to
+    // supply a valid future window (RaniMahal.jsx enforces this in the UI;
+    // this is the actual security boundary).
+    let validScheduledFor = null;
+    if (scheduledFor && typeof scheduledFor === "object" && typeof scheduledFor.date === "string" && typeof scheduledFor.time === "string") {
+      if (!isWithinServiceWindow(scheduledFor.date, scheduledFor.time)) {
+        return res.status(400).json({ error: "That time isn't during our open hours. Please pick another." });
+      }
+      validScheduledFor = { date: scheduledFor.date, time: scheduledFor.time };
+    } else if (!getOpenStatus().isOpen) {
+      return res.status(400).json({ error: "We're closed right now — please schedule your order for our next opening." });
+    }
+
+    // Validate reorder/voucher discount token if provided. Same KV shape
+    // covers per-order reorder vouchers and the generic vouchers minted by
+    // mintVoucherToken() (loyalty, referral, abandoned-cart recovery) — the
+    // latter carry their own discountPct instead of assuming 10%.
     let hasDiscount = false;
+    let discountPct = 0.10;
     if (reorderToken) {
       const rawToken = await kv.get(`reorder-token:${reorderToken}`);
       if (rawToken) {
         const tokenData = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
         const isUnused = tokenData.status === "unused";
-        const isPendingCheckout = tokenData.status === "checkout_created" && 
+        const isPendingCheckout = tokenData.status === "checkout_created" &&
           ((new Date() - new Date(tokenData.updatedAt || tokenData.createdAt)) / 3600000 >= 2); // unlock after 2 hours
-        
+
         if ((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt)) {
           hasDiscount = true;
+          discountPct = typeof tokenData.discountPct === "number" ? tokenData.discountPct : 0.10;
         } else {
           return res.status(400).json({ error: "Reorder voucher is invalid or has already been redeemed." });
         }
@@ -92,7 +115,7 @@ export default async function handler(req, res) {
       if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY_PER_LINE) {
         return res.status(400).json({ error: `Invalid quantity for ${canonical.name}` });
       }
-      const itemPrice = hasDiscount ? parseFloat((canonical.price * 0.90).toFixed(2)) : canonical.price;
+      const itemPrice = hasDiscount ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2)) : canonical.price;
       validatedItems.push({
         baseId: raw.baseId,
         name:   canonical.name,
@@ -223,6 +246,10 @@ export default async function handler(req, res) {
         deliveryAddress:     isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress).slice(0, 500) : "",
         source:              "online_ordering",
         reorderToken:        reorderToken || "",
+        scheduledFor:        validScheduledFor ? JSON.stringify(validScheduledFor) : "",
+        utmSource:           typeof utm?.utm_source   === "string" ? utm.utm_source.slice(0, 100)   : "",
+        utmMedium:           typeof utm?.utm_medium   === "string" ? utm.utm_medium.slice(0, 100)   : "",
+        utmCampaign:         typeof utm?.utm_campaign === "string" ? utm.utm_campaign.slice(0, 100) : "",
       },
       success_url: `${baseUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${baseUrl}`,
@@ -267,7 +294,7 @@ export default async function handler(req, res) {
         guestEmail: guestEmail ?? "",
         clerkUserId: clerkUserId ?? "",
         customerName,
-        deliveryAddress: fullDeliveryAddress,
+        deliveryAddress: isDelivery ? (deliveryAddress ?? null) : null,
         status: "draft",
         createdAt: new Date().toISOString(),
         // Abandoned-cart recovery fields
@@ -277,6 +304,15 @@ export default async function handler(req, res) {
         touch2SentAt: null,
       };
       await kv.set(`draft:${session.id}`, JSON.stringify(draftCart), { ex: 2592000 }); // 30-day TTL
+
+      // Index by day so api/analytics.js's fetchDrafts() can range-read just
+      // the requested window instead of scanning the entire draft:* keyspace
+      // (a real cost driver once draft volume is nonzero — see lib/orders.js
+      // for the equivalent orders:date:{date} pattern this mirrors).
+      const draftDate = getNYDateString();
+      const dateIndexKey = `drafts:date:${draftDate}`;
+      await kv.zadd(dateIndexKey, { score: Date.now(), member: session.id });
+      await kv.expire(dateIndexKey, 2592000); // keep in step with the draft record's own 30-day TTL
     } catch (e) {
       console.error("Failed to save draft cart:", e);
     }
