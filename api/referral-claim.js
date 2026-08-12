@@ -1,13 +1,17 @@
 // api/referral-claim.js
 // GET /api/referral-claim?code=CODE
 //
-// CODE is any customer's own reorderToken (minted on every order, already
-// shared as the friend's link on OrderSuccess.jsx: /?invite=CODE). This
-// mints the VISITOR a fresh, separate 10% voucher — it never touches or
-// consumes the referrer's own token. The referrer is credited their own
-// reward later, server-side, only once the referred friend's order actually
-// pays (lib/syncStripe.js's creditReferrer) — not just on link click, so
-// this can't be farmed by repeatedly loading the link.
+// CODE is an order's shareCode — a dedicated public-safe identifier minted
+// alongside (but separate from) that order's reorderToken. shareCode carries
+// no value by itself: it only points at an orderId, used here purely to
+// credit a referral. It is NOT the customer's own redeemable voucher (that's
+// reorderToken, which stays private in the receipt email and is deliberately
+// never exposed by the public order API — see lib/orders.js's
+// publicOrderView). This mints the VISITOR a fresh, separate 10% voucher and
+// never touches or consumes anything belonging to the referrer. The referrer
+// is credited their own reward later, server-side, only once the referred
+// friend's order actually pays (lib/syncStripe.js's creditReferrer) — not
+// just on link click, so this can't be farmed by repeatedly loading the link.
 
 import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../lib/orders.js";
@@ -29,14 +33,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const rawReferrerToken = await kv.get(`reorder-token:${code}`);
-    if (!rawReferrerToken) {
+    const rawSource = await kv.get(`referral-source:${code}`);
+    if (!rawSource) {
       return res.status(404).json({ error: "Invalid invite link." });
     }
-    const referrerToken = typeof rawReferrerToken === "string" ? JSON.parse(rawReferrerToken) : rawReferrerToken;
-    if (!referrerToken.orderId) {
-      // Not a real per-order reorder token (e.g. someone tried to chain a
-      // voucher token as an invite code) — refuse rather than mint off it.
+    const source = typeof rawSource === "string" ? JSON.parse(rawSource) : rawSource;
+    if (!source.orderId) {
       return res.status(404).json({ error: "Invalid invite link." });
     }
 
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
     const voucher = await mintVoucherToken({
       discountPct: 0.10,
       ttlDays: 14,
-      meta: { source: "referral", referrerOrderId: referrerToken.orderId },
+      meta: { source: "referral", referrerOrderId: source.orderId },
     });
 
     return res.status(200).json({ token: voucher.token, expiresAt: voucher.expiresAt });

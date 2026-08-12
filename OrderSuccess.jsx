@@ -534,7 +534,7 @@ export default function OrderSuccess() {
         <AccountClaimCard email={order.customerEmail} />
 
         {/* ── Viral Referral Card ── */}
-        {order.reorderToken && <ReferralCard referralCode={order.reorderToken} />}
+        {order.shareCode && <ReferralCard referralCode={order.shareCode} />}
 
         {/* ── Footer CTA ── */}
         <div style={{ textAlign:"center", marginBottom:32 }}>
