@@ -5,6 +5,8 @@
 import { buffer } from "micro";
 import { kv } from "@vercel/kv";
 import { getOrCreateOrderForSession, getStripe } from "../lib/syncStripe.js";
+import { reportPaidOrderBuildFailed } from "../lib/errorAlerts.js";
+import { captureServerError } from "../lib/sentry.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -49,10 +51,25 @@ export default async function handler(req, res) {
     } catch (e) {}
   }
 
-  // Atomic Single Order Creation (guarantees single order even if redirect lands at same millisecond)
-  const order = await getOrCreateOrderForSession(session, paymentIntent, true);
+  // Atomic Single Order Creation (guarantees single order even if redirect lands at same millisecond).
+  // Payment has ALREADY succeeded by the time this webhook fires — if this
+  // fails, the customer has been charged with no order anywhere, which is
+  // the single worst failure mode in the whole system. Alert immediately
+  // either way it fails (thrown, or returned null), and return 500 so
+  // Stripe's own webhook retry keeps trying in parallel with the human alert.
+  let order;
+  try {
+    order = await getOrCreateOrderForSession(session, paymentIntent, true);
+  } catch (err) {
+    captureServerError(err, { route: "webhook", sessionId: session?.id });
+    reportPaidOrderBuildFailed({ session, error: err }).catch(() => {});
+    return res.status(500).json({ received: true, error: "Order build threw" });
+  }
   if (!order) {
-    return res.status(200).json({ received: true, error: "Order build failed" });
+    const err = new Error("getOrCreateOrderForSession returned null");
+    captureServerError(err, { route: "webhook", sessionId: session?.id });
+    reportPaidOrderBuildFailed({ session, error: err }).catch(() => {});
+    return res.status(500).json({ received: true, error: "Order build failed" });
   }
 
   // Link order to customer account (Clerk user or guest email)

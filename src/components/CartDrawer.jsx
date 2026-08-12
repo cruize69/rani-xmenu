@@ -7,6 +7,7 @@ import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_C
 import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
+import { reportError } from "../utils/errorReport.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
@@ -279,6 +280,10 @@ export function CheckoutGate({
     } catch (err) {
       setError(err.message || "Something went wrong. Please call (914) 835-9066.");
       setLoading(false);
+      // The customer is stuck right at the "pay" button — this is exactly
+      // the moment worth an immediate callback alert if we know how to
+      // reach them (see lib/errorAlerts.js).
+      reportError("checkout", err.message, { orderMode, guestEmail: guestEmail || "" });
     }
   };
 

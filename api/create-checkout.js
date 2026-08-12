@@ -15,6 +15,8 @@ import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
 import { isWithinServiceWindow, getOpenStatus } from "../lib/hours.js";
 import { getNYDateString } from "../lib/orders.js";
+import { reportCheckoutError } from "../lib/errorAlerts.js";
+import { captureServerError } from "../lib/sentry.js";
 import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -42,6 +44,10 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  // Declared outside the try block (not `const` inside it) so the catch
+  // block below can still reach it to identify the customer for an alert.
+  const draftId = typeof req.body?.draftId === "string" ? req.body.draftId : null;
 
   try {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
@@ -320,7 +326,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ url: session.url });
 
   } catch (err) {
-    console.error("Checkout error:", err);
+    captureServerError(err, { route: "create-checkout", draftId });
+    // The customer is stuck right here, mid-checkout, with money on the
+    // table — if we know how to reach them, alert staff immediately so
+    // they can call and finish the sale by phone instead of losing it.
+    reportCheckoutError({ draftId, source: "create-checkout", message: err.message }).catch(() => {});
     return res.status(500).json({ error: "Failed to create checkout session. Please try again." });
   }
 }

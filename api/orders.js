@@ -19,6 +19,8 @@ import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDai
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
 import { isManagerSecretValid } from "../lib/auth.js";
+import { reportPaidOrderBuildFailed } from "../lib/errorAlerts.js";
+import { captureServerError } from "../lib/sentry.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
@@ -80,11 +82,20 @@ async function handlePublicGet(req, res) {
       }
 
       const order = await getOrCreateOrderForSession(session, paymentIntent, true);
-      if (!order) return res.status(404).json({ error: "Order build failed" });
+      if (!order) {
+        // The customer is looking at a broken success page after already
+        // paying — same urgency as the webhook path, just discovered from
+        // the browser side instead.
+        const err = new Error("getOrCreateOrderForSession returned null (success-page lookup)");
+        captureServerError(err, { route: "orders/session-lookup", sessionId: session_id });
+        reportPaidOrderBuildFailed({ session, error: err }).catch(() => {});
+        return res.status(404).json({ error: "Order build failed" });
+      }
 
       return res.status(200).json(order);
     } catch (err) {
-      console.error("Public session lookup error:", err);
+      captureServerError(err, { route: "orders/session-lookup", sessionId: session_id });
+      reportPaidOrderBuildFailed({ session: { id: session_id }, error: err }).catch(() => {});
       return res.status(500).json({ error: "Server error" });
     }
   }

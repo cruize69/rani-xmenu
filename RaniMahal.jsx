@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import { getOpenStatus, getUpcomingWindows, formatTime } from "./lib/hours.js";
 import { trackEvent, getStoredUtm } from "./src/utils/analytics.js";
+import { reportError } from "./src/utils/errorReport.js";
 import AccountPortal from "./AccountPortal.jsx";
 import { useSwipeToClose } from "./src/hooks/useSwipeToClose.js";
 import { SectionJumpSheet, JumpIcon } from "./src/components/SectionTabsNav.jsx";
@@ -57,6 +58,7 @@ export class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, errorInfo) {
     console.error("ErrorBoundary caught error:", error, errorInfo);
+    reportError("react-render", error?.message, { componentStack: (errorInfo?.componentStack ?? "").slice(0, 300) });
   }
   render() {
     if (this.state.hasError) {

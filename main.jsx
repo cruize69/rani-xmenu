@@ -4,11 +4,20 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import RaniMahal, { ErrorBoundary } from "./RaniMahal.jsx";
 import StaffGate from "./StaffGate.jsx";
 import { captureUtmFromUrl } from "./src/utils/analytics.js";
+import { installGlobalErrorReporting } from "./src/utils/errorReport.js";
+import { initSentryClient } from "./src/utils/sentryClient.js";
+
+// No-op until VITE_SENTRY_DSN is set — see src/utils/sentryClient.js.
+initSentryClient();
 
 // Capture ?utm_source= etc. once at boot, before RaniMahal.jsx's own effects
 // strip other query params — this only reads, never mutates the URL, so it
 // has no ordering dependency on anything else that touches location.search.
 captureUtmFromUrl();
+
+// Catches any unhandled JS error/rejection anywhere on the ordering site —
+// see lib/errorAlerts.js for what happens with it server-side.
+installGlobalErrorReporting();
 
 // Order confirmation is public — Stripe's success_url redirects here.
 const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
