@@ -104,19 +104,14 @@ export function getModalUpsells(baseId, cart) {
   return sections;
 }
 
-function qaCategory(id) {
-  if (QA_BREADS.includes(id))     return "bread";
-  if (QA_DRINKS.includes(id))     return "drink";
-  if (QA_APPETIZERS.includes(id)) return "appetizer";
-  if (QA_COOLING.includes(id))    return "cooling";
-  return "other";
-}
-
-// Capped at 4 so the single best recommendation doesn't get diluted across
-// a dozen near-duplicate breads, and diversity-aware so the 4 slots aren't
-// all the same category — one bread, one drink, one appetizer/cooling item,
-// then the next-best overall, rather than 4 naans.
-export function rankedQuickAdds(cart, limit = 4) {
+// Not capped — this is a horizontally-scrollable rail, not a single
+// recommendation slot, so hiding items doesn't reduce friction (a swipe is
+// already free) and only costs AOV opportunity for anyone who wants more
+// than one bread or drink. Sort order still matters: lead with whatever
+// category the cart is missing, then proven best-sellers, so the first
+// couple of on-screen slots are the most relevant — the rest is there for
+// anyone who wants to keep browsing.
+export function rankedQuickAdds(cart) {
   const hasBread     = cartHasBread(cart);
   const hasDrink     = cartHasDrink(cart);
   const hasCooling   = cartHasCooling(cart);
@@ -129,35 +124,13 @@ export function rankedQuickAdds(cart, limit = 4) {
     return 2;
   };
 
-  const sorted = Object.entries(QA)
+  return Object.entries(QA)
     .map(([id, item]) => ({ id, ...item }))
     .sort((a, b) => {
       const p = priority(a.id) - priority(b.id);
       if (p !== 0) return p;
       return (b.star ? 1 : 0) - (a.star ? 1 : 0); // proven best-sellers first within a tier
     });
-
-  const picked = [];
-  const usedCategories = new Set();
-
-  // Pass 1 — best item per still-needed category, so the first few slots
-  // span bread/drink/appetizer rather than clustering one type.
-  for (const item of sorted) {
-    if (picked.length >= limit) break;
-    const cat = qaCategory(item.id);
-    if (usedCategories.has(cat)) continue;
-    usedCategories.add(cat);
-    picked.push(item);
-  }
-  // Pass 2 — fill any remaining slots with the next-best items overall
-  // (e.g. a returning customer who already has bread+drink+appetizer still
-  // sees a 4th relevant suggestion instead of an empty rail).
-  for (const item of sorted) {
-    if (picked.length >= limit) break;
-    if (!picked.some(p => p.id === item.id)) picked.push(item);
-  }
-
-  return picked;
 }
 
 export const SPICE_LEVELS = [

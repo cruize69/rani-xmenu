@@ -553,23 +553,40 @@ export default function RaniMahal() {
 
       {!openStatus.isOpen && (
         <div style={{
-          background: "rgba(217,72,44,0.12)",
-          borderBottom: "1px solid rgba(217,72,44,0.3)",
-          padding: "9px 16px",
-          textAlign: "center",
-          fontSize: 12.5,
-          fontWeight: 500,
-          color: "#F5E6C8",
+          background: "rgba(217,72,44,0.10)",
+          borderBottom: "1px solid rgba(217,72,44,0.28)",
+          padding: "10px 16px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          gap: 8,
+          gap: 10,
           flexWrap: "wrap",
         }}>
-          <span style={{ color: "#D9482C", fontWeight: 700 }}>We're closed right now</span>
-          <span style={{ color: "#B8A995" }}>
-            — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}. You can still order — we'll fire it{scheduledFor ? ` at ${formatTime(scheduledFor.time)}` : ""} as soon as we reopen.
+          <span style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+            background: "rgba(217,72,44,0.16)", color: "#F0846A",
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3.5 2" />
+            </svg>
           </span>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#F0846A" }}>Closed now</span>
+          <span style={{ fontSize: 12.5, fontWeight: 500, color: "#D9B9A8" }}>
+            — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}. You can still order{scheduledFor ? ` — we'll fire it at ${formatTime(scheduledFor.time)}` : ""}.
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowFulfillmentSheet(true)}
+            style={{
+              padding: "4px 12px", borderRadius: 16, fontSize: 11.5, fontWeight: 700,
+              border: "1px solid rgba(232,168,46,0.4)", background: "rgba(232,168,46,0.1)",
+              color: "#E8A82E", cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            {scheduledFor ? "Change time" : "Choose a time"}
+          </button>
         </div>
       )}
 

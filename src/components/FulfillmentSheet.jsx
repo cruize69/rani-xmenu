@@ -2,6 +2,33 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
 import { isZipInDeliveryZone, getDeliveryZoneForZip } from "../utils/deliveryConfig.js";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
+import { formatTime } from "../../lib/hours.js";
+
+function ClockIcon({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
+}
+
+function SunIcon({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8" />
+    </svg>
+  );
+}
+
+function MoonIcon({ size = 13, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+    </svg>
+  );
+}
 
 export function PickupIcon({ size = 18, color = "#E8A82E" }) {
   return (
@@ -293,15 +320,25 @@ export function FulfillmentSheet({
         </div>
 
         {/* Order-for-later */}
-        <div style={{ margin: "1.25rem 1.25rem 0", padding: "14px 16px", background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 14 }}>
+        <div style={{ margin: "1.25rem 1.25rem 0", padding: "16px", background: "#161310", border: `0.5px solid ${openStatus.isOpen ? "rgba(232,168,46,0.2)" : "rgba(217,72,44,0.3)"}`, borderRadius: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#FAF6EF", margin: 0 }}>
-                {openStatus.isOpen ? "Order for later" : "We're closed right now"}
-              </p>
-              <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0" }}>
-                {openStatus.isOpen ? openStatus.label : `${openStatus.label} — schedule your order for when we reopen`}
-              </p>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{
+                flexShrink: 0, width: 30, height: 30, borderRadius: "50%", marginTop: 1,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: openStatus.isOpen ? "rgba(232,168,46,0.12)" : "rgba(217,72,44,0.14)",
+                color: openStatus.isOpen ? "#E8A82E" : "#D9482C",
+              }}>
+                <ClockIcon size={15} color="currentColor" />
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: openStatus.isOpen ? "#FAF6EF" : "#F0846A", margin: 0 }}>
+                  {openStatus.isOpen ? "Order for later" : "We're closed right now"}
+                </p>
+                <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0", lineHeight: 1.4 }}>
+                  {openStatus.isOpen ? openStatus.label : `${openStatus.label} — pick a time below and we'll have it ready then.`}
+                </p>
+              </div>
             </div>
             {openStatus.isOpen && (
               <button
@@ -312,6 +349,7 @@ export function FulfillmentSheet({
                   border: `1px solid ${showSchedulePicker ? "#E8A82E" : "rgba(250,246,239,0.2)"}`,
                   background: showSchedulePicker ? "rgba(232,168,46,0.14)" : "transparent",
                   color: showSchedulePicker ? "#E8A82E" : "#FAF6EF", cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {showSchedulePicker ? "ASAP instead" : "Schedule"}
@@ -320,26 +358,45 @@ export function FulfillmentSheet({
           </div>
 
           {showSchedulePicker && (
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2 }}>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "0.5px solid rgba(250,246,239,0.08)" }}>
+              <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8A7560", margin: "0 0 10px" }}>
+                Choose a time
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {upcomingWindows.map((w, i) => {
                 const active = scheduledFor?.date === w.date && scheduledFor?.time === w.opens;
+                const isLunch = w.serviceName === "Lunch";
                 return (
                   <button
                     key={`${w.date}-${w.opens}-${i}`}
                     type="button"
                     onClick={() => setScheduledFor?.({ date: w.date, time: w.opens })}
                     style={{
-                      flexShrink: 0, padding: "9px 14px", borderRadius: 12, textAlign: "left",
-                      border: `1px solid ${active ? "#E8A82E" : "rgba(250,246,239,0.12)"}`,
+                      position: "relative", flex: "1 1 128px", minWidth: 128, maxWidth: 168,
+                      padding: "10px 14px", borderRadius: 12, textAlign: "left", cursor: "pointer",
+                      border: `1.5px solid ${active ? "#E8A82E" : "rgba(250,246,239,0.12)"}`,
                       background: active ? "rgba(232,168,46,0.14)" : "#1c1814",
-                      color: active ? "#E8A82E" : "#FAF6EF", cursor: "pointer",
+                      color: active ? "#E8A82E" : "#FAF6EF",
+                      boxShadow: active ? "0 2px 12px rgba(232,168,46,0.15)" : "none",
+                      transition: "all 0.15s ease",
                     }}
                   >
-                    <div style={{ fontSize: 12, fontWeight: 600 }}>{w.dayLabel}</div>
-                    <div style={{ fontSize: 11, opacity: 0.85 }}>{w.serviceName} · opens then</div>
+                    {active && (
+                      <span style={{
+                        position: "absolute", top: 8, right: 8, width: 16, height: 16, borderRadius: "50%",
+                        background: "#E8A82E", color: "#080706", fontSize: 10, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+                      }}>✓</span>
+                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {isLunch ? <SunIcon color={active ? "#E8A82E" : "#B8A995"} /> : <MoonIcon color={active ? "#E8A82E" : "#B8A995"} />}
+                      <span style={{ fontSize: 12.5, fontWeight: 700 }}>{w.dayLabel}</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 3 }}>{w.serviceName} · opens {formatTime(w.opens)}</div>
                   </button>
                 );
               })}
+              </div>
             </div>
           )}
         </div>
