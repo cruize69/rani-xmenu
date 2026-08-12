@@ -547,7 +547,6 @@ export default function RaniMahal() {
         alignItems: "center",
         gap: 6
       }}>
-        <span style={{ color: "#E8A82E" }}>👑</span>
         <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>
       </div>
 
