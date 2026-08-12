@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
 import { isZipInDeliveryZone, getDeliveryZoneForZip } from "../utils/deliveryConfig.js";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
-import { formatTime } from "../../lib/hours.js";
+import { formatTime, getTimeSlots } from "../../lib/hours.js";
 
 function ClockIcon({ size = 14, color = "currentColor" }) {
   return (
@@ -78,6 +78,10 @@ export function FulfillmentSheet({
   // no ASAP option then); while open it's an optional toggle a customer can
   // use to pre-order for a later window.
   const [showSchedulePicker, setShowSchedulePicker] = useState(!openStatus.isOpen);
+  // Which service window (Today/Lunch, Tomorrow/Dinner, etc.) is expanded
+  // to show its specific time slots. Index into upcomingWindows, or null
+  // when none is expanded yet.
+  const [selectedWindowIdx, setSelectedWindowIdx] = useState(null);
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
@@ -87,6 +91,12 @@ export function FulfillmentSheet({
       setLocalConsent(!!smsConsent);
       setError(null);
       setShowSchedulePicker(!openStatus.isOpen);
+      // Restore which window+time was already chosen, if any, so reopening
+      // the sheet doesn't silently forget a previous selection.
+      const matchIdx = scheduledFor
+        ? upcomingWindows.findIndex(w => w.date === scheduledFor.date && scheduledFor.time >= w.opens && scheduledFor.time < w.closes)
+        : -1;
+      setSelectedWindowIdx(matchIdx >= 0 ? matchIdx : null);
     }
     wasOpenRef.current = isOpen;
   }, [isOpen]);
@@ -343,7 +353,7 @@ export function FulfillmentSheet({
             {openStatus.isOpen && (
               <button
                 type="button"
-                onClick={() => { setShowSchedulePicker(v => !v); if (showSchedulePicker) setScheduledFor?.(null); }}
+                onClick={() => { setShowSchedulePicker(v => !v); if (showSchedulePicker) { setScheduledFor?.(null); setSelectedWindowIdx(null); } }}
                 style={{
                   flexShrink: 0, padding: "7px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                   border: `1px solid ${showSchedulePicker ? "#E8A82E" : "rgba(250,246,239,0.2)"}`,
@@ -364,24 +374,28 @@ export function FulfillmentSheet({
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {upcomingWindows.map((w, i) => {
-                const active = scheduledFor?.date === w.date && scheduledFor?.time === w.opens;
+                const windowSelected = selectedWindowIdx === i;
                 const isLunch = w.serviceName === "Lunch";
                 return (
                   <button
                     key={`${w.date}-${w.opens}-${i}`}
                     type="button"
-                    onClick={() => setScheduledFor?.({ date: w.date, time: w.opens })}
+                    onClick={() => {
+                      setSelectedWindowIdx(i);
+                      const slots = getTimeSlots(w.date, w);
+                      if (slots.length) setScheduledFor?.({ date: w.date, time: slots[0] });
+                    }}
                     style={{
                       position: "relative", flex: "1 1 128px", minWidth: 128, maxWidth: 168,
                       padding: "10px 14px", borderRadius: 12, textAlign: "left", cursor: "pointer",
-                      border: `1.5px solid ${active ? "#E8A82E" : "rgba(250,246,239,0.12)"}`,
-                      background: active ? "rgba(232,168,46,0.14)" : "#1c1814",
-                      color: active ? "#E8A82E" : "#FAF6EF",
-                      boxShadow: active ? "0 2px 12px rgba(232,168,46,0.15)" : "none",
+                      border: `1.5px solid ${windowSelected ? "#E8A82E" : "rgba(250,246,239,0.12)"}`,
+                      background: windowSelected ? "rgba(232,168,46,0.14)" : "#1c1814",
+                      color: windowSelected ? "#E8A82E" : "#FAF6EF",
+                      boxShadow: windowSelected ? "0 2px 12px rgba(232,168,46,0.15)" : "none",
                       transition: "all 0.15s ease",
                     }}
                   >
-                    {active && (
+                    {windowSelected && (
                       <span style={{
                         position: "absolute", top: 8, right: 8, width: 16, height: 16, borderRadius: "50%",
                         background: "#E8A82E", color: "#080706", fontSize: 10, fontWeight: 700,
@@ -389,7 +403,7 @@ export function FulfillmentSheet({
                       }}>✓</span>
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {isLunch ? <SunIcon color={active ? "#E8A82E" : "#B8A995"} /> : <MoonIcon color={active ? "#E8A82E" : "#B8A995"} />}
+                      {isLunch ? <SunIcon color={windowSelected ? "#E8A82E" : "#B8A995"} /> : <MoonIcon color={windowSelected ? "#E8A82E" : "#B8A995"} />}
                       <span style={{ fontSize: 12.5, fontWeight: 700 }}>{w.dayLabel}</span>
                     </div>
                     <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 3 }}>{w.serviceName} · opens {formatTime(w.opens)}</div>
@@ -397,6 +411,41 @@ export function FulfillmentSheet({
                 );
               })}
               </div>
+
+              {selectedWindowIdx !== null && upcomingWindows[selectedWindowIdx] && (() => {
+                const w = upcomingWindows[selectedWindowIdx];
+                const slots = getTimeSlots(w.date, w);
+                if (slots.length === 0) return null;
+                return (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: "0.5px solid rgba(250,246,239,0.08)" }}>
+                    <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8A7560", margin: "0 0 10px" }}>
+                      {w.dayLabel} · {w.serviceName} — pick a time
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                      {slots.map(t => {
+                        const active = scheduledFor?.date === w.date && scheduledFor?.time === t;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setScheduledFor?.({ date: w.date, time: t })}
+                            style={{
+                              padding: "8px 12px", borderRadius: 10, fontSize: 12.5, fontWeight: active ? 700 : 500,
+                              cursor: "pointer", whiteSpace: "nowrap",
+                              border: `1.5px solid ${active ? "#E8A82E" : "rgba(250,246,239,0.1)"}`,
+                              background: active ? "#E8A82E" : "#1c1814",
+                              color: active ? "#080706" : "#FAF6EF",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {formatTime(t)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
