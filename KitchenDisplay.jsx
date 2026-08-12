@@ -185,9 +185,12 @@ export default function KitchenDisplay() {
   const prevIds = useRef(new Set());
 
 
+  const versionRef = useRef(null);
+
   const loadOrders = useCallback(async () => {
     try {
       const data = await apiFetch("/api/orders");
+      versionRef.current = data.version ?? versionRef.current;
       const fetchedOrders = data.orders || [];
       if (prevIds.current.size > 0) {
         const newArr = fetchedOrders.filter(o => !prevIds.current.has(o.id) && o.status === "new");
@@ -203,10 +206,20 @@ export default function KitchenDisplay() {
     }
   }, []);
 
-  // Standard polling (8 seconds) to replace high-cost SSE stream and stay under Upstash limits
+  // Poll a cheap version key every few seconds (1 kv.get) and only pay for
+  // the full order fetch when it actually changed — avoids hammering KV with
+  // the full N-order fetch from every open staff screen during a busy dinner rush.
   useEffect(() => {
     loadOrders();
-    const timer = setInterval(loadOrders, 8000);
+    const timer = setInterval(async () => {
+      try {
+        const { version } = await apiFetch("/api/orders?versionOnly=1");
+        if (version !== versionRef.current) {
+          versionRef.current = version;
+          loadOrders();
+        }
+      } catch {}
+    }, 4000);
     return () => clearInterval(timer);
   }, [loadOrders]);
 

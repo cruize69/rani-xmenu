@@ -91,6 +91,7 @@ export default function OrderManager() {
       setOrders(data.orders || []);
       setLastRefresh(new Date());
       setError(null);
+      versionRef.current = data.version ?? versionRef.current;
     } catch (err) {
       setError(err.message);
     } finally {
@@ -98,14 +99,24 @@ export default function OrderManager() {
     }
   }, [date]);
 
-  // Standard polling (8 seconds) to replace high-cost SSE stream and stay under Upstash limits
+  // Poll a cheap version key every few seconds (1 kv.get) and only pay for
+  // the full order fetch when it actually changed — avoids hammering KV with
+  // the full N-order fetch from every open staff screen during a busy dinner rush.
+  const versionRef = useRef(null);
   useEffect(() => {
     load(false); // Initial load without full screen spinner
-    const timer = setInterval(() => {
-      load(false);
-    }, 8000);
+    versionRef.current = null;
+    const timer = setInterval(async () => {
+      try {
+        const { version } = await apiFetch(`/api/orders?date=${date}&versionOnly=1`);
+        if (version !== versionRef.current) {
+          versionRef.current = version;
+          load(false);
+        }
+      } catch {}
+    }, 4000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [load, date]);
 
   const handleStatus = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));

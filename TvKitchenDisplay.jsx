@@ -384,10 +384,13 @@ export default function TvKitchenDisplay() {
       }, 5500); // 5.5-second auto dismiss matching sound
     };
 
+    let knownVersion = null;
+
     const loadOrders = async () => {
       try {
         const res = await apiFetch(`/api/orders?date=${today}`);
         if (cancelled) return;
+        knownVersion = res.version ?? knownVersion;
         processOrders(res.orders || []);
       } catch (err) {
         console.error("Load orders error:", err);
@@ -395,7 +398,19 @@ export default function TvKitchenDisplay() {
     };
 
     loadOrders();
-    const pollTimer = setInterval(loadOrders, 8000);
+    // Poll a cheap version key every few seconds (1 kv.get) and only pay for
+    // the full order fetch when it actually changed — avoids hammering KV with
+    // the full N-order fetch from every open staff screen during a busy dinner rush.
+    const pollTimer = setInterval(async () => {
+      try {
+        const { version } = await apiFetch(`/api/orders?date=${today}&versionOnly=1`);
+        if (cancelled) return;
+        if (version !== knownVersion) {
+          knownVersion = version;
+          loadOrders();
+        }
+      } catch {}
+    }, 4000);
 
     return () => {
       cancelled = true;

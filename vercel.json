@@ -2,9 +2,12 @@
   "version": 2,
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 15
+      "maxDuration": 60
     }
   },
+  "crons": [
+    { "path": "/api/cron/sweep-abandoned-carts", "schedule": "*/5 * * * *" }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

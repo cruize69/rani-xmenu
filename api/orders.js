@@ -15,10 +15,9 @@
 import Stripe from "stripe";
 import crypto from "crypto";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
-import { sweepAbandonedCarts } from "../lib/abandonedCart.js";
 import { isManagerSecretValid } from "../lib/auth.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
@@ -99,24 +98,28 @@ async function handleGet(req, res) {
     // Auto-sync missing paid Stripe sessions into KV asynchronously (non-blocking)
     syncStripeSessions().catch(err => console.error("Async syncStripeSessions error:", err));
 
-    // Opportunistically sweep for abandoned carts to message — this repo has
-    // no Vercel Cron headroom (Hobby-plan 12-function cap already maxed out
-    // elsewhere), so this piggybacks on the staff dashboard's frequent
-    // polling instead. Self-throttled to ~once/minute inside the function.
-    sweepAbandonedCarts().catch(err => console.error("Async sweepAbandonedCarts error:", err));
-
     if (req.query.id) {
       const order = await getOrder(req.query.id);
       if (!order) return res.status(404).json({ error: "Order not found" });
       return res.status(200).json(order);
     }
 
-    const date    = req.query.date ?? getNYDateString();
+    const date = req.query.date ?? getNYDateString();
+
+    // Cheap polling path: a single kv.get() so staff-dashboard screens can
+    // check "did anything change" every few seconds without paying for the
+    // full N-individual-kv.get() fetch in getOrdersByDate() each time.
+    if (req.query.versionOnly) {
+      const version = await getOrdersVersion(date);
+      return res.status(200).json({ date, version });
+    }
+
     const orders  = await getOrdersByDate(date);
     const summary = buildDailySummary(orders);
+    const version = await getOrdersVersion(date);
 
     res.setHeader("Cache-Control", "private, max-age=10");
-    return res.status(200).json({ orders, summary, date });
+    return res.status(200).json({ orders, summary, date, version });
   } catch (err) {
     console.error("Orders fetch error:", err);
     return res.status(500).json({ error: "Something went wrong. Please try again." });
