@@ -10,6 +10,7 @@ import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { buildOrder, saveOrder } from "../lib/orders.js";
 import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";
 import { getStripe } from "../lib/syncStripe.js";
+import { overLimit } from "../lib/rateLimit.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -48,6 +49,16 @@ export default async function handler(req, res) {
     const { orderId } = req.body;
 
     if (!orderId) return res.status(400).json({ error: "Missing orderId" });
+
+    // This is the only endpoint that charges a stored card with no further
+    // customer interaction — one POST is one real charge and one real ticket
+    // in the kitchen queue. Without a ceiling, a signed-in account can loop
+    // it and flood the kitchen with genuine paid orders (self-funded, but
+    // trivially chargeback-able afterwards). Per-account, well above any
+    // real reorder cadence.
+    if (await overLimit(`reorder-rl:acct:${accountId}`, 5, 60 * 60)) {
+      return res.status(429).json({ error: "Too many reorders in a short time. Please wait a little while." });
+    }
 
     // Fetch original order
     const rawOrder = await kv.get(`order:${orderId}`);
@@ -136,6 +147,18 @@ export default async function handler(req, res) {
       deliveryAddress:     originalOrder.deliveryAddress ?? null,
       deliveryFee:         serverDeliveryFee,
     });
+
+    // buildOrder() reads identity off a Stripe *session*, and there is no
+    // session on this path — so without these it produced an order with
+    // clerkUserId/customerEmail/customerName all null: no receipt email
+    // (sendCustomerReceiptEmail returns early with no address), no customer
+    // SMS, "Guest" with no phone on the kitchen ticket, and the order missing
+    // from the customer's own history. Carry the identity over from the
+    // original order, which was already ownership-checked above.
+    newOrder.clerkUserId   = accountId;
+    newOrder.customerEmail = originalOrder.customerEmail ?? null;
+    newOrder.customerName  = originalOrder.customerName ?? "Guest";
+    newOrder.customerPhone = originalOrder.customerPhone ?? null;
 
     await saveOrder(newOrder);
 

@@ -38,6 +38,29 @@ async function resolveVerifiedClerkUserId(req) {
 }
 
 const MAX_QTY_PER_LINE = 25;
+
+// Stripe caps a metadata VALUE at 500 chars. The address is stored there as
+// JSON, and the old code just did .slice(0, 500) — which cuts mid-JSON, so
+// JSON.parse fails on the way back out in lib/syncStripe.js (inside a catch
+// that swallows it) and the address silently becomes null. Verified: a ~500
+// char delivery note produces a PAID delivery order whose ticket has no
+// address at all. Cap each field so the encoded object always fits, and
+// degrade by dropping the note rather than losing the address.
+function sanitizeDeliveryAddress(a) {
+  if (!a || typeof a !== "object") return null;
+  const s = (v, n) => (typeof v === "string" ? v.slice(0, n).trim() : "");
+  const addr = {
+    street: s(a.street, 100),
+    apt:    s(a.apt, 30),
+    city:   s(a.city, 50),
+    zip:    s(a.zip, 10),
+    notes:  s(a.notes, 150),
+  };
+  // Belt-and-braces: if anything above still pushes the JSON over Stripe's
+  // limit, shed the note (recoverable) instead of the address (not).
+  if (JSON.stringify(addr).length > 480) addr.notes = "";
+  return addr;
+}
 const STRIPE_PCT = 0.029;
 const STRIPE_FLAT = 0.30;
 
@@ -71,7 +94,10 @@ export default async function handler(req, res) {
     }
 
     const stripe = new Stripe(stripeSecretKey);
-    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress, draftId, reorderToken, scheduledFor, utm } = req.body || {};
+    const { items, specialInstructions, guestEmail, tip: rawTip, orderMode = "pickup", deliveryAddress: rawDeliveryAddress, reorderToken, scheduledFor, utm } = req.body || {};
+    // Field-capped copy — the only version allowed downstream, so nothing
+    // unbounded can reach Stripe metadata (see sanitizeDeliveryAddress).
+    const deliveryAddress = sanitizeDeliveryAddress(rawDeliveryAddress);
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -111,7 +137,9 @@ export default async function handler(req, res) {
         if ((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt)) {
           // A referral voucher can't be redeemed by the person who referred —
           // otherwise a customer invites themselves with their own order's
-          // token and farms a discount off every order they place.
+          // token and farms a discount off every order they place. This runs
+          // BEFORE the claim below so a rejected attempt doesn't leave the
+          // voucher locked for 2h.
           if (tokenData.meta?.source === "referral" && tokenData.meta?.referrerOrderId) {
             const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
             const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
@@ -123,6 +151,23 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: "This invite link can't be used on your own account." });
             }
           }
+
+          // Atomically claim the token — this must be the LAST gate, since
+          // winning it commits the voucher for 2h. The read-validate-then-
+          // write above is a TOCTOU window: verified that 3 of 3 concurrent
+          // requests carrying the same single-use voucher all passed
+          // validation and all got the discount, because none had written
+          // "checkout_created" yet. A scripted customer could fire N parallel
+          // checkouts off one voucher and get N discounted orders.
+          //
+          // set(nx) is a single atomic op, so exactly one request wins. The
+          // 2h TTL reproduces the abandoned-checkout retry window that
+          // isPendingCheckout was approximating non-atomically.
+          const claimed = await kv.set(`reorder-claim:${reorderToken}`, "1", { nx: true, ex: 7200 });
+          if (!claimed) {
+            return res.status(400).json({ error: "A checkout is already in progress for this voucher. Please finish or wait a moment and try again." });
+          }
+
           hasDiscount = true;
           discountPct = typeof tokenData.discountPct === "number" ? tokenData.discountPct : 0.10;
         } else {
@@ -273,7 +318,7 @@ export default async function handler(req, res) {
         tip:                 tip.toFixed(2),
         orderMode:           isDelivery ? "delivery" : "pickup",
         deliveryFee:         serverDeliveryFee.toFixed(2),
-        deliveryAddress:     isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress).slice(0, 500) : "",
+        deliveryAddress:     isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress) : "",
         source:              "online_ordering",
         reorderToken:        reorderToken || "",
         scheduledFor:        validScheduledFor ? JSON.stringify(validScheduledFor) : "",

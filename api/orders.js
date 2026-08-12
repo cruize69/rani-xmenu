@@ -15,7 +15,7 @@
 import Stripe from "stripe";
 import crypto from "crypto";
 import { kv } from "@vercel/kv";
-import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion, publicOrderView } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
 import { isManagerSecretValid } from "../lib/auth.js";
@@ -68,7 +68,7 @@ async function handlePublicGet(req, res) {
       let orderId = await kv.get(`session:${session_id}`);
       if (orderId) {
         const order = await getOrder(orderId);
-        if (order) return res.status(200).json(order);
+        if (order) return res.status(200).json(publicOrderView(order));
       }
 
       const stripe = getStripe();
@@ -92,7 +92,7 @@ async function handlePublicGet(req, res) {
         return res.status(404).json({ error: "Order build failed" });
       }
 
-      return res.status(200).json(order);
+      return res.status(200).json(publicOrderView(order));
     } catch (err) {
       captureServerError(err, { route: "orders/session-lookup", sessionId: session_id });
       reportPaidOrderBuildFailed({ session: { id: session_id }, error: err }).catch(() => {});
