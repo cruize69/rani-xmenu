@@ -5,8 +5,8 @@
 // progressively enriching the same draft record. Never blocks or affects
 // the actual order/payment flow.
 
-import { kv } from "@vercel/kv";
 import { saveLead } from "../../lib/abandonedCart.js";
+import { overLimit, clientIp } from "../../lib/rateLimit.js";
 
 // This endpoint is unauthenticated by necessity (it runs before checkout,
 // where no customer identity exists yet) and the phone/email it stores are
@@ -16,12 +16,6 @@ import { saveLead } from "../../lib/abandonedCart.js";
 // the caller and the destination, mirroring api/notify-subscribe.js.
 const MAX_PER_IP_PER_HOUR = 20;
 const MAX_PER_DEST_PER_DAY = 5;
-
-async function overLimit(key, max, ttlSec) {
-  const count = await kv.incr(key);
-  if (count === 1) await kv.expire(key, ttlSec);
-  return count > max;
-}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -34,7 +28,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid draftId" });
     }
 
-    const ip = (req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() || "unknown";
+    const ip = clientIp(req);
     if (await overLimit(`draft-rl:ip:${ip}`, MAX_PER_IP_PER_HOUR, 60 * 60)) {
       return res.status(429).json({ error: "Too many requests" });
     }

@@ -17,6 +17,7 @@ import { isWithinServiceWindow, getOpenStatus } from "../lib/hours.js";
 import { getNYDateString } from "../lib/orders.js";
 import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
+import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -48,6 +49,15 @@ export default async function handler(req, res) {
   // Declared outside the try block (not `const` inside it) so the catch
   // block below can still reach it to identify the customer for an alert.
   const draftId = typeof req.body?.draftId === "string" ? req.body.draftId : null;
+
+  // Pricing is fully server-side so there's no fraud exposure here, but this
+  // is unauthenticated (guests must be able to check out) and every call
+  // creates a real Stripe session plus KV writes — worth a ceiling so it
+  // can't be used to burn Stripe rate limits or KV spend. Set well above
+  // any plausible human retry rate.
+  if (await overLimit(`checkout-rl:ip:${clientIp(req)}`, 30, 60 * 60)) {
+    return res.status(429).json({ error: "Too many checkout attempts. Please wait a moment and try again." });
+  }
 
   try {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 
@@ -99,6 +109,20 @@ export default async function handler(req, res) {
           ((new Date() - new Date(tokenData.updatedAt || tokenData.createdAt)) / 3600000 >= 2); // unlock after 2 hours
 
         if ((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt)) {
+          // A referral voucher can't be redeemed by the person who referred —
+          // otherwise a customer invites themselves with their own order's
+          // token and farms a discount off every order they place.
+          if (tokenData.meta?.source === "referral" && tokenData.meta?.referrerOrderId) {
+            const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
+            const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
+            const claimedEmail = (guestEmail ?? "").toLowerCase().trim();
+            const isSelf =
+              (referrer?.customerEmail && claimedEmail && referrer.customerEmail.toLowerCase().trim() === claimedEmail) ||
+              (referrer?.clerkUserId && clerkUserId && referrer.clerkUserId === clerkUserId);
+            if (isSelf) {
+              return res.status(400).json({ error: "This invite link can't be used on your own account." });
+            }
+          }
           hasDiscount = true;
           discountPct = typeof tokenData.discountPct === "number" ? tokenData.discountPct : 0.10;
         } else {

@@ -12,7 +12,11 @@
 import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../lib/orders.js";
 
-const MAX_CLAIMS_PER_CODE_PER_DAY = 25;
+// Deliberately tight. Each claim mints an independently-redeemable 10%
+// voucher off a single order's token, so a high cap is a discount farm, not
+// a growth lever — genuine word-of-mouth from one order rarely exceeds a
+// handful of people in a day.
+const MAX_CLAIMS_PER_CODE_PER_DAY = 5;
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
