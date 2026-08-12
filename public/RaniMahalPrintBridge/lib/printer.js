@@ -276,8 +276,8 @@ export function buildPlainTextReceipt(order) {
  *   KHEADER:   18pt Bold (*** KITCHEN TICKET ***)
  *   KMODE:     22pt Bold (PICKUP #A1B2C3)
  *   KMETA:     12pt Bold (TIME & GUEST)
- *   KQTY:      26pt Bold ([ 2x ])
- *   KITEM:     18pt Bold (CHICKEN TIKKA MASALA)
+ *   KLINE:     qty (14pt Bold) flush against item name (24pt Bold), same line
+ *   KITEM:     18pt Bold (CHICKEN TIKKA MASALA) — legacy, no longer emitted
  *   KMOD:      14pt Bold (↳ SPICE: MEDIUM)
  *   KINSTRUCT: 16pt Bold (SPECIAL INSTRUCTIONS)
  */
@@ -311,11 +311,9 @@ export function buildKitchenChit(order) {
   lines.push("=================================");
 
   (order.items || []).forEach(item => {
-    // Quantity in GIANT 26pt Bold
-    lines.push(`KQTY:[ ${item.qty}x ]`);
-
-    // Item name in 18pt Bold
-    lines.push(`KITEM:${item.name.toUpperCase()}`);
+    // Qty + item name on one line — qty small and flush against the name,
+    // item name as large as possible (it's what the kitchen actually reads).
+    lines.push(`KLINE:${item.qty}x|${item.name.toUpperCase()}`);
 
     // Modifiers in 14pt Bold
     if (item.spice) {

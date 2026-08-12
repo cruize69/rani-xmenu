@@ -212,8 +212,9 @@ $fontMode     = New-Object System.Drawing.Font('Courier New', 14.0, [System.Draw
 $fontKHeader  = New-Object System.Drawing.Font('Courier New', 16.0, [System.Drawing.FontStyle]::Bold)
 $fontKMode    = New-Object System.Drawing.Font('Courier New', 18.0, [System.Drawing.FontStyle]::Bold)
 $fontKMeta    = New-Object System.Drawing.Font('Courier New', 12.0, [System.Drawing.FontStyle]::Bold)
-$fontKQty     = New-Object System.Drawing.Font('Courier New', 26.0, [System.Drawing.FontStyle]::Bold)
+$fontKQty     = New-Object System.Drawing.Font('Courier New', 14.0, [System.Drawing.FontStyle]::Bold)
 $fontKItem    = New-Object System.Drawing.Font('Courier New', 17.0, [System.Drawing.FontStyle]::Bold)
+$fontKItemBig = New-Object System.Drawing.Font('Courier New', 24.0, [System.Drawing.FontStyle]::Bold)
 $fontKMod     = New-Object System.Drawing.Font('Courier New', 13.5, [System.Drawing.FontStyle]::Bold)
 $fontKInstruct= New-Object System.Drawing.Font('Courier New', 15.0, [System.Drawing.FontStyle]::Bold)
 
@@ -260,29 +261,47 @@ $pd.add_PrintPage({
       $e.Graphics.DrawString($txt, $fontKMeta, [System.Drawing.Brushes]::Black, 0, $y)
       $y += $fontKMeta.GetHeight($e.Graphics) + 2
     }
-    elseif ($line.StartsWith('KQTY:')) {
-      $txt = $line.Substring(5)
-      $e.Graphics.DrawString($txt, $fontKQty, [System.Drawing.Brushes]::Black, 0, $y)
-      $y += $fontKQty.GetHeight($e.Graphics) + 2
-    }
-    elseif ($line.StartsWith('KITEM:')) {
-      $txt = $line.Substring(6)
-      $words = $txt.Split(' ')
+    elseif ($line.StartsWith('KLINE:')) {
+      # Qty (small) flush against item name (large) on one line — item name
+      # is what the kitchen actually reads, so it gets the most px.
+      $payload = $line.Substring(6)
+      $parts = $payload.Split('|', 2)
+      $qtyTxt = "$($parts[0]) "
+      $nameTxt = $parts[1]
+
+      $qtySize = $e.Graphics.MeasureString($qtyTxt, $fontKQty)
+      $itemHeight = $fontKItemBig.GetHeight($e.Graphics)
+      $qtyBaselineOffset = [Math]::Max(0, ($itemHeight - $fontKQty.GetHeight($e.Graphics)) / 2)
+
+      $words = $nameTxt.Split(' ')
       $curLine = ''
+      $firstLine = $true
       foreach ($word in $words) {
         $test = ($curLine + ' ' + $word).Trim()
-        $sz = $e.Graphics.MeasureString($test, $fontKItem)
-        if ($sz.Width -gt $e.PageBounds.Width) {
-          $e.Graphics.DrawString($curLine, $fontKItem, [System.Drawing.Brushes]::Black, 0, $y)
-          $y += $fontKItem.GetHeight($e.Graphics) + 1
+        $availWidth = if ($firstLine) { $e.PageBounds.Width - $qtySize.Width } else { $e.PageBounds.Width }
+        $sz = $e.Graphics.MeasureString($test, $fontKItemBig)
+        if ($sz.Width -gt $availWidth -and $curLine.Length -gt 0) {
+          if ($firstLine) {
+            $e.Graphics.DrawString($qtyTxt, $fontKQty, [System.Drawing.Brushes]::Black, 0, $y + $qtyBaselineOffset)
+            $e.Graphics.DrawString($curLine, $fontKItemBig, [System.Drawing.Brushes]::Black, $qtySize.Width, $y)
+          } else {
+            $e.Graphics.DrawString($curLine, $fontKItemBig, [System.Drawing.Brushes]::Black, 0, $y)
+          }
+          $y += $itemHeight + 1
           $curLine = $word
+          $firstLine = $false
         } else {
           $curLine = $test
         }
       }
       if ($curLine.Length -gt 0) {
-        $e.Graphics.DrawString($curLine, $fontKItem, [System.Drawing.Brushes]::Black, 0, $y)
-        $y += $fontKItem.GetHeight($e.Graphics) + 3
+        if ($firstLine) {
+          $e.Graphics.DrawString($qtyTxt, $fontKQty, [System.Drawing.Brushes]::Black, 0, $y + $qtyBaselineOffset)
+          $e.Graphics.DrawString($curLine, $fontKItemBig, [System.Drawing.Brushes]::Black, $qtySize.Width, $y)
+        } else {
+          $e.Graphics.DrawString($curLine, $fontKItemBig, [System.Drawing.Brushes]::Black, 0, $y)
+        }
+        $y += $itemHeight + 3
       }
     }
     elseif ($line.StartsWith('KMOD:')) {
@@ -324,6 +343,7 @@ $fontKMode.Dispose()
 $fontKMeta.Dispose()
 $fontKQty.Dispose()
 $fontKItem.Dispose()
+$fontKItemBig.Dispose()
 $fontKMod.Dispose()
 $fontKInstruct.Dispose()
 `;
