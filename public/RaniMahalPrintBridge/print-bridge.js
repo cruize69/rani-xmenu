@@ -212,9 +212,9 @@ $fontMode     = New-Object System.Drawing.Font('Courier New', 14.0, [System.Draw
 $fontKHeader  = New-Object System.Drawing.Font('Courier New', 16.0, [System.Drawing.FontStyle]::Bold)
 $fontKMode    = New-Object System.Drawing.Font('Courier New', 18.0, [System.Drawing.FontStyle]::Bold)
 $fontKMeta    = New-Object System.Drawing.Font('Courier New', 12.0, [System.Drawing.FontStyle]::Bold)
-$fontKQty     = New-Object System.Drawing.Font('Courier New', 14.0, [System.Drawing.FontStyle]::Bold)
+$fontKQty     = New-Object System.Drawing.Font('Courier New', 17.0, [System.Drawing.FontStyle]::Bold)
 $fontKItem    = New-Object System.Drawing.Font('Courier New', 17.0, [System.Drawing.FontStyle]::Bold)
-$fontKItemBig = New-Object System.Drawing.Font('Courier New', 24.0, [System.Drawing.FontStyle]::Bold)
+$fontKItemBig = New-Object System.Drawing.Font('Courier New', 21.0, [System.Drawing.FontStyle]::Bold)
 $fontKMod     = New-Object System.Drawing.Font('Courier New', 13.5, [System.Drawing.FontStyle]::Bold)
 $fontKInstruct= New-Object System.Drawing.Font('Courier New', 15.0, [System.Drawing.FontStyle]::Bold)
 
