@@ -50,6 +50,15 @@ async function handleUpload(req, res) {
   if (!itemId) return res.status(400).json({ error: "itemId required" });
   if (!file)   return res.status(400).json({ error: "file required" });
 
+  // itemId is interpolated into both a Blob pathname and a KV key, and the
+  // extension below is taken straight from the uploader's own filename.
+  // This route is manager-authenticated so neither is public-facing, but
+  // neither was constrained either — allowlist both rather than trusting
+  // a logged-in client not to send "../" or a .html extension.
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(itemId)) {
+    return res.status(400).json({ error: "Invalid itemId" });
+  }
+
   if (!ACCEPTED.includes(file.mimetype)) {
     return res.status(400).json({ error: `Invalid file type: ${file.mimetype}. Use JPEG, PNG, WebP or AVIF.` });
   }
@@ -64,7 +73,10 @@ async function handleUpload(req, res) {
       catch (e) { console.warn("Could not delete old blob:", e.message); }
     }
 
-    const ext      = file.originalFilename?.split(".").pop() ?? "jpg";
+    // Derive the extension from the validated mimetype, not the uploader's
+    // filename — the mimetype is already checked against ACCEPTED above.
+    const EXT_BY_MIME = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
+    const ext      = EXT_BY_MIME[file.mimetype] ?? "jpg";
     const pathname = `menu-images/${itemId}.${ext}`;
     const buf      = fs.readFileSync(file.filepath);
 
