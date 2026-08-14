@@ -2,6 +2,7 @@ import React from "react";
 import { SectionNav, JumpIcon } from "./SectionTabsNav.jsx";
 import { SECTIONS } from "../../lib/menu.js";
 import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
+import { PICKUP_ETA } from "../utils/deliveryConfig.js";
 
 export function RaniHeader({
   activeSection,
@@ -148,7 +149,7 @@ export function RaniHeader({
             <span style={{ color: "#FAF6EF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {orderMode === "delivery"
                 ? (deliveryAddress?.street ? `${deliveryAddress.street}, ${deliveryAddress.city || "Mamaroneck"}` : "Set address for ETA & fee ($50 min)")
-                : "327 Mamaroneck Ave (25–35m)"}
+                : `327 Mamaroneck Ave (${PICKUP_ETA.replace(" min", "m")})`}
             </span>
             <span style={{ fontSize: 11, color: "#E8A82E", marginLeft: 4 }}>▼</span>
           </button>

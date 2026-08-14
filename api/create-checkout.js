@@ -178,25 +178,35 @@ export default async function handler(req, res) {
       }
     }
 
-    // Rani Royal Club, part 1: sign in before checkout and your FIRST order
-    // is 10% off automatically — no separate voucher to claim, no waiting.
-    // (Part 2 — 10% every 3rd order after that — is handled in
-    // lib/orders.js's saveOrder, once the order is actually placed.) Only
-    // applies when no voucher discount is already active, so this can never
-    // stack with a reorder/referral/loyalty-milestone token in one checkout.
+    // ── Rani Royal Club ────────────────────────────────────────────
+    // Signed in and it's your first-ever order: 10% off. Signed in and
+    // you've ordered before: 5% off, EVERY order, forever. Both applied
+    // here, automatically — there is no voucher to mint, email, or claim
+    // for either tier, which is the whole point: a member never has to do
+    // anything to get their rate.
+    //
+    // The competitive sweep is why the ongoing tier exists at all. The old
+    // "10% off every 3rd order" paid ~3.3% at steady state — last in the
+    // county, behind Ruchi (5% every order) and Coromandel/Chutney Masala
+    // (10% every order). A flat 5% on every order matches the field and is
+    // computable in a customer's head, which none of the points programs are.
+    //
+    // Gated on !hasDiscount so it can never stack with a reorder, referral,
+    // or abandoned-cart voucher — those are worth more, so they win.
     let welcomeDiscount = false;
+    let memberDiscount = false;
     if (!hasDiscount && clerkUserId) {
-      const priorOrderCount = await kv.llen(`account-orders:${clerkUserId}`);
-      if (priorOrderCount === 0) {
-        // Someone who ordered as a guest and THEN signed up would otherwise
-        // read as "0 prior orders" on their brand-new account and get a
-        // second welcome discount for the same person. Their guest orders
-        // are indexed under their email — reuse the same verified-email
-        // lookup account/profile.js already does to fold guest history in
-        // — and treat any hit as disqualifying. Free (an existing KV read
-        // against a Clerk-verified email), frictionless (no action from the
-        // customer), and closes the most likely real-world leak.
-        let priorGuestOrders = 0;
+      const priorAccountOrders = await kv.llen(`account-orders:${clerkUserId}`);
+
+      // Someone who ordered as a guest and THEN signed up would otherwise
+      // read as "0 prior orders" on their brand-new account and collect a
+      // second welcome discount for the same person. Their guest orders are
+      // indexed under their email — reuse the same verified-email lookup
+      // account/profile.js already does to fold guest history in, and treat
+      // any hit as disqualifying from the FIRST-order rate (they still get
+      // the member rate below). Free, frictionless, closes the real leak.
+      let priorGuestOrders = 0;
+      if (priorAccountOrders === 0) {
         try {
           const clerkUser = await clerk.users.getUser(clerkUserId);
           const email = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
@@ -205,31 +215,40 @@ export default async function handler(req, res) {
             priorGuestOrders = await kv.llen(`account-orders:guest:${email.toLowerCase().trim()}`);
           }
         } catch {}
+      }
 
-        if (priorGuestOrders === 0) {
-          // Same TOCTOU class the voucher claim above already closes: two
-          // concurrent checkouts from a brand-new account would otherwise
-          // both read priorOrderCount === 0 (account-orders is only written
-          // AFTER payment) and both get the discount. One atomic claim per
-          // account settles it; the 2h TTL matches reorder-claim's window so
-          // an abandoned (never-paid) checkout doesn't lock the real welcome
-          // discount out permanently.
-          //
-          // Also caps how many *distinct new accounts* one IP can claim a
-          // welcome discount for in a day — the closest thing to a
-          // frictionless brake on account-farming. It can't stop farming
-          // across many IPs/emails (nothing short of ID verification can),
-          // but it costs real customers nothing and throttles a bulk script.
-          // Checked before claiming, not after — a rate-limited request
-          // must never consume the one-time claim for nothing.
-          const ipOk = !(await overLimit(`welcome-rl:ip:${clientIp(req)}`, 3, 24 * 60 * 60));
-          const claimed = ipOk && await kv.set(`welcome-claim:${clerkUserId}`, "1", { nx: true, ex: 7200 });
-          if (claimed) {
-            hasDiscount = true;
-            discountPct = 0.10;
-            welcomeDiscount = true;
-          }
+      if (priorAccountOrders === 0 && priorGuestOrders === 0) {
+        // Same TOCTOU class the voucher claim above already closes: two
+        // concurrent checkouts from a brand-new account would otherwise
+        // both read 0 prior orders (account-orders is only written AFTER
+        // payment) and both get 10%. One atomic claim per account settles
+        // it; the 2h TTL matches reorder-claim's window so an abandoned
+        // (never-paid) checkout doesn't lock the welcome rate out for good.
+        //
+        // The IP limit caps how many *distinct new accounts* one address can
+        // claim a welcome rate for per day — the closest thing to a
+        // frictionless brake on account-farming. It can't stop farming across
+        // many IPs/emails (nothing short of ID verification can), but it
+        // costs real customers nothing and throttles a bulk script. Checked
+        // BEFORE claiming so a rate-limited request never burns the claim.
+        const ipOk = !(await overLimit(`welcome-rl:ip:${clientIp(req)}`, 3, 24 * 60 * 60));
+        const claimed = ipOk && await kv.set(`welcome-claim:${clerkUserId}`, "1", { nx: true, ex: 7200 });
+        if (claimed) {
+          hasDiscount = true;
+          discountPct = 0.10;
+          welcomeDiscount = true;
         }
+      }
+
+      // Every signed-in order that didn't just take the welcome rate gets
+      // the standing member rate. Deliberately NOT gated on a claim or a
+      // counter — it applies every single time, which is what makes it
+      // worth signing up for. A first-timer whose welcome claim lost a race
+      // or hit the IP cap still lands here rather than paying full price.
+      if (!welcomeDiscount) {
+        hasDiscount = true;
+        discountPct = 0.05;
+        memberDiscount = true;
       }
     }
 
@@ -261,9 +280,20 @@ export default async function handler(req, res) {
 
     if (isDelivery) {
       const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
-      const zoneMin = zone?.minOrder || 50.00;
-      if (subtotal < zoneMin) {
-        return res.status(400).json({ error: `Delivery to ${deliveryAddress?.city || "your area"} requires a minimum food subtotal of $${zoneMin.toFixed(2)}.` });
+      // A null zone must be its own hard rejection, NOT fall through to a
+      // default $50 minimum. The old `zone?.minOrder || 50.00` treated
+      // "unserved ZIP" and "unknown zone" as the same case — a $50+ order
+      // to a ZIP outside every zone (Yonkers, Mount Kisco, anywhere) passed
+      // this check and would have created a real, payable Stripe session
+      // for delivery we have no ability to fulfill. This is the actual
+      // security boundary; the client-side checks in CartDrawer.jsx and
+      // RaniMahal.jsx are UX only and were bypassable by anyone hitting
+      // this endpoint directly.
+      if (!zone) {
+        return res.status(400).json({ error: `We don't currently deliver to ${deliveryAddress?.city || "that area"}. Pickup at 327 Mamaroneck Ave is available with no minimum.` });
+      }
+      if (subtotal < zone.minOrder) {
+        return res.status(400).json({ error: `Delivery to ${deliveryAddress?.city || "your area"} requires a minimum food subtotal of $${zone.minOrder.toFixed(2)}.` });
       }
     }
 
@@ -370,6 +400,7 @@ export default async function handler(req, res) {
         specialInstructions: (specialInstructions ?? "").slice(0, 500),
         clerkUserId:         (clerkUserId  ?? "").slice(0, 500),
         welcomeDiscount:     welcomeDiscount ? "1" : "",
+        memberDiscount:      memberDiscount ? "1" : "",
         guestEmail:          (guestEmail   ?? "").slice(0, 500),
         tip:                 tip.toFixed(2),
         orderMode:           isDelivery ? "delivery" : "pickup",

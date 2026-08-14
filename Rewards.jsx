@@ -37,8 +37,8 @@ const TIERS = [
   },
   {
     step: "3",
-    title: "10% off again every 3rd order",
-    body: "After that, every third order emails you a 10% voucher on the house. It applies with one tap.",
+    title: "5% off every order after that",
+    body: "Not a milestone, not a points balance — every single order you place while signed in is automatically 5% off, for as long as you're a member.",
   },
 ];
 
@@ -92,7 +92,7 @@ export default function Rewards() {
             The Rani Royal Club
           </h1>
           <p style={{ fontSize: 15, color: "#B8A995", lineHeight: 1.6, margin: 0 }}>
-            10% off your first order. 10% off every 3rd order after that.
+            10% off your first order. 5% off every order after that.
             No punch card, no points, no app to download.
           </p>
         </div>

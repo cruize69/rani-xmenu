@@ -282,7 +282,7 @@ function AccountPortalPage({
                 on "no account needed", which talked people out of the very
                 thing this screen exists to convert. */}
             <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
-              Your first signed-in order is <strong style={{ color: "#E8A82E" }}>10% off</strong>, then 10% off again every 3rd order — plus saved history and 1-tap reorders.
+              Your first signed-in order is <strong style={{ color: "#E8A82E" }}>10% off</strong>, then <strong style={{ color: "#E8A82E" }}>5% off every order</strong> after that — plus saved history and 1-tap reorders.
             </p>
           </div>
 
@@ -457,35 +457,24 @@ function AccountPortalPage({
           </div>
         </div>
 
-        {/* Rani Royal Club Progress — the loyalty milestone (every 3rd order
-            10% off) runs server-side off a monotonic order counter; this is
-            just a read-only reflection of that same math using totalOrders,
-            so it can never drift out of sync with what actually gets minted. */}
+        {/* Rani Royal Club status. The old copy here was a progress bar
+            counting toward a milestone voucher — that mechanic is gone (see
+            api/create-checkout.js). There's no longer a "toward" to show:
+            the standing 5% applies every order, so this is a status, not a
+            progress indicator. totalOrders already reflects the change —
+            it's the same field the server checks (via the account-orders
+            list) to decide first-order eligibility, so this can't drift
+            out of sync with what's actually applied at checkout. */}
         <div style={{ ...S.card, marginBottom: 16, background: "linear-gradient(145deg, #1c1610 0%, #12100e 100%)", border: "1px solid rgba(232,168,46,0.25)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 16 }}>👑</span>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: "#E8A82E", margin: 0, letterSpacing: "0.04em" }}>Rani Royal Club</p>
           </div>
-          {(() => {
-            const MILESTONE = 3;
-            const sinceLast = totalOrders % MILESTONE;
-            const toGo = totalOrders === 0 ? 1 : (sinceLast === 0 ? MILESTONE : MILESTONE - sinceLast);
-            const filled = totalOrders === 0 ? 0 : sinceLast;
-            return (
-              <>
-                <p style={{ fontSize: 12.5, color: "#D9CDBB", margin: "0 0 10px", lineHeight: 1.5 }}>
-                  {totalOrders === 0
-                    ? "Your first order gets 10% off automatically — you're already in."
-                    : <>Order <strong style={{ color: "#FAF6EF" }}>{toGo === 1 ? "1 more time" : `${toGo} more times`}</strong> for your next automatic <strong style={{ color: "#FAF6EF" }}>10% off</strong> voucher.</>}
-                </p>
-                <div style={{ display: "flex", gap: 5 }}>
-                  {Array.from({ length: MILESTONE }).map((_, i) => (
-                    <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: i < filled ? "#E8A82E" : "rgba(250,246,239,0.1)" }} />
-                  ))}
-                </div>
-              </>
-            );
-          })()}
+          <p style={{ fontSize: 12.5, color: "#D9CDBB", margin: 0, lineHeight: 1.5 }}>
+            {totalOrders === 0
+              ? <>Your first order gets <strong style={{ color: "#FAF6EF" }}>10% off</strong> automatically — you're already in.</>
+              : <>You're a member — <strong style={{ color: "#FAF6EF" }}>5% off</strong> is applied automatically on every order, no minimum and nothing to track.</>}
+          </p>
         </div>
 
         {/* Active Order Spotlight */}

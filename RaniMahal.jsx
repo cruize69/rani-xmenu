@@ -12,7 +12,7 @@ import { ItemModal } from "./src/components/ItemCustomizerModal.jsx";
 import { CartDrawer, CheckoutGate, Notice } from "./src/components/CartDrawer.jsx";
 import { RaniHeader } from "./src/components/RaniHeader.jsx";
 import { FulfillmentSheet } from "./src/components/FulfillmentSheet.jsx";
-import { calcDeliveryFee, DELIVERY_CONFIG, getDeliveryZoneForZip } from "./src/utils/deliveryConfig.js";
+import { calcDeliveryFee, DELIVERY_CONFIG, getDeliveryZoneForZip, isZipConfirmedOutOfZone, SERVED_AREAS_MESSAGE, PICKUP_ETA } from "./src/utils/deliveryConfig.js";
 
 // ── Fonts & Design Tokens ──────────────────────────────────────────
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
@@ -752,6 +752,29 @@ export default function RaniMahal() {
               the minimum because both only lived inside the fulfillment sheet.
               Pickup carries no fee or minimum, so this stays delivery-only. */}
           {orderMode === "delivery" && (() => {
+            // A confirmed-out-of-zone ZIP must never fall into the same
+            // branch as "no ZIP yet" — that was this exact block silently
+            // reassuring an out-of-zone customer "✓ Minimum met" while a
+            // real order can't be placed. This is my own regression: I
+            // wrote `zone?.minOrder ?? DELIVERY_CONFIG.DEFAULT_MINIMUM`
+            // without checking whether `zone` was null because the ZIP
+            // hadn't been typed yet, or null because it's genuinely outside
+            // every zone. Two customers (Yonkers, Mount Kisco) reached a
+            // live, fully-priced checkout button because of it.
+            if (isZipConfirmedOutOfZone(deliveryAddress?.zip)) {
+              return (
+                <div style={{ borderBottom:"0.5px solid rgba(250,246,239,0.10)", paddingBottom:8, display:"flex", flexDirection:"column", gap:7 }}>
+                  <p style={{ fontSize:11.5, color:"#F0846A", lineHeight:1.4, margin:0 }}>{SERVED_AREAS_MESSAGE}</p>
+                  <button
+                    type="button"
+                    onClick={() => setOrderMode("pickup")}
+                    style={{ alignSelf:"flex-start", padding:"5px 12px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:16, fontSize:11.5, fontWeight:700, cursor:"pointer" }}
+                  >
+                    Switch to Pickup ({PICKUP_ETA.replace(" min", "m")}) →
+                  </button>
+                </div>
+              );
+            }
             const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
             const zoneMin = zone?.minOrder ?? DELIVERY_CONFIG.DEFAULT_MINIMUM;
             const toMin = zoneMin - subtotal;

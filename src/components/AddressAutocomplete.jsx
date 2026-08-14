@@ -60,6 +60,21 @@ export function AddressAutocomplete({
   const debounceTimerRef = useRef(null);
   const abortControllerRef = useRef(null);
 
+  // UniversalDeliveryForm's setStreet wrapper clears city/zip on every
+  // street keystroke (so a stale city can't survive onto a new address —
+  // see its own comment), which means by the SECOND keystroke the `city`/
+  // `zip` props here are already blank, even if the customer had already
+  // typed "Mount Kisco" / "10549" into those fields moments earlier.
+  // Nominatim's search then has nothing to bias toward and can rank a
+  // same-named street in a totally different town first — verified: with
+  // Mount Kisco/10549 already entered, "100 Main Street" suggested "100
+  // Main Street, Yonkers" instead. Remember the last non-blank city/zip so
+  // the bias survives the very clearing that this same edit triggers.
+  const lastKnownLocationRef = useRef({ city: "", zip: "" });
+  useEffect(() => {
+    if (city || zip) lastKnownLocationRef.current = { city, zip };
+  }, [city, zip]);
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -120,7 +135,14 @@ export function AddressAutocomplete({
       abortControllerRef.current = controller;
 
       try {
-        const searchQ = val.trim();
+        // Bias toward whatever town/ZIP we last knew for this address —
+        // live props if still present, else the remembered pre-clear
+        // values — so "Main Street" ranks the customer's own town first
+        // instead of whichever same-named street Nominatim likes best
+        // across the entire tri-county bounding box.
+        const bias = (city || zip) ? { city, zip } : lastKnownLocationRef.current;
+        const biasText = [bias.city, bias.zip].filter(Boolean).join(" ");
+        const searchQ = biasText ? `${val.trim()}, ${biasText}` : val.trim();
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=us&viewbox=-73.95,41.25,-73.45,40.85&bounded=1&q=${encodeURIComponent(searchQ)}`,
           {

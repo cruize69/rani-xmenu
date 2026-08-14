@@ -8,6 +8,29 @@ export const DELIVERY_CONFIG = {
   DEFAULT_MINIMUM: 50.00,
 };
 
+// Single source of truth for quoted times. Delivery ETA is per-zone (see
+// DELIVERY_ZONES below) — these two constants only cover pickup, and the
+// fallback used when we don't know the customer's zone yet.
+//
+// These exist because "45–60 min" was previously hardcoded in four places
+// (checkout toggle, stored order record, receipt email) while the
+// fulfillment sheet quoted the real per-zone figure. A Mamaroneck customer
+// was told 45–60 when we actually deliver in 30–40; a Greenwich customer
+// was promised 45–60 on their receipt against a real 50–65. Anything that
+// quotes a time now derives it from here or from the zone.
+export const PICKUP_ETA = "25–35 min";
+export const DEFAULT_DELIVERY_ETA = "45–60 min";
+
+/** Quoted delivery window for a ZIP, falling back when the zone is unknown. */
+export function getDeliveryEtaForZip(zip) {
+  return getDeliveryZoneForZip(zip)?.eta || DEFAULT_DELIVERY_ETA;
+}
+
+/** Quoted fulfillment window for an order, whichever mode it is. */
+export function getEtaFor(orderMode, zip) {
+  return orderMode === "delivery" ? getDeliveryEtaForZip(zip) : PICKUP_ETA;
+}
+
 export const DELIVERY_ZONES = {
   // ── Zone 1: Immediate neighbors — closest to the restaurant ──────────
   ZONE_1: {
@@ -148,6 +171,39 @@ export function getDeliveryZoneForZip(zip) {
   if (DELIVERY_ZONES.ZONE_3.zips.has(clean)) return DELIVERY_ZONES.ZONE_3;
   return null;
 }
+
+// True only once we have a complete ZIP to judge — a 2-digit in-progress
+// ZIP and a genuinely out-of-zone 5-digit ZIP must never look the same to
+// the caller. Two Westchester/Yonkers customers independently built a full
+// priced cart and reached a live "Continue to payment" button before being
+// rejected, because every caller treated "zone unknown" (still typing) and
+// "zone: none" (out of range) as the same case and fell back to default
+// pricing for both.
+export function isCompleteZip(zip) {
+  return !!zip && String(zip).trim().length >= 5;
+}
+
+/** True once a complete ZIP resolves to no served zone — a hard block. */
+export function isZipConfirmedOutOfZone(zip) {
+  return isCompleteZip(zip) && !getDeliveryZoneForZip(zip);
+}
+
+// Single source of truth for the served-area message, DERIVED from the zone
+// labels above rather than hand-typed — a hand-typed copy is exactly how the
+// old message went stale (it named ~13 towns; the zones above actually cover
+// closer to 20, including Bronxville, Mt. Vernon, Hartsdale, Tuckahoe,
+// Ardsley, Dobbs Ferry, Elmsford, Irvington, Valhalla and Riverside/Cos Cob,
+// none of which the old copy mentioned). A Yonkers customer — who IS in
+// Westchester — was also told "Delivery is currently available for
+// Westchester & Greenwich/Stamford areas," which reads as confirmation, not
+// rejection. Name the towns instead; nobody misreads a list they're not on.
+const SERVED_TOWNS = [DELIVERY_ZONES.ZONE_1, DELIVERY_ZONES.ZONE_2, DELIVERY_ZONES.ZONE_3]
+  .map(z => z.label.replace(/^Zone \d+:\s*/, ""))
+  .join(", ");
+
+export const SERVED_AREAS_MESSAGE =
+  `We deliver to ${SERVED_TOWNS}. Your ZIP isn't in that list yet — pickup at ` +
+  `327 Mamaroneck Ave is still available with no minimum.`;
 
 export function cleanTownName(name) {
   if (!name) return "";

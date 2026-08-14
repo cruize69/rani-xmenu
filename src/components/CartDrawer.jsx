@@ -3,7 +3,7 @@ import { useUser, useClerk } from "@clerk/clerk-react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
 import { rankedQuickAdds, cartCount, QA_ITEM_ID } from "../utils/upsells.js";
 import { QuickAddCard } from "./MenuItemCard.jsx";
-import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG } from "../utils/deliveryConfig.js";
+import { isZipInDeliveryZone, lookupTownByZip, getDeliveryZoneForZip, DELIVERY_CONFIG, PICKUP_ETA, DEFAULT_DELIVERY_ETA, isZipConfirmedOutOfZone, SERVED_AREAS_MESSAGE } from "../utils/deliveryConfig.js";
 import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
@@ -194,7 +194,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
           <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
         </svg>
       </span>
-Sign in — 10% off your first order, then every 3rd after
+Sign in — 10% off your first order, then 5% off every order
     </button>
   );
 }
@@ -245,7 +245,7 @@ export function CheckoutGate({
     if (!cityStr.trim()) { setError("Please enter your city."); return false; }
     if (!zipStr.trim()) { setError("Please enter your 5-digit ZIP code."); return false; }
     if (!isZipInDeliveryZone(zipStr)) {
-      setError("Delivery is currently available for Westchester & Greenwich/Stamford areas.");
+      setError(SERVED_AREAS_MESSAGE);
       return false;
     }
     const zone = getDeliveryZoneForZip(zipStr);
@@ -256,6 +256,12 @@ export function CheckoutGate({
     }
     return true;
   };
+
+  // Computed once and reused by both the banner above and the submit button
+  // below, so the two can never show a contradictory pair of states again —
+  // a red "out of zone" block next to a live, fully-priced "Continue to
+  // payment" button was exactly what two customers independently reached.
+  const outOfZone = orderMode === "delivery" && isZipConfirmedOutOfZone(deliveryAddress?.zip);
 
   const goToStripe = async ({ clerkUserId = null, guestEmail = null } = {}) => {
     setLoading(true); setError(null);
@@ -359,7 +365,7 @@ export function CheckoutGate({
               fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6
             }}
           >
-            <PickupIcon size={15} color={orderMode==="pickup" ? "#E8A82E" : "#B8A995"} /> Pickup (25–35m)
+            <PickupIcon size={15} color={orderMode==="pickup" ? "#E8A82E" : "#B8A995"} /> Pickup ({PICKUP_ETA.replace(" min", "m")})
           </button>
           <button
             type="button"
@@ -371,7 +377,10 @@ export function CheckoutGate({
               fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6
             }}
           >
-            <DeliveryIcon size={15} color={orderMode==="delivery" ? "#E8A82E" : "#B8A995"} /> Delivery (45–60m)
+            {/* Zone-aware once we know the ZIP; the flat "45–60" default
+                otherwise. This used to be hardcoded regardless of zone —
+                wrong for every zone except the one it happened to match. */}
+            <DeliveryIcon size={15} color={orderMode==="delivery" ? "#E8A82E" : "#B8A995"} /> Delivery ({(getDeliveryZoneForZip(deliveryAddress?.zip)?.eta || DEFAULT_DELIVERY_ETA).replace(" min", "m")})
           </button>
         </div>
 
@@ -379,8 +388,29 @@ export function CheckoutGate({
             selected here, not just inside the fulfillment sheet. Verified
             live: a customer could reach this exact toggle, switch to
             Delivery, and only discover the $50+ minimum after filling in a
-            full address at the final step. */}
+            full address at the final step.
+            A confirmed-out-of-zone ZIP is a DIFFERENT case from "no ZIP
+            yet" and must never fall through to the same default-minimum
+            branch — two customers (Yonkers, Mount Kisco) independently
+            built a full priced cart and reached a live "Continue to
+            payment" button because it did. This is a hard stop with an
+            immediate, one-tap way back to the order you CAN place. */}
         {orderMode === "delivery" && (() => {
+          const outOfZone = isZipConfirmedOutOfZone(deliveryAddress?.zip);
+          if (outOfZone) {
+            return (
+              <div style={{ margin: "10px 20px 0", padding: "12px 14px", borderRadius: 10, background: "rgba(240,132,106,0.10)", border: "0.5px solid rgba(240,132,106,0.35)" }}>
+                <p style={{ fontSize: 12, lineHeight: 1.5, color: "#F0846A", margin: "0 0 9px" }}>{SERVED_AREAS_MESSAGE}</p>
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setOrderMode?.("pickup"); setError(null); }}
+                  style={{ padding: "7px 14px", background: "#E8A82E", color: "#080706", border: "none", borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Switch to Pickup ({PICKUP_ETA.replace(" min", "m")}) →
+                </button>
+              </div>
+            );
+          }
           const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
           const zoneMin = zone?.minOrder ?? DELIVERY_CONFIG.DEFAULT_MINIMUM;
           const belowMin = subtotal < zoneMin;
@@ -462,7 +492,12 @@ export function CheckoutGate({
                 <input type="email" placeholder="you@email.com" value={guestEmail}
                   onChange={e => setGuestEmail(e.target.value)}
                   style={iStyle} required autoFocus />
-                {error && (
+                {/* Out-of-zone already has its own hard stop + Switch to
+                    Pickup action in the persistent banner right above the
+                    Pickup/Delivery tabs (visible the instant a full ZIP is
+                    typed, before this form is even in view) — showing the
+                    same message again here would just duplicate it. */}
+                {!outOfZone && error && (
                   error.includes("minimum food subtotal") ? (
                     <div style={{ background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
                       <p style={{ fontSize:13, color:"#E8A82E", fontWeight:500, margin:"0 0 10px", lineHeight:1.5 }}>{error}</p>
@@ -478,7 +513,12 @@ export function CheckoutGate({
                     <p style={{ fontSize:13, color:"#F0846A", marginBottom:10, background:"rgba(240,132,106,0.1)", padding:"8px 12px", borderRadius:8, border:"0.5px solid rgba(240,132,106,0.3)" }}>{error}</p>
                   )
                 )}
-                {!(error && error.includes("minimum food subtotal")) && (
+                {/* Out-of-zone gets its own hard stop above (no payment
+                    button at all, only the Pickup switch) — the same
+                    treatment as the below-minimum case, and for the same
+                    reason: never show a live "Continue to payment" total
+                    for an order that cannot actually be placed. */}
+                {!outOfZone && !(error && error.includes("minimum food subtotal")) && (
                   <>
                     <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
                       {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}

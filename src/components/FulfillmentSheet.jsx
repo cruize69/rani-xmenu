@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
-import { isZipInDeliveryZone, getDeliveryZoneForZip } from "../utils/deliveryConfig.js";
+import { isZipInDeliveryZone, getDeliveryZoneForZip, PICKUP_ETA, DEFAULT_DELIVERY_ETA, SERVED_AREAS_MESSAGE } from "../utils/deliveryConfig.js";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 import { formatTime, getTimeSlots } from "../../lib/hours.js";
 
@@ -128,7 +128,7 @@ export function FulfillmentSheet({
         return;
       }
       if (!isZipInDeliveryZone(zip)) {
-        setError("We deliver to Greenwich, Stamford, Mamaroneck, Larchmont, Scarsdale, White Plains, New Rochelle, Pelham, Harrison, Purchase, Port Chester & Rye. Please check your ZIP code.");
+        setError(SERVED_AREAS_MESSAGE);
         return;
       }
     }
@@ -152,7 +152,7 @@ export function FulfillmentSheet({
   };
 
   const zone = selectedMode === "delivery" && zip ? getDeliveryZoneForZip(zip) : null;
-  const eta = zone?.eta || "45–60 min";
+  const eta = zone?.eta || DEFAULT_DELIVERY_ETA;
   const minStr = zone?.minOrder ? `$${zone.minOrder.toFixed(0)} min` : "$50–$70 min";
 
   return (
@@ -233,7 +233,7 @@ export function FulfillmentSheet({
                   Pickup at Rani Mahal
                 </p>
                 <p style={{ fontSize: 12, color: "#B8A995", marginTop: 2, margin: "2px 0 0" }}>
-                  327 Mamaroneck Ave · Ready in 25–35 min · No minimum
+                  327 Mamaroneck Ave · Ready in {PICKUP_ETA} · No minimum
                 </p>
               </div>
             </div>
