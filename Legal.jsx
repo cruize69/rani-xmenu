@@ -63,10 +63,15 @@ export function PrivacyPolicy() {
       <p style={P}>
         If you provide your phone number and check the consent box at checkout, we'll text you about that
         order — confirmations, prep/delivery status, and occasionally a reminder if you leave items in your
-        cart without completing checkout. We do not sell or share your phone number with third parties for
-        their own marketing. Message frequency varies by order activity. Message and data rates may apply.
-        Reply <strong>STOP</strong> at any time to opt out, or <strong>HELP</strong> for help. Consent to
-        receive texts is never required to place an order — you can always check out without a phone number.
+        cart without completing checkout. Message frequency varies by order activity. Message and data rates
+        may apply. Reply <strong>STOP</strong> at any time to opt out, or <strong>HELP</strong> for help
+        ((914) 835-9066). Consent to receive texts is never required to place an order — you can always
+        check out without a phone number.
+      </p>
+      <p style={P}>
+        No mobile information will be shared with third parties/affiliates for marketing/promotional
+        purposes. All other categories exclude text messaging originator opt-in data and consent; this
+        information will not be shared with any third parties.
       </p>
 
       <h2 style={H2}>Who we share information with</h2>
@@ -120,11 +125,25 @@ export function TermsOfService() {
         (914) 835-9066 and we'll make it right.
       </p>
 
-      <h2 style={H2}>Text message terms</h2>
+      <h2 style={H2}>SMS / Mobile Messaging Terms</h2>
       <p style={P}>
-        If you opt in to order text messages, standard message and data rates may apply. Reply STOP to
-        cancel at any time; reply HELP for help. See our <a href="/privacy" style={BACK}>Privacy Policy</a> for
-        details on how we use your phone number.
+        <strong>Program name &amp; purpose.</strong> The Rani Mahal SMS program sends order status
+        notifications (confirmations, prep/delivery updates) and account/promotional notifications
+        (loyalty and win-back offers) to customers who opt in at checkout.
+      </p>
+      <p style={P}>
+        <strong>Message frequency.</strong> Message frequency varies based on your order activity.
+      </p>
+      <p style={P}>
+        <strong>Customer support.</strong> For help, call <strong>(914) 835-9066</strong>, email{" "}
+        <a href="mailto:orders@ranimahal.food" style={BACK}>orders@ranimahal.food</a>, or visit{" "}
+        <a href="https://ranimahal.food" style={BACK}>ranimahal.food</a>.
+      </p>
+      <p style={P}>
+        <strong>Standard disclosures.</strong> Message and data rates may apply. Reply <strong>STOP</strong> to
+        cancel at any time; reply <strong>HELP</strong> for help. Consent to receive texts is never required
+        to place an order. See our <a href="/privacy" style={BACK}>Privacy Policy</a> for details on how we
+        use your phone number, including our non-sharing commitment for mobile opt-in data.
       </p>
 
       <h2 style={H2}>Limitation of liability</h2>
