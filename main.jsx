@@ -51,7 +51,6 @@ const ROUTES = {
   "/privacy": () => <PrivacyPolicy />,
   "/terms":   () => <TermsOfService />,
   "/rewards": () => <Rewards />,
-  "/club":    () => <Rewards />,
   "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
   "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
