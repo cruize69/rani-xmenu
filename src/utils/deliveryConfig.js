@@ -205,11 +205,21 @@ export const SERVED_AREAS_MESSAGE =
   `We deliver to ${SERVED_TOWNS}. Your ZIP isn't in that list yet — pickup at ` +
   `327 Mamaroneck Ave is still available with no minimum.`;
 
+// Strips municipal designators off geocoder town names. The leading pattern
+// allows a SLASH-COMBINED run of designators, which the old single-word
+// version missed: OpenStreetMap returns Harrison — a Zone 1 served town — as
+// "Town/Village of Harrison" (NY genuinely incorporates it as both), and it
+// was flowing through uncleaned into the City field, the cart's "minimum for
+// {city}" line, the kitchen ticket, and the driver's address. Verified live
+// against the geocoder: "City of Rye", "Village of Port Chester" and
+// "City of White Plains" already cleaned fine; only the slash forms leaked.
+const MUNI_DESIGNATOR = "village|city|town|borough|township|hamlet";
+
 export function cleanTownName(name) {
   if (!name) return "";
   return String(name)
-    .replace(/^(village of|city of|town of|borough of|township of)\s+/i, "")
-    .replace(/\s+(village|city|town|borough|township)$/i, "")
+    .replace(new RegExp(`^(?:(?:${MUNI_DESIGNATOR})\\s*/\\s*)*(?:${MUNI_DESIGNATOR})\\s+of\\s+`, "i"), "")
+    .replace(new RegExp(`\\s+(?:${MUNI_DESIGNATOR})$`, "i"), "")
     .trim();
 }
 
