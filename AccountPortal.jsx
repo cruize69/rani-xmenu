@@ -451,6 +451,36 @@ function AccountPortalPage({
           </div>
         </div>
 
+        {/* Rani Royal Club Progress — the loyalty milestone (every 5th order
+            10% off) runs server-side off a monotonic order counter; this is
+            just a read-only reflection of that same math using totalOrders,
+            so it can never drift out of sync with what actually gets minted. */}
+        <div style={{ ...S.card, marginBottom: 16, background: "linear-gradient(145deg, #1c1610 0%, #12100e 100%)", border: "1px solid rgba(232,168,46,0.25)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 16 }}>👑</span>
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: "#E8A82E", margin: 0, letterSpacing: "0.04em" }}>Rani Royal Club</p>
+          </div>
+          {(() => {
+            const sinceLast = totalOrders % 5;
+            const toGo = totalOrders === 0 ? 1 : (sinceLast === 0 ? 5 : 5 - sinceLast);
+            const filled = totalOrders === 0 ? 0 : sinceLast;
+            return (
+              <>
+                <p style={{ fontSize: 12.5, color: "#D9CDBB", margin: "0 0 10px", lineHeight: 1.5 }}>
+                  {totalOrders === 0
+                    ? "Your first order gets 10% off automatically — you're already in."
+                    : <>Order <strong style={{ color: "#FAF6EF" }}>{toGo === 1 ? "1 more time" : `${toGo} more times`}</strong> for your next automatic <strong style={{ color: "#FAF6EF" }}>10% off</strong> voucher.</>}
+                </p>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: i < filled ? "#E8A82E" : "rgba(250,246,239,0.1)" }} />
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+
         {/* Active Order Spotlight */}
         {activeOrder && (
           <div style={{ background: "rgba(232,168,46,0.08)", border: "1px solid rgba(232,168,46,0.35)", borderRadius: 16, padding: "14px 16px", marginBottom: 16, boxShadow: "0 6px 20px rgba(232,168,46,0.1)" }}>

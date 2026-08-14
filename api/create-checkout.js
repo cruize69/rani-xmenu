@@ -178,6 +178,22 @@ export default async function handler(req, res) {
       }
     }
 
+    // Rani Royal Club, part 1: sign in before checkout and your FIRST order
+    // is 10% off automatically — no separate voucher to claim, no waiting.
+    // (Part 2 — 10% every 5th order after that — is handled in
+    // lib/orders.js's saveOrder, once the order is actually placed.) Only
+    // applies when no voucher discount is already active, so this can never
+    // stack with a reorder/referral/loyalty-milestone token in one checkout.
+    let welcomeDiscount = false;
+    if (!hasDiscount && clerkUserId) {
+      const priorOrderCount = await kv.llen(`account-orders:${clerkUserId}`);
+      if (priorOrderCount === 0) {
+        hasDiscount = true;
+        discountPct = 0.10;
+        welcomeDiscount = true;
+      }
+    }
+
     // Re-price every line item from the canonical menu — client-submitted
     // name/price/qty are never trusted.
     const validatedItems = [];
