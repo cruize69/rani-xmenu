@@ -451,7 +451,7 @@ function AccountPortalPage({
           </div>
         </div>
 
-        {/* Rani Royal Club Progress — the loyalty milestone (every 5th order
+        {/* Rani Royal Club Progress — the loyalty milestone (every 3rd order
             10% off) runs server-side off a monotonic order counter; this is
             just a read-only reflection of that same math using totalOrders,
             so it can never drift out of sync with what actually gets minted. */}
@@ -461,8 +461,9 @@ function AccountPortalPage({
             <p style={{ fontSize: 12.5, fontWeight: 700, color: "#E8A82E", margin: 0, letterSpacing: "0.04em" }}>Rani Royal Club</p>
           </div>
           {(() => {
-            const sinceLast = totalOrders % 5;
-            const toGo = totalOrders === 0 ? 1 : (sinceLast === 0 ? 5 : 5 - sinceLast);
+            const MILESTONE = 3;
+            const sinceLast = totalOrders % MILESTONE;
+            const toGo = totalOrders === 0 ? 1 : (sinceLast === 0 ? MILESTONE : MILESTONE - sinceLast);
             const filled = totalOrders === 0 ? 0 : sinceLast;
             return (
               <>
@@ -472,7 +473,7 @@ function AccountPortalPage({
                     : <>Order <strong style={{ color: "#FAF6EF" }}>{toGo === 1 ? "1 more time" : `${toGo} more times`}</strong> for your next automatic <strong style={{ color: "#FAF6EF" }}>10% off</strong> voucher.</>}
                 </p>
                 <div style={{ display: "flex", gap: 5 }}>
-                  {Array.from({ length: 5 }).map((_, i) => (
+                  {Array.from({ length: MILESTONE }).map((_, i) => (
                     <div key={i} style={{ flex: 1, height: 6, borderRadius: 3, background: i < filled ? "#E8A82E" : "rgba(250,246,239,0.1)" }} />
                   ))}
                 </div>

@@ -180,7 +180,7 @@ export default async function handler(req, res) {
 
     // Rani Royal Club, part 1: sign in before checkout and your FIRST order
     // is 10% off automatically — no separate voucher to claim, no waiting.
-    // (Part 2 — 10% every 5th order after that — is handled in
+    // (Part 2 — 10% every 3rd order after that — is handled in
     // lib/orders.js's saveOrder, once the order is actually placed.) Only
     // applies when no voucher discount is already active, so this can never
     // stack with a reorder/referral/loyalty-milestone token in one checkout.

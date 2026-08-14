@@ -194,7 +194,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
           <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
         </svg>
       </span>
-Sign in — 10% off your first order, then every 5th after
+Sign in — 10% off your first order, then every 3rd after
     </button>
   );
 }

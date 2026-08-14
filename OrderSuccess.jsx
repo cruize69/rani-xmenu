@@ -40,7 +40,7 @@ function AccountClaimCard({ email }) {
         </h4>
       </div>
       <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
-        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click. Your first signed-in order is automatically 10% off, then 10% off again every 5th order after that — no punch card, no tracking required.
+        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click. Your first signed-in order is automatically 10% off, then 10% off again every 3rd order after that — no punch card, no tracking required.
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
         <button
