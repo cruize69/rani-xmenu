@@ -3,6 +3,24 @@
 // login, so there was nothing to point at from receipts, Google Business,
 // social, or email. Deliberately static and dependency-free: no Clerk, no
 // KV, no fetch — it renders identically for a signed-out stranger.
+//
+// main.jsx's router is a plain `pathname -> component` lookup evaluated
+// once at load (see main.jsx), not a client-side SPA router — so a link
+// into this page (e.g. AccountPortal's "How the Rani Royal Club works")
+// is a real, hard navigation that unmounts the ordering app entirely. A
+// visitor who arrived that way had no way back except the browser's own
+// back button, which they may not trust or think to use, especially
+// coming from what looked like an in-app link.
+//
+// The fix has to work for two completely different audiences on the same
+// URL: someone who just left the ordering app (should get a way back to
+// exactly where they were), and someone who followed a link from a
+// receipt email, social post, or Google Business listing (has no "back"
+// state to return to — the page must render exactly as before for them,
+// CTA-first, no dead control). document.referrer is what tells them apart:
+// only same-origin referrers get the back control, so external entry is
+// completely unaffected.
+import { useState, useEffect } from "react";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
@@ -25,11 +43,34 @@ const TIERS = [
 ];
 
 export default function Rewards() {
+  // Same-origin referrer = arrived via an in-app link (AccountPortal today;
+  // wherever else links here later) and there's a real page to return to.
+  // No referrer, or a different origin (receipt email, social, Google
+  // Business, a bookmark) = nothing to go back to, so no control renders —
+  // that visitor's experience is byte-for-byte what it was before this fix.
+  const [showBack, setShowBack] = useState(false);
+  useEffect(() => {
+    try {
+      setShowBack(!!document.referrer && new URL(document.referrer).origin === window.location.origin);
+    } catch {}
+  }, []);
+
   return (
     <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
 
-      <div style={{ maxWidth: 620, margin: "0 auto", padding: "48px 20px 72px" }}>
+      {showBack && (
+        <div style={{ maxWidth: 620, margin: "0 auto", padding: "20px 20px 0" }}>
+          <button
+            onClick={() => window.history.back()}
+            style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 5, fontFamily: "'Inter',sans-serif" }}
+          >
+            ← Back
+          </button>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 620, margin: "0 auto", padding: `${showBack ? 28 : 48}px 20px 72px` }}>
 
         {/* Masthead */}
         <div style={{ textAlign: "center", marginBottom: 34 }}>
