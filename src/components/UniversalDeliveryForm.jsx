@@ -85,7 +85,17 @@ export function UniversalDeliveryForm({
         <label htmlFor="delivery-street" style={labelStyle}>Street Address *</label>
         <AddressAutocomplete
           street={street}
-          setStreet={(val) => update({ street: val })}
+          // Verified live on production: editing the street text after an
+          // address was already selected left the OLD city/zip in place —
+          // "15 Chatsworth Ave" (a real Larchmont/10538 street) stayed
+          // stamped "Mamaroneck, 10543" from a prior selection, still
+          // showing "Eligible for Delivery ✓", with no re-validation tying
+          // the three fields together. Any manual edit to the street now
+          // clears city/zip immediately, so the eligibility badge disappears
+          // until the customer either picks a fresh suggestion (which sets
+          // all three atomically via onSelectAddress below) or retypes a
+          // city/zip that actually matches what they just typed.
+          setStreet={(val) => update({ street: val, city: "", zip: "" })}
           city={city}
           setCity={(val) => update({ city: val })}
           zip={zip}
