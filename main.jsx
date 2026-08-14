@@ -22,6 +22,11 @@ installGlobalErrorReporting();
 // Order confirmation is public — Stripe's success_url redirects here.
 const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 
+// Rani Royal Club explainer — public and linkable so the program can be
+// pointed at from receipts, Google Business, and social. Previously its
+// mechanics were only visible after signing in, so nothing could link to it.
+const Rewards = lazy(() => import("./Rewards.jsx"));
+
 // Privacy/Terms — public, linked from checkout SMS consent + A2P registration.
 const PrivacyPolicy  = lazy(() => import("./Legal.jsx").then(m => ({ default: m.PrivacyPolicy })));
 const TermsOfService = lazy(() => import("./Legal.jsx").then(m => ({ default: m.TermsOfService })));
@@ -45,6 +50,8 @@ const ROUTES = {
   "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
   "/privacy": () => <PrivacyPolicy />,
   "/terms":   () => <TermsOfService />,
+  "/rewards": () => <Rewards />,
+  "/club":    () => <Rewards />,
   "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
   "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,

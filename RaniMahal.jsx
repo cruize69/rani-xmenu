@@ -11,7 +11,7 @@ import { ItemModal } from "./src/components/ItemCustomizerModal.jsx";
 import { CartDrawer, CheckoutGate, Notice } from "./src/components/CartDrawer.jsx";
 import { RaniHeader } from "./src/components/RaniHeader.jsx";
 import { FulfillmentSheet } from "./src/components/FulfillmentSheet.jsx";
-import { calcDeliveryFee } from "./src/utils/deliveryConfig.js";
+import { calcDeliveryFee, DELIVERY_CONFIG, getDeliveryZoneForZip } from "./src/utils/deliveryConfig.js";
 
 // ── Fonts & Design Tokens ──────────────────────────────────────────
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
@@ -707,7 +707,38 @@ export default function RaniMahal() {
       <Notice message={notice} onDismiss={dismissNotice} />
 
       {itemCount > 0 && (
-        <div style={{ position:"fixed", bottom:12, left:0, right:0, margin:"0 auto", width:"calc(100% - 2rem)", maxWidth:640, background:"rgba(18,16,14,0.57)", backdropFilter:"blur(20px) saturate(180%)", WebkitBackdropFilter:"blur(20px) saturate(180%)", padding:"10px 1.25rem", zIndex:200, borderRadius:16, border:"1px solid rgba(250,246,239,0.14)", boxShadow:"0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,168,46,0.15)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+        <div style={{ position:"fixed", bottom:12, left:0, right:0, margin:"0 auto", width:"calc(100% - 2rem)", maxWidth:640, background:"rgba(18,16,14,0.57)", backdropFilter:"blur(20px) saturate(180%)", WebkitBackdropFilter:"blur(20px) saturate(180%)", padding:"10px 1.25rem", zIndex:200, borderRadius:16, border:"1px solid rgba(250,246,239,0.14)", boxShadow:"0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,168,46,0.15)", display:"flex", flexDirection:"column", gap:8 }}>
+          {/* Delivery cost/threshold status — read-only, no taps added. Price
+              shoppers were reaching checkout without ever seeing the fee or
+              the minimum because both only lived inside the fulfillment sheet.
+              Pickup carries no fee or minimum, so this stays delivery-only. */}
+          {orderMode === "delivery" && (() => {
+            const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
+            const zoneMin = zone?.minOrder ?? DELIVERY_CONFIG.DEFAULT_MINIMUM;
+            const toMin = zoneMin - subtotal;
+            const toFree = DELIVERY_CONFIG.FREE_THRESHOLD - subtotal;
+            const pct = Math.max(0, Math.min(1, subtotal / zoneMin));
+            return (
+              <div style={{ borderBottom:"0.5px solid rgba(250,246,239,0.10)", paddingBottom:8 }}>
+                <p style={{ fontSize:11.5, color: toMin > 0 ? "#B8A995" : "#9CD684", lineHeight:1.4, marginBottom: toMin > 0 ? 6 : 0 }}>
+                  {toMin > 0 ? (
+                    <>Add <strong style={{ color:"#E8A82E" }}>{fmt(toMin)}</strong> to reach the {fmt(zoneMin)} delivery minimum{deliveryAddress?.city ? ` for ${deliveryAddress.city}` : ""}.</>
+                  ) : toFree > 0 ? (
+                    <>✓ Minimum met · {fmt(DELIVERY_CONFIG.FEE)} delivery — add <strong style={{ color:"#E8A82E" }}>{fmt(toFree)}</strong> for free delivery.</>
+                  ) : (
+                    <>✓ Minimum met · <strong style={{ color:"#9CD684" }}>free delivery</strong> unlocked.</>
+                  )}
+                </p>
+                {toMin > 0 && (
+                  <div style={{ height:3, borderRadius:2, background:"rgba(250,246,239,0.10)", overflow:"hidden" }}>
+                    <div style={{ width:`${pct * 100}%`, height:"100%", background:"#E8A82E", transition:"width 0.25s ease" }} />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0, flex:1 }}>
             {/* Item Thumbnail Avatar Stack */}
             <div style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
@@ -749,6 +780,7 @@ export default function RaniMahal() {
             style={{ background:"#E8A82E", border:"none", color:"#080706", fontSize:14, fontWeight:600, padding:"12px 20px", borderRadius:30, cursor:"pointer", transition:"background 0.15s", flexShrink:0, whiteSpace:"nowrap" }}>
             View order →
           </button>
+          </div>
         </div>
       )}
 

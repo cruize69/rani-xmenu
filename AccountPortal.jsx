@@ -276,10 +276,13 @@ function AccountPortalPage({
               style={{ width: 68, height: 68, objectFit: "contain", margin: "0 auto 14px", display: "block" }}
             />
             <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 22, color: "#FAF6EF", margin: 0, fontWeight: 500 }}>
-              Sign In to View Your Orders
+              Sign In & Save 10%
             </h2>
+            {/* Lead with the offer, not the opt-out. The previous copy ended
+                on "no account needed", which talked people out of the very
+                thing this screen exists to convert. */}
             <p style={{ fontSize: 13, color: "#B8A995", marginTop: 6, lineHeight: 1.55 }}>
-              One tap saves your history, favorites & 1-tap reorders. Guests still get email tracking — no account needed.
+              Your first signed-in order is <strong style={{ color: "#E8A82E" }}>10% off</strong>, then 10% off again every 3rd order — plus saved history and 1-tap reorders.
             </p>
           </div>
 
@@ -312,6 +315,9 @@ function AccountPortalPage({
           )}
 
           <div style={{ marginTop: 12, textAlign: "center" }}>
+            <a href="/rewards" style={{ display: "block", fontSize: 12.5, color: "#E8A82E", textDecoration: "none", fontWeight: 600, marginBottom: 12 }}>
+              How the Rani Royal Club works →
+            </a>
             <button onClick={onStartOrder} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer" }}>
               ← Return to Menu
             </button>

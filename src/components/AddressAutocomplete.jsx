@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { isZipInDeliveryZone, cleanTownName } from "../utils/deliveryConfig.js";
+import { isZipInDeliveryZone, cleanTownName, lookupTownByZip } from "../utils/deliveryConfig.js";
 
 // Curated Westchester County & Fairfield County local street dataset
 const POPULAR_WESTCHESTER_STREETS = [
@@ -171,15 +171,24 @@ export function AddressAutocomplete({
   };
 
   const handleSelect = (item) => {
+    // Nominatim sometimes returns an address with no city/town/village field
+    // at all. The old code did `if (cleanedCity) setCity(...)`, which in that
+    // case left City silently blank — or, worse, left the city from a PREVIOUS
+    // selection stamped on the new street. Derive from the ZIP when the
+    // geocoder gives us nothing, and always write both fields so a selection
+    // can never inherit stale values.
     const cleanedCity = cleanTownName(item.city);
+    const zipCode = item.zip || "";
+    const finalCity = cleanedCity || cleanTownName(lookupTownByZip(zipCode)?.city || "");
+
     setStreet(item.street);
-    if (cleanedCity) setCity(cleanedCity);
-    if (item.zip) setZip(item.zip);
+    setCity(finalCity);
+    setZip(zipCode);
 
     onSelectAddress?.({
       street: item.street,
-      city: cleanedCity,
-      zip: item.zip,
+      city: finalCity,
+      zip: zipCode,
       state: item.state || "NY",
     });
 
