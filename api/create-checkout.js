@@ -188,9 +188,48 @@ export default async function handler(req, res) {
     if (!hasDiscount && clerkUserId) {
       const priorOrderCount = await kv.llen(`account-orders:${clerkUserId}`);
       if (priorOrderCount === 0) {
-        hasDiscount = true;
-        discountPct = 0.10;
-        welcomeDiscount = true;
+        // Someone who ordered as a guest and THEN signed up would otherwise
+        // read as "0 prior orders" on their brand-new account and get a
+        // second welcome discount for the same person. Their guest orders
+        // are indexed under their email — reuse the same verified-email
+        // lookup account/profile.js already does to fold guest history in
+        // — and treat any hit as disqualifying. Free (an existing KV read
+        // against a Clerk-verified email), frictionless (no action from the
+        // customer), and closes the most likely real-world leak.
+        let priorGuestOrders = 0;
+        try {
+          const clerkUser = await clerk.users.getUser(clerkUserId);
+          const email = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+            ?? clerkUser.emailAddresses?.[0]?.emailAddress ?? null;
+          if (email) {
+            priorGuestOrders = await kv.llen(`account-orders:guest:${email.toLowerCase().trim()}`);
+          }
+        } catch {}
+
+        if (priorGuestOrders === 0) {
+          // Same TOCTOU class the voucher claim above already closes: two
+          // concurrent checkouts from a brand-new account would otherwise
+          // both read priorOrderCount === 0 (account-orders is only written
+          // AFTER payment) and both get the discount. One atomic claim per
+          // account settles it; the 2h TTL matches reorder-claim's window so
+          // an abandoned (never-paid) checkout doesn't lock the real welcome
+          // discount out permanently.
+          //
+          // Also caps how many *distinct new accounts* one IP can claim a
+          // welcome discount for in a day — the closest thing to a
+          // frictionless brake on account-farming. It can't stop farming
+          // across many IPs/emails (nothing short of ID verification can),
+          // but it costs real customers nothing and throttles a bulk script.
+          // Checked before claiming, not after — a rate-limited request
+          // must never consume the one-time claim for nothing.
+          const ipOk = !(await overLimit(`welcome-rl:ip:${clientIp(req)}`, 3, 24 * 60 * 60));
+          const claimed = ipOk && await kv.set(`welcome-claim:${clerkUserId}`, "1", { nx: true, ex: 7200 });
+          if (claimed) {
+            hasDiscount = true;
+            discountPct = 0.10;
+            welcomeDiscount = true;
+          }
+        }
       }
     }
 
@@ -330,6 +369,7 @@ export default async function handler(req, res) {
         ...metaCart,
         specialInstructions: (specialInstructions ?? "").slice(0, 500),
         clerkUserId:         (clerkUserId  ?? "").slice(0, 500),
+        welcomeDiscount:     welcomeDiscount ? "1" : "",
         guestEmail:          (guestEmail   ?? "").slice(0, 500),
         tip:                 tip.toFixed(2),
         orderMode:           isDelivery ? "delivery" : "pickup",

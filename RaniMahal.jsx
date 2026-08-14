@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
 import { getOpenStatus, getUpcomingWindows, formatTime } from "./lib/hours.js";
 import { trackEvent, getStoredUtm } from "./src/utils/analytics.js";
@@ -17,6 +18,7 @@ import { calcDeliveryFee, DELIVERY_CONFIG, getDeliveryZoneForZip } from "./src/u
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 const fmt = (n) => "$" + n.toFixed(2);
 const TAX = TAX_RATE;
+const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 const css = `
 @import url('${FONT_LINK}');
@@ -172,6 +174,34 @@ export default function RaniMahal() {
   const [reorderToken, setReorderToken]       = useState(() => localStorage.getItem("reorder_discount_token") || "");
   const draftIdRef = useRef(null);
   if (!draftIdRef.current) draftIdRef.current = loadOrCreateDraftId();
+
+  // Rani Royal Club, part 1 (client mirror): the real grant decision is
+  // server-side (api/create-checkout.js — atomic claim, guest-email-history
+  // check, IP rate limit). This is only a display hint so a signed-in,
+  // never-ordered customer sees "10% off" in the cart BEFORE Stripe instead
+  // of discovering it on the payment page. /api/account/profile already
+  // folds a Clerk account's prior GUEST orders into totalOrders (matched by
+  // verified email), so this reads the same signal the server checks.
+  // CLERK_ENABLED is a build-time constant — see CartDrawer.jsx's identical
+  // guard for why conditioning these hooks on it is safe.
+  const { isSignedIn: clerkIsSignedIn, user: clerkUser } = CLERK_ENABLED ? useUser() : { isSignedIn: false, user: null };
+  const clerkAuth = CLERK_ENABLED ? useClerk() : null;
+  const [welcomeEligible, setWelcomeEligible] = useState(false);
+  useEffect(() => {
+    if (!clerkIsSignedIn || !clerkUser || !clerkAuth) { setWelcomeEligible(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await clerkAuth.session?.getToken();
+        if (!token) return;
+        const res = await fetch("/api/account/profile", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setWelcomeEligible((data?.stats?.totalOrders ?? 1) === 0);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [clerkIsSignedIn, clerkUser?.id, clerkAuth]);
 
   // Open/closed awareness — recomputed every minute so the banner and
   // schedule picker never drift stale during a long-open tab.
@@ -503,19 +533,26 @@ export default function RaniMahal() {
     setShowCheckoutGate(true);
   };
 
-  const { entries, itemCount, subtotal, reorderDiscountAmt, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
+  const { entries, itemCount, subtotal, reorderDiscountAmt, discountLabel, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
     const entriesList = Object.values(cart);
     const count       = entriesList.reduce((s,v)=>s+v.qty, 0);
     const rawSub      = entriesList.reduce((s,v)=>s+v.price*v.qty, 0);
-    const discAmt     = reorderDiscount > 0 ? parseFloat((rawSub * reorderDiscount).toFixed(2)) : 0;
+    // A voucher/referral token always wins if present — welcome is a
+    // fallback display for a signed-in, never-ordered customer with no
+    // token active. Mirrors the !hasDiscount gate in create-checkout.js so
+    // the cart can't show a discount the server wouldn't actually grant.
+    const showWelcome = reorderDiscount === 0 && welcomeEligible;
+    const effectiveDiscount = reorderDiscount > 0 ? reorderDiscount : (showWelcome ? 0.10 : 0);
+    const discAmt     = effectiveDiscount > 0 ? parseFloat((rawSub * effectiveDiscount).toFixed(2)) : 0;
+    const label       = reorderDiscount > 0 ? "👑 10% Return Guest Discount" : "🎉 10% First-Order Discount";
     const sub         = rawSub - discAmt;
     const fee         = orderMode === "delivery" ? calcDeliveryFee(sub) : 0;
     const taxAmt      = sub * TAX;
     const tipAmt      = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : rawSub * tipPct;
     const cardFee     = count > 0 ? parseFloat(((sub + fee + taxAmt + tipAmt + 0.30) / (1 - 0.029) - (sub + fee + taxAmt + tipAmt)).toFixed(2)) : 0;
     const totalAmt    = sub + fee + taxAmt + tipAmt + cardFee;
-    return { entries: entriesList, itemCount: count, subtotal: rawSub, reorderDiscountAmt: discAmt, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
-  }, [cart, orderMode, tipPct, tipCustom, reorderDiscount]);
+    return { entries: entriesList, itemCount: count, subtotal: rawSub, reorderDiscountAmt: discAmt, discountLabel: label, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
+  }, [cart, orderMode, tipPct, tipCustom, reorderDiscount, welcomeEligible]);
 
   const section = SECTIONS.find(s=>s.id===activeSection);
 
@@ -653,6 +690,8 @@ export default function RaniMahal() {
           reorderToken={reorderToken}
           scheduledFor={scheduledFor}
           utm={getStoredUtm()}
+          welcomeEligible={reorderDiscount === 0 && welcomeEligible}
+          onWelcomeDiscount={() => showNotice("🎉 Welcome! 10% off your first order is applied — redirecting to secure payment...")}
         />
       )}
 
@@ -797,6 +836,7 @@ export default function RaniMahal() {
         setTipCustom={setTipCustom}
         subtotal={subtotal}
         reorderDiscountAmt={reorderDiscountAmt}
+        discountLabel={discountLabel}
         reorderToken={reorderToken}
         tax={tax}
         tip={tip}

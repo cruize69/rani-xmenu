@@ -219,6 +219,8 @@ export function CheckoutGate({
   reorderToken = null,
   scheduledFor = null,
   utm = {},
+  welcomeEligible = false,
+  onWelcomeDiscount,
 }) {
   const { handleProps, sheetStyle } = useSwipeToClose(onCancel);
   // Guest email is the default screen — sign-in is offered as a compact
@@ -427,7 +429,17 @@ export function CheckoutGate({
                       whiteSpace:"nowrap",
                     }}
                     disabled={loading}
-                    onSignedIn={clerkUserId => goToStripe({ clerkUserId })}
+                    onSignedIn={clerkUserId => {
+                      // Eligibility is already known (RaniMahal.jsx checked
+                      // /api/account/profile the moment this session signed
+                      // in), so this fires the celebratory toast with zero
+                      // extra round-trip and zero added tap before the
+                      // automatic Stripe redirect below. This also covers
+                      // an ALREADY-signed-in customer: ClerkSignInButton's
+                      // effect fires onSignedIn on mount in that case too.
+                      if (welcomeEligible) onWelcomeDiscount?.();
+                      goToStripe({ clerkUserId });
+                    }}
                   />
                 </div>
               )}
@@ -496,6 +508,7 @@ export function CartDrawer({
   setTipCustom,
   subtotal,
   reorderDiscountAmt = 0,
+  discountLabel = "👑 10% Return Guest Discount",
   reorderToken = "",
   tax,
   tip,
@@ -604,7 +617,7 @@ export function CartDrawer({
               <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
                 {[
                   ["Subtotal", fmt(subtotal), false],
-                  reorderDiscountAmt > 0 ? ["👑 10% Return Guest Discount", `-${fmt(reorderDiscountAmt)}`, false] : null,
+                  reorderDiscountAmt > 0 ? [discountLabel, `-${fmt(reorderDiscountAmt)}`, false] : null,
                   isDelivery ? ["Delivery fee ($6.99 | Free over $99)", deliveryFee === 0 ? "FREE" : fmt(6.99), false] : null,
                   ["Tax (est. 8.375%)", fmt(tax), false],
                   ["Tip", fmt(tip), false],
