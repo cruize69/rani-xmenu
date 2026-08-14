@@ -83,11 +83,16 @@ export function CompleteMealRail({ cart, onQty, images }) {
   );
 }
 
+// Includes "No tip" at parity with pickup below — previously delivery was
+// the only mode where reaching $0 took an extra tap into Custom. The
+// 18% default itself stays (it's a fair, honest default, not the
+// friction) — what changes is how visible and reachable every other
+// option is next to it.
 const DELIVERY_TIP_OPTIONS = [
+  { key: 0,    label: "No tip" },
   { key: 0.15, label: "15%" },
   { key: 0.18, label: "18%" },
   { key: 0.20, label: "20%" },
-  { key: 0.25, label: "25%" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -102,6 +107,10 @@ const PICKUP_TIP_OPTIONS = [
 export function TipSelector({ tipPct, setTipPct, tipCustom, setTipCustom, subtotal, orderMode = "pickup" }) {
   const isDelivery = orderMode === "delivery";
   const options = isDelivery ? DELIVERY_TIP_OPTIONS : PICKUP_TIP_OPTIONS;
+  // Delivery pre-selects 18% (a fair, common default) rather than starting
+  // at zero — this badge just makes that visible as a default rather than
+  // a silent pre-check, and every option including "No tip" is one tap away.
+  const isUntouchedDefault = isDelivery && tipPct === 0.18;
 
   return (
     <div style={{ padding:"12px 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
@@ -116,14 +125,23 @@ export function TipSelector({ tipPct, setTipPct, tipCustom, setTipCustom, subtot
       <div style={{ display:"flex", gap:6 }}>
         {options.map(opt => {
           const active = tipPct === opt.key;
+          const amount = typeof opt.key === "number" && opt.key > 0 ? fmt(subtotal * opt.key) : null;
           return (
             <button key={opt.key} onClick={() => setTipPct(opt.key)}
-              style={{ flex:1, padding:"9px 4px", borderRadius:8, border:`1.5px solid ${active?"#E8A82E":"rgba(250,246,239,0.1)"}`, background:active?"rgba(232,168,46,0.12)":"#1c1814", color:active?"#E8A82E":"#FAF6EF", fontSize:12.5, fontWeight:500 }}>
-              {opt.label}
+              style={{ flex:1, padding:"8px 4px 7px", borderRadius:8, border:`1.5px solid ${active?"#E8A82E":"rgba(250,246,239,0.1)"}`, background:active?"rgba(232,168,46,0.12)":"#1c1814", color:active?"#E8A82E":"#FAF6EF", display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+              <span style={{ fontSize:12.5, fontWeight:600 }}>{opt.label}</span>
+              {/* Real dollar amount under every percentage — no mental math
+                  needed to see what a tap actually costs before committing. */}
+              <span style={{ fontSize:10, fontWeight:400, opacity: active ? 0.85 : 0.6 }}>{amount ?? " "}</span>
             </button>
           );
         })}
       </div>
+      {isUntouchedDefault && (
+        <p style={{ fontSize:10.5, color:"#8A7560", margin:"7px 0 0" }}>
+          18% suggested — tap any option above to change it, including <strong style={{ color:"#B8A995" }}>No tip</strong>.
+        </p>
+      )}
       {tipPct === "custom" && (
         <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
           <span style={{ fontSize:14, color:"#B8A995" }}>$</span>
@@ -131,7 +149,7 @@ export function TipSelector({ tipPct, setTipPct, tipCustom, setTipCustom, subtot
             style={{ flex:1, padding:"8px 12px", borderRadius:8, border:"1px solid rgba(250,246,239,0.12)", background:"#1c1814", color:"#FAF6EF", fontSize:14, outline:"none", fontFamily:"'Inter',sans-serif" }} />
         </div>
       )}
-      {typeof tipPct === "number" && tipPct > 0 && (
+      {typeof tipPct === "number" && tipPct > 0 && !isUntouchedDefault && (
         <p style={{ fontSize:11, color:"#B8A995", marginTop:6 }}>{fmt(subtotal * tipPct)} ({Math.round(tipPct * 100)}%) tip on this order</p>
       )}
     </div>
@@ -354,6 +372,33 @@ export function CheckoutGate({
             <DeliveryIcon size={15} color={orderMode==="delivery" ? "#E8A82E" : "#B8A995"} /> Delivery (45–60m)
           </button>
         </div>
+
+        {/* Delivery minimum — always visible the moment Delivery is
+            selected here, not just inside the fulfillment sheet. Verified
+            live: a customer could reach this exact toggle, switch to
+            Delivery, and only discover the $50+ minimum after filling in a
+            full address at the final step. */}
+        {orderMode === "delivery" && (() => {
+          const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
+          const zoneMin = zone?.minOrder ?? DELIVERY_CONFIG.DEFAULT_MINIMUM;
+          const belowMin = subtotal < zoneMin;
+          return (
+            <div style={{
+              margin: "10px 20px 0", padding: "9px 13px", borderRadius: 10,
+              fontSize: 12, lineHeight: 1.4,
+              background: belowMin ? "rgba(232,168,46,0.1)" : "rgba(74,222,128,0.08)",
+              border: `0.5px solid ${belowMin ? "rgba(232,168,46,0.3)" : "rgba(74,222,128,0.25)"}`,
+              color: belowMin ? "#E8A82E" : "#4ADE80",
+            }}>
+              {zone
+                ? (belowMin
+                    ? <>Delivery to <strong>{deliveryAddress.city}</strong> needs a <strong>{fmt(zoneMin)}</strong> minimum — add <strong>{fmt(zoneMin - subtotal)}</strong> more.</>
+                    : <>✓ Minimum met for delivery to <strong>{deliveryAddress.city}</strong>.</>)
+                : <>Delivery requires a <strong>$50–$70</strong> minimum depending on your address · $6.99 fee, free over $99.</>
+              }
+            </div>
+          );
+        })()}
 
         <div style={{ padding:"16px 20px 32px" }}>
           {step === "guest-email" && (

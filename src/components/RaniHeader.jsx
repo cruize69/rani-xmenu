@@ -30,10 +30,41 @@ export function RaniHeader({
             desktop widths, so left untouched above 640px. */}
         <style>{`
           @media (max-width: 640px) {
-            .rm-header-namerow { padding-left: 40px !important; padding-right: 72px !important; }
+            .rm-header-namerow { padding-left: 72px !important; padding-right: 72px !important; }
           }
         `}</style>
         <div className="rm-header-namerow" style={{ position:"relative", padding:"14px 56px 8px", display:"flex", alignItems:"center", justifyContent:"center", gap:16 }}>
+          {/* Call/help — top-left corner, mirrors the account chip on the
+              right. Every persona in the ordering-flow review cited having
+              no visible fallback if something went wrong as a reason to
+              hesitate — this is the fix, placed as a matched pair with the
+              account icon rather than crowded into the same corner. */}
+          <a href="tel:9148359066" aria-label="Call Rani Mahal: (914) 835-9066"
+            style={{
+              position: "absolute",
+              top: 19,
+              left: 16,
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              background: "rgba(232,168,46,0.10)",
+              border: "1px solid rgba(232,168,46,0.30)",
+              color: "#E8A82E",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              textDecoration: "none",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E8A82E"; e.currentTarget.style.background = "rgba(232,168,46,0.18)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(232,168,46,0.30)"; e.currentTarget.style.background = "rgba(232,168,46,0.10)"; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.4 1L7.2 10a12 12 0 0 0 5.8 5.8l1.2-1.5c.2-.3.6-.5 1-.4l3 .8c.5.1.8.5.8 1V18c0 .6-.4 1-1 1h-1C9.7 19 4 13.3 4 6V5Z" />
+            </svg>
+          </a>
+
           {/* Account / Sign In Chip — top-right corner, icon-only so it stays
               out of the centered logo/name's way at any width */}
           <button onClick={() => setView("account")} aria-label="Account & orders"
