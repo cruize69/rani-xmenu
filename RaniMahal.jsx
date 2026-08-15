@@ -377,10 +377,11 @@ export default function RaniMahal() {
         .then(r => r.ok ? r.json() : Promise.reject(r.text()))
         .then(data => {
           if (!data?.token) return;
-          setReorderDiscount(0.10);
+          const pct = typeof data.discountPct === "number" ? data.discountPct : 0.10;
+          setReorderDiscount(pct);
           setReorderToken(data.token);
           localStorage.setItem("reorder_discount_token", data.token);
-          showNotice("🎉 Welcome! Enjoy 10% off your first order, on us.");
+          showNotice(`🎉 Welcome! Enjoy ${Math.round(pct * 100)}% off your first order, on us.`);
         })
         .catch(() => {
           showNotice("⚠️ That invite link has expired.");
@@ -397,29 +398,49 @@ export default function RaniMahal() {
       fetch(`/api/reorder-claim?token=${token}`)
         .then(r => r.ok ? r.json() : Promise.reject(r.text()))
         .then(data => {
-          if (!data || !data.items || data.items.length === 0) return;
-          setCart(() => {
-            const next = {};
-            data.items.forEach(item => {
-              const isQA = item.baseId.startsWith("qa-");
-              const canonical = isQA ? QA[item.baseId] : ITEM_MAP[item.baseId];
-              if (!canonical) return;
-              const key = isQA ? item.baseId : item.baseId + "_1";
-              next[key] = {
-                name: canonical.name,
-                price: canonical.price,
-                qty: item.qty,
-                spice: item.spice ?? null,
-                note: item.note ?? "",
-                baseId: item.baseId,
-              };
+          if (!data) return;
+          // Real per-order reorder tokens (the receipt's "Reorder & Save"
+          // link) carry the original items; every OTHER voucher type minted
+          // through mintVoucherToken — win-back, second-order-push,
+          // referral-reward — defaults items to [] because there's no past
+          // order to replay, just a discount. The discount itself must
+          // still apply in that case. This used to bail out entirely
+          // whenever items was empty: the token/discount state never got
+          // set, so the customer saw nothing happen on click and the
+          // discount silently never reached checkout — a real, confirmed
+          // bug affecting every win-back, second-order-push, and
+          // referral-reward link ever sent. Verified live against a freshly
+          // minted voucher before this fix: the API correctly returned
+          // items: [], and this exact bail-out condition was the failure.
+          const hasItems = Array.isArray(data.items) && data.items.length > 0;
+          if (hasItems) {
+            setCart(() => {
+              const next = {};
+              data.items.forEach(item => {
+                const isQA = item.baseId.startsWith("qa-");
+                const canonical = isQA ? QA[item.baseId] : ITEM_MAP[item.baseId];
+                if (!canonical) return;
+                const key = isQA ? item.baseId : item.baseId + "_1";
+                next[key] = {
+                  name: canonical.name,
+                  price: canonical.price,
+                  qty: item.qty,
+                  spice: item.spice ?? null,
+                  note: item.note ?? "",
+                  baseId: item.baseId,
+                };
+              });
+              return next;
             });
-            return next;
-          });
-          setReorderDiscount(0.10);
+          }
+          const pct = typeof data.discountPct === "number" ? data.discountPct : 0.10;
+          setReorderDiscount(pct);
           setReorderToken(token);
           localStorage.setItem("reorder_discount_token", token);
-          showNotice("Welcome Back! 👑 10% Return Guest Discount Applied.");
+          const pctLabel = `${Math.round(pct * 100)}%`;
+          showNotice(hasItems
+            ? `Welcome Back! 👑 ${pctLabel} Return Guest Discount Applied.`
+            : `🎉 ${pctLabel} off is applied to your order — add items to your cart to use it.`);
         })
         .catch(() => {
           showNotice("⚠️ Reorder voucher has expired or been redeemed.");
@@ -472,15 +493,14 @@ export default function RaniMahal() {
     const storedToken = localStorage.getItem("reorder_discount_token");
     if (storedToken && !reorderToken) {
       fetch(`/api/reorder-claim?token=${storedToken}`)
-        .then(r => {
-          if (r.ok) {
-            setReorderDiscount(0.10);
-            setReorderToken(storedToken);
-          } else {
-            localStorage.removeItem("reorder_discount_token");
-          }
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          setReorderDiscount(typeof data.discountPct === "number" ? data.discountPct : 0.10);
+          setReorderToken(storedToken);
         })
-        .catch(() => {});
+        .catch(() => {
+          localStorage.removeItem("reorder_discount_token");
+        });
     }
   }, [reorderToken]);
 
@@ -598,7 +618,14 @@ export default function RaniMahal() {
     const showWelcome = reorderDiscount === 0 && welcomeEligible;
     const effectiveDiscount = reorderDiscount > 0 ? reorderDiscount : (showWelcome ? 0.10 : 0);
     const discAmt     = effectiveDiscount > 0 ? parseFloat((rawSub * effectiveDiscount).toFixed(2)) : 0;
-    const label       = reorderDiscount > 0 ? "👑 10% Return Guest Discount" : "🎉 10% First-Order Discount";
+    // Built from the actual applied rate, not hardcoded — every voucher
+    // minted today happens to be 10%, but reorderDiscount now genuinely
+    // varies (api/reorder-claim.js returns the real discountPct per
+    // voucher), so a hardcoded "10%" here would misrepresent the discount
+    // the moment any future voucher used a different rate. This label is
+    // exactly what "visibly announces the discount" depends on being right.
+    const pctLabel    = `${Math.round(effectiveDiscount * 100)}%`;
+    const label       = reorderDiscount > 0 ? `👑 ${pctLabel} Return Guest Discount` : `🎉 ${pctLabel} First-Order Discount`;
     const sub         = rawSub - discAmt;
     const fee         = orderMode === "delivery" ? calcDeliveryFee(sub) : 0;
     const taxAmt      = sub * TAX;

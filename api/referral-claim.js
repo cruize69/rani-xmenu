@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       meta: { source: "referral", referrerOrderId: source.orderId },
     });
 
-    return res.status(200).json({ token: voucher.token, expiresAt: voucher.expiresAt });
+    return res.status(200).json({ token: voucher.token, discountPct: 0.10, expiresAt: voucher.expiresAt });
   } catch (err) {
     console.error("Referral claim error:", err);
     return res.status(500).json({ error: "Server error processing invite link." });

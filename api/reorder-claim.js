@@ -42,10 +42,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "This reorder voucher has expired (valid for 14 days)." });
     }
 
-    // Valid and unused! Return original items list
+    // Valid and unused! Return the original items list (real per-order
+    // reorder tokens) AND the discount rate — every current voucher type
+    // happens to mint at 10%, but the client should never have to assume
+    // that. Returning it here is what lets the UI announce the actual
+    // rate instead of a hardcoded guess that could silently diverge from
+    // what checkout actually charges.
     return res.status(200).json({
       orderId: tokenData.orderId,
       items: tokenData.items,
+      discountPct: typeof tokenData.discountPct === "number" ? tokenData.discountPct : 0.10,
       expiresAt: tokenData.expiresAt,
     });
 
