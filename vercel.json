@@ -9,7 +9,8 @@
     { "path": "/api/cron/sweep-abandoned-carts", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/promote-scheduled-orders", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/review-nudge", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/win-back-lapsed", "schedule": "0 16 * * *" }
+    { "path": "/api/cron/win-back-lapsed", "schedule": "0 16 * * *" },
+    { "path": "/api/cron/second-order-push", "schedule": "0 15 * * *" }
   ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
