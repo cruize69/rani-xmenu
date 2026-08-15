@@ -191,11 +191,20 @@ export default async function handler(req, res) {
     // (10% every order). A flat 5% on every order matches the field and is
     // computable in a customer's head, which none of the points programs are.
     //
-    // Gated on !hasDiscount so it can never stack with a reorder, referral,
-    // or abandoned-cart voucher — those are worth more, so they win.
+    // Never stacks with a reorder/referral/abandoned-cart voucher — but the
+    // comparison is an explicit "take whichever is worth more," not just
+    // "skip the club whenever any voucher exists." Every voucher in this
+    // codebase happens to mint at 10% today, same as the welcome rate, so
+    // the two approaches currently produce identical output — but a
+    // skip-on-any-voucher gate would silently apply a smaller future
+    // voucher over a customer's rightful 5% member rate if one were ever
+    // minted below that. Comparing values instead of presence closes that
+    // off by construction rather than by every voucher happening to agree.
+    const currentPct = hasDiscount ? discountPct : 0;
+
     let welcomeDiscount = false;
     let memberDiscount = false;
-    if (!hasDiscount && clerkUserId) {
+    if (clerkUserId) {
       const priorAccountOrders = await kv.llen(`account-orders:${clerkUserId}`);
 
       // Someone who ordered as a guest and THEN signed up would otherwise
@@ -217,7 +226,13 @@ export default async function handler(req, res) {
         } catch {}
       }
 
-      if (priorAccountOrders === 0 && priorGuestOrders === 0) {
+      // The 0.10 > currentPct check is what makes this "take the larger,"
+      // not "take the welcome rate whenever eligible." It also protects the
+      // one-time welcome claim itself: if an active voucher is already
+      // worth 10% or more, there's no reason to burn the claim on an order
+      // where it wouldn't even be the winning rate — it stays available for
+      // a later order that doesn't carry a voucher.
+      if (priorAccountOrders === 0 && priorGuestOrders === 0 && 0.10 > currentPct) {
         // Same TOCTOU class the voucher claim above already closes: two
         // concurrent checkouts from a brand-new account would otherwise
         // both read 0 prior orders (account-orders is only written AFTER
@@ -241,11 +256,15 @@ export default async function handler(req, res) {
       }
 
       // Every signed-in order that didn't just take the welcome rate gets
-      // the standing member rate. Deliberately NOT gated on a claim or a
-      // counter — it applies every single time, which is what makes it
-      // worth signing up for. A first-timer whose welcome claim lost a race
-      // or hit the IP cap still lands here rather than paying full price.
-      if (!welcomeDiscount) {
+      // the standing member rate — but only if 5% actually beats whatever
+      // voucher discount (if any) is already active; currentPct is the
+      // pre-club value, still valid here since welcomeDiscount being false
+      // means the block above never touched hasDiscount/discountPct.
+      // Deliberately NOT gated on a claim or a counter otherwise — it
+      // applies every single time, which is what makes it worth signing up
+      // for. A first-timer whose welcome claim lost a race or hit the IP
+      // cap still lands here rather than paying full price.
+      if (!welcomeDiscount && 0.05 > currentPct) {
         hasDiscount = true;
         discountPct = 0.05;
         memberDiscount = true;
