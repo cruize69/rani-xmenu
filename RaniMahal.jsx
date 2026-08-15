@@ -154,6 +154,60 @@ function saveStoredFulfillment(mode, address) {
   } catch {}
 }
 
+// The only door onto this app's email list has always been a completed
+// purchase — every capture point in lib/orders.js fires at checkout, none
+// earlier. Someone who browses the menu, considers catering, or just isn't
+// hungry yet was unreachable and lost for good. This is a small, separate
+// (api/newsletter-subscribe.js) capture that needs no order — placed in
+// the footer so it's present on every visit without competing with the
+// actual ordering flow for attention.
+function NewsletterSignup() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/newsletter-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error();
+      setStatus("sent");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (status === "sent") {
+    return <p style={{ fontSize:12, color:"#9CD684", marginTop:14 }}>✓ You're on the list — thanks!</p>;
+  }
+
+  return (
+    <form onSubmit={submit} style={{ marginTop:16, display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap" }}>
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Menu updates & seasonal offers"
+        style={{ padding:"8px 12px", borderRadius:20, border:"1px solid rgba(250,246,239,0.15)", background:"#1c1814", color:"#FAF6EF", fontSize:12.5, width:220, outline:"none" }}
+      />
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        style={{ padding:"8px 16px", borderRadius:20, border:"none", background:"#E8A82E", color:"#080706", fontSize:12.5, fontWeight:700, cursor: status === "sending" ? "default" : "pointer", opacity: status === "sending" ? 0.7 : 1 }}
+      >
+        {status === "sending" ? "…" : "Subscribe"}
+      </button>
+      {status === "error" && <p style={{ fontSize:11, color:"#F0846A", width:"100%", margin:0 }}>Something went wrong — please try again.</p>}
+    </form>
+  );
+}
+
 // ── Main App Container ─────────────────────────────────────────────
 export default function RaniMahal() {
   const [view, setView] = useState("menu"); // "menu" | "account"
@@ -685,6 +739,7 @@ export default function RaniMahal() {
               <a href="tel:9148359066" style={{ color:"#B8A995", textDecoration:"none" }}>(914) 835-9066</a>
             </p>
             <p style={{ fontSize:11, color:"#5C5348", marginTop:6 }}>Rani Mahal — 327 Mamaroneck Ave, Mamaroneck, NY 10543</p>
+            <NewsletterSignup />
           </footer>
         </div>
       </div>

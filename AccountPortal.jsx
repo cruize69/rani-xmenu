@@ -475,6 +475,16 @@ function AccountPortalPage({
               ? <>Your first order gets <strong style={{ color: "#FAF6EF" }}>10% off</strong> automatically — you're already in.</>
               : <>You're a member — <strong style={{ color: "#FAF6EF" }}>5% off</strong> is applied automatically on every order, no minimum and nothing to track.</>}
           </p>
+          {/* First, small step toward using the order-count data this app
+              already stores for something other than the discount math —
+              plain recognition at a real regular's threshold, not a
+              discount (the standing 5% already covers that). No new data:
+              same totalOrders field the card above already reads. */}
+          {totalOrders >= 5 && (
+            <p style={{ fontSize: 11.5, color: "#E8A82E", margin: "10px 0 0", paddingTop: 10, borderTop: "0.5px solid rgba(232,168,46,0.15)" }}>
+              ⭐ You've ordered {totalOrders} times — you're one of our regulars. Thank you.
+            </p>
+          )}
         </div>
 
         {/* Active Order Spotlight */}
