@@ -11,6 +11,7 @@ import fs   from "fs";
 import path from "path";
 import os   from "os";
 import { exec } from "child_process";
+import QRCode from "qrcode";
 import { buildReceipt, buildPlainTextReceipt, buildKitchenChit } from "./lib/printer.js";
 
 // ── Configuration ────────────────────────────────────────────────
@@ -128,23 +129,26 @@ async function poll() {
       
       const qrPath = path.join(os.tmpdir(), `reorder_${order.reorderToken}.png`);
       try {
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${CONFIG.apiBase}/?reorder=${order.reorderToken}`)}`;
-        const qrRes = await fetch(qrUrl);
-        if (qrRes.ok) {
-          const buffer = await qrRes.arrayBuffer();
-          fs.writeFileSync(qrPath, Buffer.from(buffer));
-          
-          const voucherText = buildReorderVoucherText(order, qrPath);
-          if (CONFIG.printer.type === "tcp") {
-            console.log("Reorder voucher skip in TCP mode (unsupported)");
-          } else {
-            await sendWindowsDriver(CONFIG.printer.winName, voucherText);
-          }
+        // Generated locally — this used to send every customer's real,
+        // spendable 10%-off voucher token to a third-party service
+        // (api.qrserver.com) as a plain URL query parameter on every single
+        // print job, almost certainly logged on their end. That token is
+        // meant to stay private (email + this printed slip only — see the
+        // matching comment in lib/orders.js), so handing it to an
+        // unrelated company on every order was a real, avoidable exposure.
+        // qrcode renders the PNG in-process with zero network call, same
+        // 150px size, same file path the PowerShell renderer below already
+        // reads from — nothing downstream of this file changes.
+        await QRCode.toFile(qrPath, `${CONFIG.apiBase}/?reorder=${order.reorderToken}`, { width: 150 });
+
+        const voucherText = buildReorderVoucherText(order, qrPath);
+        if (CONFIG.printer.type === "tcp") {
+          console.log("Reorder voucher skip in TCP mode (unsupported)");
         } else {
-          console.error(`[${ts()}] QR Code API returned HTTP ${qrRes.status}`);
+          await sendWindowsDriver(CONFIG.printer.winName, voucherText);
         }
       } catch (err) {
-        console.error(`[${ts()}] Failed to download or print reorder voucher:`, err.message);
+        console.error(`[${ts()}] Failed to generate or print reorder voucher:`, err.message);
       }
     }
 
