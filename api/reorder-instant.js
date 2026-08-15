@@ -5,6 +5,7 @@
 // vaulted payment_method tokens. No cardholder data ever touches server storage.
 
 import { createClerkClient } from "@clerk/backend";
+import crypto from "crypto";
 import { kv } from "@vercel/kv";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { buildOrder, saveOrder } from "../lib/orders.js";
@@ -112,7 +113,22 @@ export default async function handler(req, res) {
     const stripe = getStripe();
     if (!stripe) return res.status(500).json({ error: "Stripe not configured" });
 
-    // Execute off-session PaymentIntent charge
+    // Execute off-session PaymentIntent charge.
+    //
+    // The idempotency key is not optional here. This charges a VAULTED card
+    // with no customer present to notice a duplicate, so a double-submit, a
+    // client retry, or a network hiccup that retries the POST would create
+    // N genuinely separate charges against a real card AND N kitchen
+    // tickets — bounded only by the 5/hr account limit above. Same
+    // construction api/create-checkout.js already uses: hashing the
+    // (account, order, cart, minute) tuple means a retry inside the same
+    // minute returns Stripe's ORIGINAL PaymentIntent instead of creating a
+    // second one, while a genuine reorder a minute later is still allowed.
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(JSON.stringify({ accountId, orderId, finalTotal, minute: Math.floor(Date.now() / 60000) }))
+      .digest("hex");
+
     let paymentIntent;
     try {
       paymentIntent = await stripe.paymentIntents.create({
@@ -127,7 +143,7 @@ export default async function handler(req, res) {
           source:          "1_tap_reorder",
           originalOrderId: orderId,
         },
-      });
+      }, { idempotencyKey });
     } catch (stripeErr) {
       console.error("1-tap reorder payment failed:", stripeErr);
       return res.status(402).json({ error: stripeErr.message || "Payment authentication required. Please check out using Stripe." });

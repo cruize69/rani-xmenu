@@ -141,12 +141,39 @@ export default async function handler(req, res) {
           // BEFORE the claim below so a rejected attempt doesn't leave the
           // voucher locked for 2h.
           if (tokenData.meta?.source === "referral" && tokenData.meta?.referrerOrderId) {
+            // A referral voucher requires a VERIFIED signed-in identity to
+            // redeem. Without this the self-referral check below was
+            // trivially bypassable and the whole referral program was an
+            // unbounded self-serve discount farm:
+            //   - shareCode is deliberately public (rendered on the
+            //     customer's own order-success page, kept by
+            //     publicOrderView), so anyone can mint a voucher off their
+            //     OWN order via /api/referral-claim.
+            //   - The check below compares the CLIENT-SUPPLIED guestEmail
+            //     and the JWT clerkUserId. guestEmail was never required
+            //     (the only body validation is "No items in cart"), so
+            //     posting to this endpoint with no Authorization header and
+            //     no guestEmail made claimedEmail "" and clerkUserId null —
+            //     both branches falsy, isSelf false, discount granted.
+            //   - It compounds: lib/syncStripe.js's creditReferrer only
+            //     blocks on matching email/clerkUserId too, so paying at
+            //     Stripe under a different email minted the attacker ANOTHER
+            //     voucher, and every new order yields a fresh shareCode.
+            // Requiring a verified session doesn't make referral fraud
+            // impossible (a determined person can still register another
+            // real Clerk account — indistinguishable from a genuine friend
+            // without identity verification), but it removes the zero-cost
+            // anonymous loop and puts referral abuse behind exactly the same
+            // account-creation friction the welcome discount already relies on.
+            if (!clerkUserId) {
+              return res.status(400).json({ error: "Please sign in to use an invite link — it only takes a tap." });
+            }
             const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
             const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
             const claimedEmail = (guestEmail ?? "").toLowerCase().trim();
             const isSelf =
               (referrer?.customerEmail && claimedEmail && referrer.customerEmail.toLowerCase().trim() === claimedEmail) ||
-              (referrer?.clerkUserId && clerkUserId && referrer.clerkUserId === clerkUserId);
+              (referrer?.clerkUserId && referrer.clerkUserId === clerkUserId);
             if (isSelf) {
               return res.status(400).json({ error: "This invite link can't be used on your own account." });
             }
