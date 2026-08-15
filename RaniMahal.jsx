@@ -625,7 +625,14 @@ export default function RaniMahal() {
     <div style={{ background: "radial-gradient(ellipse at 50% 0%, #26211C 0%, #171412 60%, #110E0D 100%)", minHeight: "100vh", color: "#FAF6EF" }}>
       <style>{css}</style>
 
-      {/* Announcement Bar */}
+      {/* Announcement Bar — swaps to a commute-timed message weekday
+          afternoons. The Sound Shore towns this app serves sit directly on
+          the New Haven Line; commuters get home 6:30-7:30 PM, which
+          compresses weeknight dinner into a late, convenience-driven
+          window. Scheduled ordering already does exactly what that moment
+          needs — this is telling people it exists, not building anything
+          new. Rough client-side local-time check is fine here: it's
+          marketing copy, not a business-logic gate. */}
       <div style={{
         background: "linear-gradient(90deg, #0f0800 0%, #170d02 50%, #0f0800 100%)",
         borderBottom: "1px solid rgba(232, 168, 46, 0.15)",
@@ -640,7 +647,14 @@ export default function RaniMahal() {
         alignItems: "center",
         gap: 6
       }}>
-        <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>
+        {(() => {
+          const now = new Date();
+          const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+          const isCommuteWindow = isWeekday && now.getHours() >= 15 && now.getHours() < 19;
+          return isCommuteWindow
+            ? <span>On the train? Schedule your order now — it'll be ready when you get home.</span>
+            : <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>;
+        })()}
       </div>
 
       {!openStatus.isOpen && (
