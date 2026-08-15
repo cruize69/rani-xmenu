@@ -27,9 +27,16 @@ const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 // mechanics were only visible after signing in, so nothing could link to it.
 const Rewards = lazy(() => import("./Rewards.jsx"));
 
-// Privacy/Terms — public, linked from checkout SMS consent + A2P registration.
-const PrivacyPolicy  = lazy(() => import("./Legal.jsx").then(m => ({ default: m.PrivacyPolicy })));
-const TermsOfService = lazy(() => import("./Legal.jsx").then(m => ({ default: m.TermsOfService })));
+// Privacy/Terms are NOT SPA routes — vercel.json rewrites /privacy and
+// /terms straight to static public/privacy.html and public/terms.html
+// BEFORE the catch-all SPA rewrite ever sees them. That's deliberate: a
+// client-rendered route here means the raw HTTP response for a Twilio/TCR
+// carrier-review crawler (which typically does not execute JS) is an empty
+// <div id="root"></div> with zero policy text and a generic "Order Online"
+// title indistinguishable from the homepage — a real rejection cause
+// ("a compliant privacy policy can not be verified"), independent of
+// whether the actual required clauses are correct. Static HTML guarantees
+// the real text is in the initial response no matter what fetches it.
 
 // Internal tools — code-split so their JS never ships to customer visits,
 // and gated behind StaffGate (see StaffGate.jsx for why).
@@ -48,8 +55,6 @@ function MaybeClerkProvider({ children }) {
 
 const ROUTES = {
   "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
-  "/privacy": () => <PrivacyPolicy />,
-  "/terms":   () => <TermsOfService />,
   "/rewards": () => <Rewards />,
   "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,

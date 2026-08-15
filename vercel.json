@@ -12,6 +12,8 @@
     { "path": "/api/cron/win-back-lapsed", "schedule": "0 16 * * *" }
   ],
   "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [

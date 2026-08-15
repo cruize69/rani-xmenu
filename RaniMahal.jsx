@@ -666,6 +666,24 @@ export default function RaniMahal() {
               </div>
             ))}
           </div>
+
+          {/* Persistent footer — Privacy/Terms links previously only
+              existed buried inside the SMS-consent checkbox, which only
+              renders once a phone number is typed at the fulfillment step.
+              A visible link on every visit matters for real customers and
+              is one of the things carrier/TCR review checks for on an A2P
+              campaign: "a direct link to the Privacy Policy visible in the
+              website footer on all checkout and landing pages." */}
+          <footer style={{ marginTop:48, paddingTop:20, borderTop:"0.5px solid rgba(250,246,239,0.08)", textAlign:"center" }}>
+            <p style={{ fontSize:12, color:"#8A7560" }}>
+              <a href="/privacy" style={{ color:"#B8A995", textDecoration:"none" }}>Privacy Policy</a>
+              <span style={{ margin:"0 8px" }}>·</span>
+              <a href="/terms" style={{ color:"#B8A995", textDecoration:"none" }}>Terms of Service</a>
+              <span style={{ margin:"0 8px" }}>·</span>
+              <a href="tel:9148359066" style={{ color:"#B8A995", textDecoration:"none" }}>(914) 835-9066</a>
+            </p>
+            <p style={{ fontSize:11, color:"#5C5348", marginTop:6 }}>Rani Mahal — 327 Mamaroneck Ave, Mamaroneck, NY 10543</p>
+          </footer>
         </div>
       </div>
 
