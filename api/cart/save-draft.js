@@ -41,10 +41,29 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: "Too many requests" });
     }
 
+    // Sanitize at the storage boundary rather than at every read site.
+    // These values are pure client input on a public, unauthenticated
+    // endpoint, and they end up interpolated into staff-facing alert
+    // emails and SMS (lib/errorAlerts.js). Those templates now escape
+    // everything, but escaping is the last line of defence — malformed
+    // junk shouldn't reach KV at all.
+    //
+    // Deliberately lenient, not strict-reject: this lead exists so staff
+    // can call back a customer who got stuck mid-checkout, and it's
+    // captured WHILE they type. A half-entered phone is still a useful
+    // lead, so strip it to dial-safe characters instead of discarding it.
+    // An email that isn't even shaped like an address has no callback
+    // value though, so that one is dropped rather than stored as garbage.
+    const cleanPhone = typeof phone === "string"
+      ? (phone.replace(/[^0-9+()\-\s]/g, "").trim().slice(0, 20) || null)
+      : null;
+    const rawEmail = typeof email === "string" ? email.trim().slice(0, 200) : "";
+    const cleanEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : null;
+
     await saveLead({
       draftId,
-      phone: typeof phone === "string" ? phone.slice(0, 20) : null,
-      email: typeof email === "string" ? email.slice(0, 200) : null,
+      phone: cleanPhone,
+      email: cleanEmail,
       smsConsent: !!smsConsent,
       items,
       orderMode,
