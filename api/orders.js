@@ -76,6 +76,17 @@ async function handlePublicGet(req, res) {
       const session = await stripe.checkout.sessions.retrieve(session_id);
       if (!session) return res.status(404).json({ error: "Session not found" });
 
+      // This route is public and unauthenticated (it runs before the
+      // manager-secret check above), so an unpaid session id reaching it is
+      // an ordinary occurrence — a customer who abandoned Stripe and hit
+      // back, or someone probing. lib/syncStripe.js refuses to build an
+      // order from it either way; catching it here keeps that refusal from
+      // being misreported as a paid-order-build FAILURE, which would page
+      // staff (reportPaidOrderBuildFailed) every time.
+      if (session.payment_status !== "paid") {
+        return res.status(402).json({ error: "This order hasn't been paid yet." });
+      }
+
       let paymentIntent = null;
       if (session.payment_intent && typeof session.payment_intent === "string") {
         paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent).catch(() => null);
