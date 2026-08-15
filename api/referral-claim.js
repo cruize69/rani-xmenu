@@ -20,7 +20,17 @@ import { mintVoucherToken } from "../lib/orders.js";
 // voucher off a single order's token, so a high cap is a discount farm, not
 // a growth lever — genuine word-of-mouth from one order rarely exceeds a
 // handful of people in a day.
-const MAX_CLAIMS_PER_CODE_PER_DAY = 5;
+//
+// A daily-only cap still allows the count to quietly accumulate over the
+// code's full life: referral-source:{code} lives 15 days (matching
+// reorder-token's TTL), so 5/day × 15 days = up to 75 independently
+// redeemable vouchers off one order — never enforced anywhere as a whole,
+// only ever checked one day at a time. MAX_CLAIMS_LIFETIME closes that:
+// a second, separate counter with the same 15-day TTL as the code itself,
+// checked in addition to (not instead of) the daily cap.
+const MAX_CLAIMS_PER_CODE_PER_DAY = 3;
+const MAX_CLAIMS_LIFETIME = 15;
+const CODE_TTL_SEC = 15 * 24 * 60 * 60;
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -47,6 +57,15 @@ export default async function handler(req, res) {
     if (count === 1) await kv.expire(rlKey, 60 * 60 * 24);
     if (count > MAX_CLAIMS_PER_CODE_PER_DAY) {
       return res.status(429).json({ error: "This invite link has reached its daily limit. Try again tomorrow." });
+    }
+
+    // Checked in addition to the daily cap above, not instead of it — this
+    // is the one that actually bounds the total over the code's whole life.
+    const lifetimeKey = `referral-lifetime:${code}`;
+    const lifetimeCount = await kv.incr(lifetimeKey);
+    if (lifetimeCount === 1) await kv.expire(lifetimeKey, CODE_TTL_SEC);
+    if (lifetimeCount > MAX_CLAIMS_LIFETIME) {
+      return res.status(429).json({ error: "This invite link has reached its total redemption limit." });
     }
 
     const voucher = await mintVoucherToken({
