@@ -454,6 +454,21 @@ export function FulfillmentSheet({
         {error && (
           <div style={{ margin: "1rem 1.25rem 0", padding: "10px 14px", background: "rgba(217,72,44,0.12)", border: "0.5px solid rgba(217,72,44,0.35)", borderRadius: 10, color: "#FCA5A5", fontSize: 13, lineHeight: 1.5 }}>
             {error}
+            {/* Out-of-zone is the one error with a real one-tap way out —
+                the message already says pickup is available, but the user
+                previously had to scroll back up and re-tap the Pickup radio
+                themselves. Matched by exact message rather than a new flag
+                so this only appears for the actual out-of-zone case, not
+                phone/street/closed-hours errors that share this same block. */}
+            {error === SERVED_AREAS_MESSAGE && (
+              <button
+                type="button"
+                onClick={() => { setSelectedMode("pickup"); setError(null); }}
+                style={{ display: "block", marginTop: 10, padding: "7px 14px", background: "#E8A82E", color: "#080706", border: "none", borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+              >
+                Switch to Pickup ({PICKUP_ETA.replace(" min", "m")}) →
+              </button>
+            )}
           </div>
         )}
 
