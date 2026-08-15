@@ -9,6 +9,14 @@
 
 import { kv } from "@vercel/kv";
 import { getOrder } from "../lib/orders.js";
+import { overLimit, clientIp } from "../lib/rateLimit.js";
+
+// How recently an order must have been placed to still accept a new SMS
+// subscriber. The notify:{orderId} key this endpoint writes already expires
+// in 24h, so anything older can't receive status updates anyway — but
+// without this check a single valid order id stays a usable credential
+// forever, which is exactly what makes the abuse below cheap.
+const MAX_ORDER_AGE_MS = 24 * 60 * 60 * 1000;
 
 function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, "");
@@ -38,10 +46,29 @@ export default async function handler(req, res) {
   const order = await getOrder(orderId);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
-  // Lightweight abuse guard: cap how often a given number can be signed up
-  // for updates. No auth exists here (customers aren't logged in at
-  // checkout), so a per-phone counter is the cheapest real mitigation
-  // against SMS-bombing an arbitrary number at the restaurant's expense.
+  // An order id is a bearer credential here (there's no auth — guests
+  // aren't logged in at checkout), so bound how long one stays usable.
+  // Without this, anyone who has ever placed a single order keeps a
+  // permanently valid id to replay against this endpoint.
+  const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+  if (!Number.isFinite(orderAgeMs) || orderAgeMs > MAX_ORDER_AGE_MS) {
+    return res.status(410).json({ error: "This order is no longer accepting update notifications." });
+  }
+
+  // Two independent limits, because they stop different attacks.
+  //
+  // Per-phone (existing) caps how many texts land on ONE victim's handset.
+  // On its own it did NOT bound the attacker at all: the counter is keyed
+  // on the number being SUBSCRIBED, so somebody replaying one legitimate
+  // order id of their own could enroll unlimited DIFFERENT numbers, three
+  // unsolicited texts each, on the restaurant's Twilio bill. Per-IP closes
+  // that by bounding one caller's total reach regardless of how many
+  // distinct victims they target. 10/hr is far above real use (a customer
+  // subscribes once per order) while making bulk enrollment pointless.
+  if (await overLimit(`notify-rl:ip:${clientIp(req)}`, 10, 60 * 60)) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
+  }
+
   const rlKey = `notify-rl:${normalized}`;
   const count = await kv.incr(rlKey);
   if (count === 1) await kv.expire(rlKey, 60 * 60);
