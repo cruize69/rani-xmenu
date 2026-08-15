@@ -27,6 +27,10 @@ const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 // mechanics were only visible after signing in, so nothing could link to it.
 const Rewards = lazy(() => import("./Rewards.jsx"));
 
+// Catering lead capture — public, linkable. Genuinely a phone/quote
+// business (see Catering.jsx), so this is a lead form, not a checkout.
+const Catering = lazy(() => import("./Catering.jsx"));
+
 // Privacy/Terms are NOT SPA routes — vercel.json rewrites /privacy and
 // /terms straight to static public/privacy.html and public/terms.html
 // BEFORE the catch-all SPA rewrite ever sees them. That's deliberate: a
@@ -56,6 +60,7 @@ function MaybeClerkProvider({ children }) {
 const ROUTES = {
   "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
   "/rewards": () => <Rewards />,
+  "/catering": () => <Catering />,
   "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
   "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
   "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,

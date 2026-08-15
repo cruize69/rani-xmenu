@@ -676,6 +676,8 @@ export default function RaniMahal() {
               website footer on all checkout and landing pages." */}
           <footer style={{ marginTop:48, paddingTop:20, borderTop:"0.5px solid rgba(250,246,239,0.08)", textAlign:"center" }}>
             <p style={{ fontSize:12, color:"#8A7560" }}>
+              <a href="/catering" style={{ color:"#B8A995", textDecoration:"none" }}>Catering</a>
+              <span style={{ margin:"0 8px" }}>·</span>
               <a href="/privacy" style={{ color:"#B8A995", textDecoration:"none" }}>Privacy Policy</a>
               <span style={{ margin:"0 8px" }}>·</span>
               <a href="/terms" style={{ color:"#B8A995", textDecoration:"none" }}>Terms of Service</a>
