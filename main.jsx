@@ -20,30 +20,30 @@ captureUtmFromUrl();
 // see lib/errorAlerts.js for what happens with it server-side.
 installGlobalErrorReporting();
 
-// Prevent iOS Safari pinch-to-zoom gestures and double-tap zoom that disrupt layout.
+// Prevent iOS Safari pinch-to-zoom, and — the part that actually matters —
+// guarantee it's never a one-way trip if a pinch gets through anyway.
 //
-// This has regressed more than once despite the viewport meta's
-// user-scalable=no and the gesturestart listener below both still being
-// intact every time — because neither one is actually a reliable block on
-// its own. iOS has increasingly ignored user-scalable=no for accessibility
-// reasons since iOS 10, and `gesturestart` is a legacy, WebKit-only event
-// that doesn't consistently fire for every pinch gesture on current
-// versions (notably over some scrollable containers). touch-action CSS
-// (index.html, now on both html and body) helps but browsers don't always
-// apply it consistently either when a gesture starts over a nested
-// scrollable element.
+// Full prevention isn't something any web page can 100% guarantee on
+// modern iOS: Apple has deliberately kept pinch-zoom available since iOS
+// 10 even when a page sets user-scalable=no, specifically for
+// accessibility, and `gesturestart` is a legacy WebKit-only event that
+// doesn't fire for every pinch. A previous attempt here tried hard-
+// blocking every 2-finger touchmove unconditionally — that's not
+// verifiably effective at stopping the INITIAL zoom (native pinch
+// recognition can begin above the level JS touch handlers see), and it
+// actively made things worse: once a zoom had already started, the same
+// blanket block also swallowed the pinch-OUT gesture someone would use to
+// undo it, which is what "stuck, can't get back out" actually was.
 //
-// The one thing that reliably works regardless of any of the above: a
-// touchmove listener that hard-blocks the instant a SECOND finger joins —
-// e.touches.length > 1 is unambiguous evidence of a pinch attempt, and
-// preventDefault() here stops the browser's native zoom before it can act
-// on it, independent of viewport meta, touch-action, or gesturestart all
-// three having failed. Keeping the other two anyway (defense in depth) —
-// this one is just the layer that shouldn't be able to fail the same way.
+// So the strategy here is recovery, not prevention: gesturestart/dblclick
+// stay as a soft first layer, but the real fix is watching
+// window.visualViewport for an actual zoomed-in scale and snapping it
+// back to 1.0 the moment a gesture ends — never fighting an in-progress
+// pinch (which would feel broken and janky), only cleaning up
+// immediately after. The reset itself is the standard iOS trick: toggling
+// the viewport meta's user-scalable value forces Safari to recompute and
+// drop back to scale 1, then it's restored to "no" on the next frame.
 if (typeof document !== "undefined") {
-  document.addEventListener("touchmove", (e) => {
-    if (e.touches.length > 1) e.preventDefault();
-  }, { passive: false });
   document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("dblclick", (e) => {
     // Only prevent double click zoom on buttons, inputs, and interactive surfaces
@@ -51,6 +51,28 @@ if (typeof document !== "undefined") {
       e.preventDefault();
     }
   }, { passive: false });
+
+  const resetIOSZoom = () => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+    const original = meta.getAttribute("content");
+    if (!original || !original.includes("user-scalable=no")) return;
+    meta.setAttribute("content", original.replace("user-scalable=no", "user-scalable=yes"));
+    requestAnimationFrame(() => meta.setAttribute("content", original));
+  };
+
+  if (window.visualViewport) {
+    const maybeReset = () => {
+      // >1.02 (not >1) — visualViewport.scale carries float rounding noise
+      // even at "normal" zoom, so a hair-trigger threshold would reset on
+      // every legitimate resize (keyboard opening, orientation change).
+      if (window.visualViewport.scale > 1.02) resetIOSZoom();
+    };
+    // Fires after the gesture is actually over, not mid-pinch — this is
+    // what makes the reset feel like "it snapped back," not "it fought me."
+    document.addEventListener("touchend", maybeReset, { passive: true });
+    document.addEventListener("gestureend", maybeReset, { passive: true });
+  }
 }
 
 // Order confirmation is public — Stripe's success_url redirects here.
