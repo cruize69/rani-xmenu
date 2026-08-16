@@ -431,7 +431,7 @@ export default function TvKitchenDisplay() {
   }, []);
 
   // Filter & Group ACTIVE orders (new or in_progress) by Destination Town / Mode
-  const { displayOrders, activeCount, totalPages } = useMemo(() => {
+  const { displayOrders, activeCount, totalPages, sortedGroupKeys, groupedClusters } = useMemo(() => {
     const activeOrders = orders.filter(o => o.status !== "done" && o.status !== "refunded" && o.status !== "scheduled");
     const groupedClusters = {};
     activeOrders.forEach(o => {
@@ -453,7 +453,7 @@ export default function TvKitchenDisplay() {
 
     const ac = list.length;
     const tp = Math.ceil(ac / 6);
-    return { displayOrders: list, activeCount: ac, totalPages: tp };
+    return { displayOrders: list, activeCount: ac, totalPages: tp, sortedGroupKeys, groupedClusters };
   }, [orders]);
 
   // Auto-Cycle Page Rotation for > 6 Orders (every 10 seconds)
