@@ -359,7 +359,21 @@ export default function RaniMahal() {
   const anyOverlayOpen = !!modalItem || showCheckoutGate || drawerOpen || showSectionSheet || showFulfillmentSheet || showExitDrawer;
   useEffect(() => {
     if (!anyOverlayOpen) return;
+    // overflow:hidden alone doesn't stop background scroll on iOS Safari —
+    // a finger drag on the dimmed backdrop still scrolls the page behind
+    // it via touch, which is what "scrolling isn't locked" was actually
+    // reporting. Pinning body to position:fixed at its current scroll
+    // offset is the standard fix that works on both touch and mouse-wheel;
+    // restoring scrollY on cleanup is what makes closing the sheet not
+    // jump the page back to the top.
+    const scrollY = window.scrollY;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevWidth = document.body.style.width;
     const prevOverflow = document.body.style.overflow;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     document.body.style.overflow = "hidden";
     const onKey = e => {
       if (e.key !== "Escape") return;
@@ -372,7 +386,11 @@ export default function RaniMahal() {
     };
     window.addEventListener("keydown", onKey);
     return () => {
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.width = prevWidth;
       document.body.style.overflow = prevOverflow;
+      window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", onKey);
     };
   }, [anyOverlayOpen, showCheckoutGate, showFulfillmentSheet, showExitDrawer, modalItem, showSectionSheet, drawerOpen]);

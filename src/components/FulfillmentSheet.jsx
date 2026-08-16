@@ -169,7 +169,12 @@ export function FulfillmentSheet({
 
   return (
     <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      // Deliberately no click-outside-to-close here — on desktop a stray
+      // click landing on the backdrop while filling out address/phone
+      // fields instantly discarded everything with no undo, which read as
+      // a glitch rather than an intentional dismiss. The × button (below)
+      // and Escape (wired in RaniMahal.jsx's overlay effect) are the only
+      // ways to close this sheet now.
       style={{
         position: "fixed",
         inset: 0,
