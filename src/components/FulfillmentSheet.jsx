@@ -4,6 +4,18 @@ import { isZipInDeliveryZone, getDeliveryZoneForZip, PICKUP_ETA, DEFAULT_DELIVER
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 import { formatTime, getTimeSlots } from "../../lib/hours.js";
 
+// Phone is persisted (and passed back in via the `phone` prop) as the
+// normalized "+1XXXXXXXXXX" form handleSave() below writes out — showing
+// that raw string back in a plain-digits input made phoneDigits 11 long,
+// which the 10-digit check then rejected on every reopen even though
+// nothing was actually wrong. Strip the country code back off for display;
+// handleSave re-adds it when saving.
+function displayPhone(raw) {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+  return digits;
+}
+
 function ClockIcon({ size = 14, color = "currentColor" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -72,7 +84,7 @@ export function FulfillmentSheet({
   const { handleProps, sheetStyle } = useSwipeToClose(onClose);
   const [selectedMode, setSelectedMode] = useState(orderMode);
   const [error, setError] = useState(null);
-  const [localPhone, setLocalPhone] = useState(phone);
+  const [localPhone, setLocalPhone] = useState(displayPhone(phone));
   const [localConsent, setLocalConsent] = useState(smsConsent);
   // "Order for later" is forced open once the restaurant is closed (there's
   // no ASAP option then); while open it's an optional toggle a customer can
@@ -87,7 +99,7 @@ export function FulfillmentSheet({
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setSelectedMode(orderMode || "pickup");
-      setLocalPhone(phone || "");
+      setLocalPhone(displayPhone(phone));
       setLocalConsent(!!smsConsent);
       setError(null);
       setShowSchedulePicker(!openStatus.isOpen);

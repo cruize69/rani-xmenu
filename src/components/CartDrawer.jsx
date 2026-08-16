@@ -580,13 +580,24 @@ export function CartDrawer({
   const zoneMin = zone?.minOrder || DELIVERY_CONFIG.DEFAULT_MINIMUM;
   const isBelowMin = isDelivery && subtotal < zoneMin;
 
+  // `phone` arrives normalized as "+1XXXXXXXXXX" (see RaniMahal.jsx's
+  // savePhone/handleSaveExitCart) — seeding a plain-digits input with that
+  // raw string makes it 11 digits long, which the 10-digit checks below
+  // then reject even though the customer never touched the field. Strip
+  // the country code back off for display; both handlers re-add "+1" when
+  // actually saving.
+  const displayPhone = raw => {
+    const digits = String(raw ?? "").replace(/\D/g, "");
+    return (digits.length === 11 && digits.startsWith("1")) ? digits.slice(1) : digits;
+  };
+
   // Local state for early lead capture and text-cart features
-  const [unlockPhone, setUnlockPhone] = useState(phone || "");
+  const [unlockPhone, setUnlockPhone] = useState(displayPhone(phone));
   const [unlockStatus, setUnlockStatus] = useState(null); // 'saving', 'saved', 'error'
   const [unlockMsg, setUnlockMsg] = useState("");
 
   const [showTextCart, setShowTextCart] = useState(false);
-  const [textCartPhone, setTextCartPhone] = useState(phone || "");
+  const [textCartPhone, setTextCartPhone] = useState(displayPhone(phone));
   const [textCartSending, setTextCartSending] = useState(false);
   const [textCartSuccess, setTextCartSuccess] = useState(false);
   const [textCartError, setTextCartError] = useState(null);

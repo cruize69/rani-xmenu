@@ -106,6 +106,16 @@ const saveGuestEmail  = email => { try { localStorage.setItem(GUEST_EMAIL_KEY, e
 const PHONE_KEY = "rani_guest_phone";
 const loadPhone = () => { try { return localStorage.getItem(PHONE_KEY) || ""; } catch { return ""; } };
 const savePhone = phone => { try { localStorage.setItem(PHONE_KEY, phone); } catch {} };
+// Saved/round-tripped phone values are normalized to "+1XXXXXXXXXX" (see
+// handleSaveExitCart below and FulfillmentSheet's own handleSave). Feeding
+// that straight into a plain-digits editable input made every 10-digit
+// validation see 11 digits and reject a number the customer never touched —
+// strip the country code back off wherever a saved phone seeds an editable
+// field; the +1 form stays canonical everywhere else.
+const displayPhone = raw => {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  return (digits.length === 11 && digits.startsWith("1")) ? digits.slice(1) : digits;
+};
 
 const SMS_CONSENT_KEY = "rani_sms_consent";
 const loadSmsConsent = () => { try { return localStorage.getItem(SMS_CONSENT_KEY) === "1"; } catch { return false; } };
@@ -308,7 +318,7 @@ export default function RaniMahal() {
   const [showSectionSheet, setShowSectionSheet] = useState(false);
   const [showFulfillmentSheet, setShowFulfillmentSheet] = useState(false);
   const [showExitDrawer, setShowExitDrawer] = useState(false);
-  const [exitPhone, setExitPhone] = useState(loadPhone);
+  const [exitPhone, setExitPhone] = useState(() => displayPhone(loadPhone()));
   const [exitSaved, setExitSaved] = useState(false);
   const [exitError, setExitError] = useState(null);
   const exitPromptedRef = useRef(false);
@@ -683,7 +693,7 @@ export default function RaniMahal() {
     const clean = `+1${digits}`;
     setGuestPhone(clean);
     saveDraftLead({ phone: clean, smsConsent: true });
-    saveStoredPhone(clean);
+    savePhone(clean);
 
     // Also trigger the cart resume SMS
     const itemsPayload = Object.values(cart).map(i => ({ baseId: i.baseId, qty: i.qty }));
