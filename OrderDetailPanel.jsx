@@ -33,6 +33,7 @@ export default function OrderDetailPanel({
 }) {
   const [updating, setUpdating]               = useState(false);
   const [reprintCooldown, setReprintCooldown] = useState(0); // seconds remaining in print cooldown
+  const [showReprintMenu, setShowReprintMenu] = useState(false);
   const s = statusInfo;
 
   const shortId    = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
@@ -57,10 +58,11 @@ export default function OrderDetailPanel({
     return () => clearInterval(timer);
   }, [reprintCooldown]);
 
-  const handlePrintClick = () => {
+  const handlePrintClick = (ticket = "all") => {
     if (reprintCooldown > 0) return;
-    onPrint(order.id);
+    onPrint(order.id, ticket);
     setReprintCooldown(5); // 5-second anti-spam cooldown
+    setShowReprintMenu(false);
   };
 
   const handleStatus = async () => {
@@ -203,14 +205,58 @@ export default function OrderDetailPanel({
         </div>
       )}
 
-      <button
-        className={`rm-action-btn secondary ${reprintCooldown > 0 ? "rm-action-btn--cooldown" : ""}`}
-        onClick={handlePrintClick}
-        disabled={reprintCooldown > 0}
-        title={reprintCooldown > 0 ? `Print job queued (${reprintCooldown}s)` : "Print receipt"}
-      >
-        {reprintCooldown > 0 ? `✓ QUEUED (${reprintCooldown}s)` : `🖨 ${order.printed ? "REPRINT" : "PRINT"}`}
-      </button>
+      <div style={{ position: "relative" }}>
+        <button
+          className={`rm-action-btn secondary ${reprintCooldown > 0 ? "rm-action-btn--cooldown" : ""}`}
+          onClick={() => {
+            if (reprintCooldown > 0) return;
+            // First print (never printed yet) fires the full sequence
+            // immediately — no menu. Only a REPRINT offers a choice, since
+            // that's the case where blindly reprinting everything wastes
+            // paper the manager didn't ask to reprint.
+            if (order.printed) setShowReprintMenu(v => !v);
+            else handlePrintClick("all");
+          }}
+          disabled={reprintCooldown > 0}
+          title={reprintCooldown > 0 ? `Print job queued (${reprintCooldown}s)` : order.printed ? "Choose a ticket to reprint" : "Print receipt"}
+        >
+          {reprintCooldown > 0 ? `✓ QUEUED (${reprintCooldown}s)` : `🖨 ${order.printed ? "REPRINT ▾" : "PRINT"}`}
+        </button>
+
+        {showReprintMenu && (
+          <>
+            {/* Click-outside catcher */}
+            <div style={{ position: "fixed", inset: 0, zIndex: 9 }} onClick={() => setShowReprintMenu(false)} />
+            <div
+              style={{
+                position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 10,
+                background: "#1c1814", border: "1px solid rgba(250,246,239,0.14)", borderRadius: 10,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.4)", overflow: "hidden", minWidth: 190,
+              }}
+            >
+              {[
+                ["front", "🧾 Front (Guest Receipt)"],
+                ["kitchen", "👨‍🍳 Kitchen Ticket"],
+                ...(order.reorderToken ? [["qr", "🎟️ QR Voucher"]] : []),
+              ].map(([ticket, label]) => (
+                <button
+                  key={ticket}
+                  onClick={() => handlePrintClick(ticket)}
+                  style={{
+                    display: "block", width: "100%", textAlign: "left", padding: "10px 14px",
+                    background: "transparent", border: "none", color: "#FAF6EF", fontSize: 13,
+                    cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(232,168,46,0.12)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {canRefund && (
         <button className="rm-action-btn danger" onClick={() => onOpenRefund(order)}>

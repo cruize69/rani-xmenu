@@ -63,12 +63,70 @@ if (CONFIG.managerSecret === "change-me") {
 
 let isRunning = false;
 
+// ── Per-ticket print functions ───────────────────────────────────────
+// Extracted so both the new-order flow (always all three, kitchen x2)
+// and a manual reprint (exactly one ticket, one copy — see poll() below)
+// share the exact same rendering path, instead of two divergent copies
+// of the same printer-driver logic drifting apart over time.
+
+async function printFrontTicket(order) {
+  console.log(`[${ts()}] 🎟️ Printing Front (Guest Receipt) (${order.id.slice(-6).toUpperCase()})...`);
+  if (CONFIG.printer.type === "tcp") {
+    await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, buildReceipt(order));
+  } else {
+    await sendWindowsDriver(CONFIG.printer.winName, buildPlainTextReceipt(order));
+  }
+}
+
+async function printKitchenTicket(order) {
+  console.log(`[${ts()}] 👨‍🍳 Printing Kitchen Ticket (${order.id.slice(-6).toUpperCase()})...`);
+  if (CONFIG.printer.type === "tcp") {
+    await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, buildReceipt(order)); // TCP binary fallback
+  } else {
+    await sendWindowsDriver(CONFIG.printer.winName, buildKitchenChit(order));
+  }
+}
+
+async function printQrVoucher(order) {
+  if (!order.reorderToken) return; // no-op — nothing to print, not an error
+  console.log(`[${ts()}] 🎟️ Printing QR Reorder Voucher (${order.id.slice(-6).toUpperCase()})...`);
+
+  const qrPath = path.join(os.tmpdir(), `reorder_${order.reorderToken}.png`);
+  try {
+    // Generated locally — this used to send every customer's real,
+    // spendable 10%-off voucher token to a third-party service
+    // (api.qrserver.com) as a plain URL query parameter on every single
+    // print job, almost certainly logged on their end. That token is
+    // meant to stay private (email + this printed slip only — see the
+    // matching comment in lib/orders.js), so handing it to an
+    // unrelated company on every order was a real, avoidable exposure.
+    // qrcode renders the PNG in-process with zero network call, same
+    // 150px size, same file path the PowerShell renderer below already
+    // reads from — nothing downstream of this file changes.
+    await QRCode.toFile(qrPath, `${CONFIG.customerBase}?reorder=${order.reorderToken}`, { width: 150 });
+
+    const voucherText = buildReorderVoucherText(order, qrPath);
+    if (CONFIG.printer.type === "tcp") {
+      console.log("Reorder voucher skip in TCP mode (unsupported)");
+    } else {
+      await sendWindowsDriver(CONFIG.printer.winName, voucherText);
+    }
+  } catch (err) {
+    console.error(`[${ts()}] Failed to generate or print reorder voucher:`, err.message);
+  }
+}
+
 async function poll() {
   if (isRunning) return;
   isRunning = true;
 
   try {
-    // Pop next order ID from print queue
+    // Pop next queue entry. Value is JSON: { id, mode: "new"|"reprint", ticket? }
+    // — mode/ticket added so a manager's reprint can target exactly one
+    // ticket instead of always reprinting the full set (see api/orders.js
+    // handleReprint). A bare orderId string (the old queue format, or
+    // anything already sitting in the queue mid-deploy) falls back to a
+    // full "new" print — nothing in flight gets silently dropped.
     const res = await fetch(`${CONFIG.apiBase}/api/orders`, {
       method: "POST",
       headers: {
@@ -83,10 +141,8 @@ async function poll() {
       return;
     }
 
-    const { orderId } = await res.json();
+    const { orderId, mode = "new", ticket = null } = await res.json();
     if (!orderId) return; // queue empty — normal
-
-    console.log(`[${ts()}] 🖨️ New order received: ${orderId.slice(-6).toUpperCase()} — printing 2 tickets...`);
 
     // Fetch full order data
     const orderRes = await fetch(`${CONFIG.apiBase}/api/orders?id=${orderId}`, {
@@ -100,28 +156,28 @@ async function poll() {
 
     const order = await orderRes.json();
 
-    // ── Ticket 1: Guest Receipt ─────────────────────────────────
-    console.log(`[${ts()}] 🎟️ Printing Ticket 1: Guest Receipt (${orderId.slice(-6).toUpperCase()})...`);
-    if (CONFIG.printer.type === "tcp") {
-      const binaryReceipt = buildReceipt(order);
-      await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, binaryReceipt);
-    } else {
-      const guestText = buildPlainTextReceipt(order);
-      await sendWindowsDriver(CONFIG.printer.winName, guestText);
+    if (mode === "reprint") {
+      // Exactly the one ticket the manager picked, one copy — the whole
+      // point of adding ticket selection was avoiding wasted paper on a
+      // reprint, so this deliberately does NOT re-run the full sequence.
+      console.log(`[${ts()}] 🔁 Reprinting "${ticket}" for ${orderId.slice(-6).toUpperCase()}...`);
+      if (ticket === "kitchen") await printKitchenTicket(order);
+      else if (ticket === "qr") await printQrVoucher(order);
+      else await printFrontTicket(order); // default/unknown → front
+      console.log(`[${ts()}] ✅ Reprint of "${ticket}" complete.`);
+      return;
     }
 
-    // Small delay between print jobs
+    // mode "new" — full sequence. Kitchen prints TWICE: one copy stays on
+    // the pass, one goes with whoever's actually cooking, so the ticket
+    // isn't shuttled back and forth or re-copied by hand mid-rush.
+    console.log(`[${ts()}] 🖨️ New order received: ${orderId.slice(-6).toUpperCase()} — printing tickets (kitchen x2)...`);
+
+    await printFrontTicket(order);
+    await new Promise(r => setTimeout(r, 1000)); // small delay between print jobs
+    await printKitchenTicket(order);
     await new Promise(r => setTimeout(r, 1000));
-
-    // ── Ticket 2: Giant Kitchen Ticket ──────────────────────────
-    console.log(`[${ts()}] 👨‍🍳 Printing Ticket 2: Giant Kitchen Ticket (${orderId.slice(-6).toUpperCase()})...`);
-    if (CONFIG.printer.type === "tcp") {
-      const binaryReceipt = buildReceipt(order); // TCP binary fallback
-      await sendTcpRaw(CONFIG.printer.host, CONFIG.printer.port, binaryReceipt);
-    } else {
-      const kitchenText = buildKitchenChit(order);
-      await sendWindowsDriver(CONFIG.printer.winName, kitchenText);
-    }
+    await printKitchenTicket(order); // 2nd kitchen copy
 
     // Mark as printed on server
     await fetch(`${CONFIG.apiBase}/api/orders`, {
@@ -133,36 +189,9 @@ async function poll() {
       body: JSON.stringify({ id: orderId, printed: true }),
     });
 
-    console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed 2 tickets successfully!`);
+    console.log(`[${ts()}] ✅ Order ${orderId.slice(-6).toUpperCase()} printed successfully!`);
 
-    // ── Ticket 3: Reorder Fast Pass Voucher ──────────────────────
-    if (order.reorderToken) {
-      console.log(`[${ts()}] 🎟️ Printing Ticket 3: Reorder Fast Pass Voucher (${orderId.slice(-6).toUpperCase()})...`);
-      
-      const qrPath = path.join(os.tmpdir(), `reorder_${order.reorderToken}.png`);
-      try {
-        // Generated locally — this used to send every customer's real,
-        // spendable 10%-off voucher token to a third-party service
-        // (api.qrserver.com) as a plain URL query parameter on every single
-        // print job, almost certainly logged on their end. That token is
-        // meant to stay private (email + this printed slip only — see the
-        // matching comment in lib/orders.js), so handing it to an
-        // unrelated company on every order was a real, avoidable exposure.
-        // qrcode renders the PNG in-process with zero network call, same
-        // 150px size, same file path the PowerShell renderer below already
-        // reads from — nothing downstream of this file changes.
-        await QRCode.toFile(qrPath, `${CONFIG.customerBase}?reorder=${order.reorderToken}`, { width: 150 });
-
-        const voucherText = buildReorderVoucherText(order, qrPath);
-        if (CONFIG.printer.type === "tcp") {
-          console.log("Reorder voucher skip in TCP mode (unsupported)");
-        } else {
-          await sendWindowsDriver(CONFIG.printer.winName, voucherText);
-        }
-      } catch (err) {
-        console.error(`[${ts()}] Failed to generate or print reorder voucher:`, err.message);
-      }
-    }
+    await printQrVoucher(order); // no-op internally if no reorderToken
 
   } catch (err) {
     console.error(`[${ts()}] ❌ Print Error:`, err.message);

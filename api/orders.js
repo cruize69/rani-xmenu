@@ -225,22 +225,39 @@ async function handlePost(req, res) {
 
 // Pops one order ID from the print queue — polled every 5s by the local print bridge
 async function handleDequeue(req, res) {
-  const orderId = await kv.rpop("print_queue");
-  return res.status(200).json({ orderId: orderId ?? null });
+  const raw = await kv.rpop("print_queue");
+  if (!raw) return res.status(200).json({ orderId: null });
+  // Queue values are JSON: { id, mode: "new"|"reprint", ticket? } — see
+  // print-bridge.js. A bare orderId string is the pre-ticket-selection
+  // queue format; treat it as a full "new" print rather than dropping it,
+  // so nothing already queued at deploy time is silently lost.
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { parsed = { id: raw, mode: "new" }; }
+  return res.status(200).json({ orderId: parsed.id ?? null, mode: parsed.mode ?? "new", ticket: parsed.ticket ?? null });
 }
 
-// Pushes an existing order back onto the print queue
+const REPRINT_TICKETS = new Set(["all", "front", "kitchen", "qr"]);
+
+// Pushes an existing order back onto the print queue — `ticket` scopes a
+// reprint to exactly one physical ticket (front/kitchen/qr) instead of
+// always reprinting everything, so a manager fixing a wrong QTY on the
+// kitchen ticket doesn't also burn a guest receipt and a QR voucher.
 async function handleReprint(req, res) {
-  const { id } = req.body;
+  const { id, ticket = "all" } = req.body;
   if (!id) return res.status(400).json({ error: "Order ID required" });
+  if (!REPRINT_TICKETS.has(ticket)) return res.status(400).json({ error: "Invalid ticket type" });
 
   const order = await getOrder(id);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
-  await kv.lpush("print_queue", id);
+  // "all" (first print, or an explicit full reprint) runs the same full
+  // sequence a brand-new order gets, kitchen included twice; a specific
+  // ticket name reprints just that one, once.
+  const mode = ticket === "all" ? "new" : "reprint";
+  await kv.lpush("print_queue", JSON.stringify({ id, mode, ticket }));
   await kv.expire("print_queue", 3600);
 
-  return res.status(200).json({ queued: true, orderId: id });
+  return res.status(200).json({ queued: true, orderId: id, ticket });
 }
 
 // Full refunds, partial refunds, item refunds, and voids — all logged to the order record

@@ -9,6 +9,7 @@
 import { kv } from "@vercel/kv";
 import { getOrder, updateOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { sendNewOrderPush } from "../../lib/push.js";
 
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
@@ -28,8 +29,14 @@ export default async function handler(req, res) {
         // meantime, and re-promoting a refunded order would be wrong.
         if (order && order.status === ORDER_STATUS.SCHEDULED) {
           await updateOrder(id, { status: ORDER_STATUS.NEW });
-          await kv.lpush("print_queue", id);
+          await kv.lpush("print_queue", JSON.stringify({ id, mode: "new" }));
           await kv.expire("print_queue", 3600);
+          sendNewOrderPush({
+            orderId: id,
+            customerName: order.customerName,
+            total: order.total,
+            itemCount: (order.items || []).reduce((s, i) => s + (i.qty || 1), 0),
+          }).catch(() => {});
           promoted++;
         }
         await kv.zrem("scheduled-orders", id);

@@ -13,6 +13,7 @@ import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/n
 import { getStripe } from "../lib/syncStripe.js";
 import { overLimit } from "../lib/rateLimit.js";
 import { getOpenStatus } from "../lib/hours.js";
+import { sendNewOrderPush } from "../lib/push.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -200,7 +201,13 @@ export default async function handler(req, res) {
       sendOrderEmail(newOrder),
       sendCustomerReceiptEmail(newOrder),
       sendOrderSMS(newOrder),
-      kv.lpush("print_queue", newOrder.id),
+      kv.lpush("print_queue", JSON.stringify({ id: newOrder.id, mode: "new" })),
+      sendNewOrderPush({
+        orderId: newOrder.id,
+        customerName: newOrder.customerName,
+        total: newOrder.total,
+        itemCount: (newOrder.items || []).reduce((s, i) => s + (i.qty || 1), 0),
+      }),
     ]);
 
     return res.status(200).json({ success: true, orderId: newOrder.id, total: newOrder.total });

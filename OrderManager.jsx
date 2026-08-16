@@ -71,6 +71,8 @@ export default function OrderManager() {
   const [isWide, setIsWide]               = useState(() => window.innerWidth >= 1024);
   const [newAlert, setNewAlert]           = useState(null);
   const prevIds                           = useRef(new Set());
+  const [pushStatus, setPushStatus]       = useState("checking"); // checking | unsupported | default | denied | subscribed
+  const deepLinkOrderId                   = useRef(new URLSearchParams(window.location.search).get("order"));
 
   // Viewport tracking
   useEffect(() => {
@@ -79,17 +81,146 @@ export default function OrderManager() {
     return () => window.removeEventListener("resize", fn);
   }, []);
 
+  // Flash the browser tab's title while a new-order alert is active and
+  // the tab itself isn't the focused one — catches the case of the app
+  // being open in a background TAB (a real OS push notification, added
+  // separately, is what catches it being backgrounded entirely or the
+  // browser closed). Stops the moment the tab regains focus or the alert
+  // is dismissed, and always restores the real title on cleanup so a
+  // stale "🔔 NEW ORDER" never lingers in the tab bar.
+  useEffect(() => {
+    if (!newAlert) return;
+    const original = document.title;
+    if (document.visibilityState === "visible") return;
+    let on = false;
+    const flash = setInterval(() => {
+      on = !on;
+      document.title = on ? "🔔 NEW ORDER — Rani Mahal" : original;
+    }, 1000);
+    const stopOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        clearInterval(flash);
+        document.title = original;
+      }
+    };
+    document.addEventListener("visibilitychange", stopOnFocus);
+    return () => {
+      clearInterval(flash);
+      document.title = original;
+      document.removeEventListener("visibilitychange", stopOnFocus);
+    };
+  }, [newAlert]);
+
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     localStorage.setItem("rm_theme", next);
   };
 
+  // ── Push notifications — real OS-level alert even if this tab/app is
+  // backgrounded or closed, deep-linking straight to the order (see
+  // public/sw.js + lib/push.js). Opt-in only: browsers require a genuine
+  // user gesture to grant Notification permission, so this can't
+  // auto-subscribe on load — it re-checks silent (already-granted) state
+  // on mount and otherwise waits for enablePush() from a click.
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+  };
+
+  const subscribeForPush = useCallback(async () => {
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) { setPushStatus("unsupported"); return; }
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      await apiFetch("/api/push/subscribe", { method: "POST", body: JSON.stringify({ subscription: sub.toJSON() }) });
+      setPushStatus("subscribed");
+    } catch (err) {
+      console.error("Push subscribe failed:", err);
+      setPushStatus(Notification.permission === "denied" ? "denied" : "default");
+    }
+  }, []);
+
+  const enablePush = async () => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushStatus("unsupported");
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { setPushStatus(perm === "denied" ? "denied" : "default"); return; }
+    await subscribeForPush();
+  };
+
+  // Silently re-attach on mount if permission was already granted in a
+  // previous visit — no permission prompt needed, since the browser
+  // already has consent on file for this origin.
+  useEffect(() => {
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setPushStatus("unsupported");
+      return;
+    }
+    if (Notification.permission === "granted") subscribeForPush();
+    else setPushStatus(Notification.permission === "denied" ? "denied" : "default");
+  }, [subscribeForPush]);
+
+  // Clicking a notification while a /manager tab is ALREADY open focuses
+  // that tab (see sw.js notificationclick) and posts this message rather
+  // than doing a full navigation — jump straight to the order once it's
+  // actually in the loaded list.
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.data?.type === "OPEN_ORDER" && event.data.url) {
+        const id = new URL(event.data.url, window.location.origin).searchParams.get("order");
+        if (id) deepLinkOrderId.current = id;
+      }
+    };
+    navigator.serviceWorker?.addEventListener?.("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener?.("message", onMessage);
+  }, []);
+
+  // Open the deep-linked order (from a push notification click, or a
+  // fresh /manager?order=ID navigation) as soon as it shows up in orders.
+  useEffect(() => {
+    if (!deepLinkOrderId.current) return;
+    const match = orders.find(o => o.id === deepLinkOrderId.current);
+    if (match) {
+      setSelectedOrder(match);
+      deepLinkOrderId.current = null;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("order");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    }
+  }, [orders]);
+
   const load = useCallback(async (spin = true) => {
     if (spin) setLoading(true);
     try {
       const data = await apiFetch(`/api/orders?date=${date}`);
-      setOrders(data.orders || []);
+      const nextOrders = data.orders || [];
+
+      // Sound + full-screen alert for a genuinely NEW order (playChime and
+      // the rm-alert-overlay markup already existed but were never wired
+      // up — this is what actually triggers them). Skipped on the very
+      // first load of a session (prevIds starts empty): otherwise opening
+      // the app fresh at the start of a shift would treat every order
+      // already sitting in "new" status as if it just came in.
+      if (prevIds.current.size > 0) {
+        const freshlyNew = nextOrders.find(o => o.status === "new" && !prevIds.current.has(o.id));
+        if (freshlyNew) {
+          playChime();
+          setNewAlert(freshlyNew);
+        }
+      }
+      prevIds.current = new Set(nextOrders.map(o => o.id));
+
+      setOrders(nextOrders);
       setLastRefresh(new Date());
       setError(null);
       versionRef.current = data.version ?? versionRef.current;
@@ -127,11 +258,11 @@ export default function OrderManager() {
     } catch (err) { console.error(err); load(false); }
   };
 
-  const handlePrint = async (id) => {
+  const handlePrint = async (id, ticket = "all") => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, printed: true } : o));
     if (selectedOrder?.id === id) setSelectedOrder(p => p ? { ...p, printed: true } : null);
     try {
-      await apiFetch("/api/orders", { method: "POST", body: JSON.stringify({ action: "reprint", id }) });
+      await apiFetch("/api/orders", { method: "POST", body: JSON.stringify({ action: "reprint", id, ticket }) });
     } catch (err) { console.error(err); }
   };
 
@@ -217,6 +348,26 @@ export default function OrderManager() {
             <div className={`rm-status-dot ${error ? "offline" : "online"}`} />
             <span className="rm-connection-label">{error ? "Offline" : "Live"}</span>
           </div>
+
+          {pushStatus === "default" && (
+            <button
+              className="rm-theme-toggle"
+              onClick={enablePush}
+              title="Get a push notification (even with this tab closed) when a new order comes in"
+            >
+              🔔 Enable Alerts
+            </button>
+          )}
+          {pushStatus === "subscribed" && (
+            <span className="rm-connection-label" title="New-order push notifications are on for this device" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              🔔 Alerts On
+            </span>
+          )}
+          {pushStatus === "denied" && (
+            <span className="rm-connection-label" title="Notifications are blocked for this site in your browser settings — enable them there to get alerts">
+              🔕 Alerts Blocked
+            </span>
+          )}
 
           <button className="rm-theme-toggle" onClick={toggleTheme}>
             {theme === "dark" ? "🌙 Night" : "☀️ Day"}
