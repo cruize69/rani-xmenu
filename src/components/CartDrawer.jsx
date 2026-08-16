@@ -8,6 +8,7 @@ import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 import { reportError } from "../utils/errorReport.js";
+import { isWithinServiceWindow, nyDateTimeToUtcMs } from "../../lib/hours.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
@@ -218,6 +219,7 @@ export function CheckoutGate({
   onSaveLead,
   reorderToken = null,
   scheduledFor = null,
+  setScheduledFor,
   utm = {},
   welcomeEligible = false,
   onWelcomeDiscount,
@@ -266,6 +268,26 @@ export function CheckoutGate({
   const goToStripe = async ({ clerkUserId = null, guestEmail = null } = {}) => {
     setLoading(true); setError(null);
     if (!validateDelivery()) { setLoading(false); return; }
+    // A scheduled time is picked once (FulfillmentSheet) and then just sits
+    // in state while the customer keeps shopping — nothing re-validates it
+    // before this final submit. If enough time passes that the picked slot
+    // has quietly slipped into the past (or, at a day/window boundary,
+    // stopped being valid), the server correctly rejects it, but bouncing
+    // that straight to the customer as a raw error is a dead end — they're
+    // stuck at "pay" with no obvious next step. Catch it here instead: drop
+    // the stale time and send them back to a FRESH picker (which recomputes
+    // "now" and offers only currently-real slots) with a clear reason.
+    if (scheduledFor?.date && scheduledFor?.time) {
+      const targetMs = nyDateTimeToUtcMs(scheduledFor.date, scheduledFor.time);
+      const stale = !Number.isFinite(targetMs) || targetMs < Date.now() - 60 * 1000 || !isWithinServiceWindow(scheduledFor.date, scheduledFor.time);
+      if (stale) {
+        setLoading(false);
+        setError("That time has passed while you were ordering — please pick a new time.");
+        setScheduledFor?.(null);
+        onOpenFulfillmentSheet?.();
+        return;
+      }
+    }
     try {
       const fullDeliveryAddress = orderMode === "delivery" ? deliveryAddress : null;
       if (setDeliveryAddress && fullDeliveryAddress) setDeliveryAddress(fullDeliveryAddress);

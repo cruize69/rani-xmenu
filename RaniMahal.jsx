@@ -958,6 +958,8 @@ export default function RaniMahal() {
           onSaveLead={saveDraftLead}
           reorderToken={reorderToken}
           scheduledFor={scheduledFor}
+          setScheduledFor={setScheduledFor}
+          onOpenFulfillmentSheet={() => { setShowCheckoutGate(false); setShowFulfillmentSheet(true); }}
           utm={getStoredUtm()}
           welcomeEligible={reorderDiscount === 0 && welcomeEligible}
           onWelcomeDiscount={() => showNotice("🎉 Welcome! 10% off your first order is applied — redirecting to secure payment...")}

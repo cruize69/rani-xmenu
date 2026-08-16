@@ -13,7 +13,7 @@ import { createClerkClient } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
-import { isWithinServiceWindow, getOpenStatus } from "../lib/hours.js";
+import { isWithinServiceWindow, getOpenStatus, nyDateTimeToUtcMs } from "../lib/hours.js";
 import { getNYDateString } from "../lib/orders.js";
 import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
@@ -100,6 +100,20 @@ export default async function handler(req, res) {
     // this is the actual security boundary).
     let validScheduledFor = null;
     if (scheduledFor && typeof scheduledFor === "object" && typeof scheduledFor.date === "string" && typeof scheduledFor.time === "string") {
+      // Distinguish "the slot you picked has since slipped into the past"
+      // from "that was never a valid slot" — the former is the common,
+      // confusing case: a customer picks an early slot, spends a few
+      // minutes building their cart, and by checkout that slot has quietly
+      // expired. isWithinServiceWindow's generic false covers both, but a
+      // customer told "that's outside our hours" for a time they picked
+      // FROM our own hours-aware picker has no idea what actually went
+      // wrong or how to fix it. This is a best-effort check purely for
+      // message clarity — isWithinServiceWindow below remains the real
+      // security boundary regardless of which branch fires.
+      const targetMs = nyDateTimeToUtcMs(scheduledFor.date, scheduledFor.time);
+      if (Number.isFinite(targetMs) && targetMs < Date.now() - 60 * 1000) {
+        return res.status(400).json({ error: "That time has passed while you were ordering — please pick a new time." });
+      }
       if (!isWithinServiceWindow(scheduledFor.date, scheduledFor.time)) {
         return res.status(400).json({ error: "That time isn't during our open hours. Please pick another." });
       }
