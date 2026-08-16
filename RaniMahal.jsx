@@ -307,6 +307,11 @@ export default function RaniMahal() {
   const [cloudImages, setCloudImages] = useState({});
   const [showSectionSheet, setShowSectionSheet] = useState(false);
   const [showFulfillmentSheet, setShowFulfillmentSheet] = useState(false);
+  const [showExitDrawer, setShowExitDrawer] = useState(false);
+  const [exitPhone, setExitPhone] = useState(loadPhone);
+  const [exitSaved, setExitSaved] = useState(false);
+  const [exitError, setExitError] = useState(null);
+  const exitPromptedRef = useRef(false);
 
   const sectionPhotos = useMemo(() => {
     if (Object.keys(cloudImages).length === 0) return {};
@@ -341,7 +346,7 @@ export default function RaniMahal() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const anyOverlayOpen = !!modalItem || showCheckoutGate || drawerOpen || showSectionSheet || showFulfillmentSheet;
+  const anyOverlayOpen = !!modalItem || showCheckoutGate || drawerOpen || showSectionSheet || showFulfillmentSheet || showExitDrawer;
   useEffect(() => {
     if (!anyOverlayOpen) return;
     const prevOverflow = document.body.style.overflow;
@@ -350,6 +355,7 @@ export default function RaniMahal() {
       if (e.key !== "Escape") return;
       if (showCheckoutGate) setShowCheckoutGate(false);
       else if (showFulfillmentSheet) setShowFulfillmentSheet(false);
+      else if (showExitDrawer) setShowExitDrawer(false);
       else if (modalItem) setModalItem(null);
       else if (showSectionSheet) setShowSectionSheet(false);
       else if (drawerOpen) setDrawerOpen(false);
@@ -359,7 +365,7 @@ export default function RaniMahal() {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [anyOverlayOpen, showCheckoutGate, showFulfillmentSheet, modalItem, showSectionSheet, drawerOpen]);
+  }, [anyOverlayOpen, showCheckoutGate, showFulfillmentSheet, showExitDrawer, modalItem, showSectionSheet, drawerOpen]);
 
   useEffect(() => {
     fetch("/api/images/list")
@@ -455,24 +461,31 @@ export default function RaniMahal() {
     const addParam = params.get("add");
     if (!addParam) return;
 
-    const ids = addParam.split(",").map(s => s.trim()).filter(Boolean);
+    const tokens = addParam.split(",").map(s => s.trim()).filter(Boolean);
     const addedNames = [];
 
     setCart(prev => {
       const next = { ...prev };
-      ids.forEach(id => {
-        const isQA = id.startsWith("qa-");
-        const canonical = isQA ? QA[id] : ITEM_MAP[id];
+      tokens.forEach(token => {
+        let baseId = token;
+        let count = 1;
+        if (token.includes(":")) {
+          const [idPart, qtyPart] = token.split(":");
+          baseId = idPart;
+          count = Math.max(1, parseInt(qtyPart, 10) || 1);
+        }
+        const isQA = baseId.startsWith("qa-");
+        const canonical = isQA ? QA[baseId] : ITEM_MAP[baseId];
         if (!canonical) return;
-        const key = isQA ? id : id + "_1";
+        const key = isQA ? baseId : baseId + "_1";
         const existing = next[key];
         next[key] = {
           name: canonical.name, price: canonical.price,
-          qty: (existing?.qty ?? 0) + 1,
+          qty: (existing?.qty ?? 0) + count,
           spice: existing?.spice ?? null, note: existing?.note ?? "",
-          baseId: id,
+          baseId,
         };
-        addedNames.push(canonical.name);
+        for (let c = 0; c < count; c++) addedNames.push(canonical.name);
       });
       return next;
     });
@@ -618,12 +631,6 @@ export default function RaniMahal() {
   };
 
   // Exit-Intent & Inactivity Drawer: Captures phone before user closes or leaves tab
-  const [showExitDrawer, setShowExitDrawer] = useState(false);
-  const [exitPhone, setExitPhone] = useState(guestPhone || "");
-  const [exitSaved, setExitSaved] = useState(false);
-  const [exitError, setExitError] = useState(null);
-  const exitPromptedRef = useRef(false);
-
   useEffect(() => {
     if (clerkIsSignedIn || guestPhone || exitPromptedRef.current || Object.keys(cart).length === 0) return;
 

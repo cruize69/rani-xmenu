@@ -58,8 +58,8 @@ export default async function handler(req, res) {
     }
 
     // 2. Build resume URL with item payloads
-    const addTokens = items.map(i => `${i.baseId}:${i.qty}`).join(",");
-    const link = `${BASE_URL}/?add=${encodeURIComponent(addTokens)}`;
+    const ids = items.flatMap(i => Array(Math.max(1, i.qty || 1)).fill(i.baseId));
+    const link = `${BASE_URL}/?add=${ids.map(encodeURIComponent).join(",")}`;
 
     const cartCount = items.reduce((s, i) => s + (i.qty || 1), 0);
     const smsText = `Rani Mahal: Your order (${cartCount} item${cartCount > 1 ? "s" : ""}) is saved! Tap here to resume anytime: ${link} Reply STOP to opt out.`;

@@ -568,7 +568,7 @@ export function CartDrawer({
   welcomeEligible = false,
   onApplyWelcomeDiscount,
 }) {
-  const { isSignedIn } = useUser();
+  const { isSignedIn } = CLERK_ENABLED ? useUser() : { isSignedIn: false };
   const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));
   const entries = Object.values(cart);
   const isDelivery = orderMode === "delivery";
