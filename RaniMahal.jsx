@@ -194,7 +194,7 @@ function NewsletterSignup() {
         value={email}
         onChange={e => setEmail(e.target.value)}
         placeholder="Menu updates & seasonal offers"
-        style={{ padding:"8px 12px", borderRadius:20, border:"1px solid rgba(250,246,239,0.15)", background:"#1c1814", color:"#FAF6EF", fontSize:12.5, width:220, outline:"none" }}
+        style={{ padding:"8px 12px", borderRadius:20, border:"1px solid rgba(250,246,239,0.15)", background:"#1c1814", color:"#FAF6EF", fontSize:16, width:220, outline:"none" }}
       />
       <button
         type="submit"
@@ -1108,7 +1108,7 @@ export default function RaniMahal() {
                     border: "1px solid rgba(250,246,239,0.15)",
                     borderRadius: 8,
                     color: "#FAF6EF",
-                    fontSize: 14,
+                    fontSize: 16,
                     outline: "none"
                   }}
                 />

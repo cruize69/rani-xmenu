@@ -305,7 +305,7 @@ export function FulfillmentSheet({
             style={{
               width: "100%", padding: "12px 14px", borderRadius: 10,
               border: `1.5px solid ${isPhoneValid ? "rgba(250,246,239,0.15)" : "rgba(217,72,44,0.5)"}`,
-              background: "#1c1814", color: "#FAF6EF", fontSize: 15, fontFamily: "'Inter', sans-serif",
+              background: "#1c1814", color: "#FAF6EF", fontSize: 16, fontFamily: "'Inter', sans-serif",
               outline: "none", boxSizing: "border-box",
             }}
           />

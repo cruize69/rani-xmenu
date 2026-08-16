@@ -146,7 +146,7 @@ export function TipSelector({ tipPct, setTipPct, tipCustom, setTipCustom, subtot
         <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
           <span style={{ fontSize:14, color:"#B8A995" }}>$</span>
           <input type="number" min="0" step="0.01" placeholder="0.00" value={tipCustom} onChange={e => setTipCustom(e.target.value)} autoFocus
-            style={{ flex:1, padding:"8px 12px", borderRadius:8, border:"1px solid rgba(250,246,239,0.12)", background:"#1c1814", color:"#FAF6EF", fontSize:14, outline:"none", fontFamily:"'Inter',sans-serif" }} />
+            style={{ flex:1, padding:"8px 12px", borderRadius:8, border:"1px solid rgba(250,246,239,0.12)", background:"#1c1814", color:"#FAF6EF", fontSize:16, outline:"none", fontFamily:"'Inter',sans-serif" }} />
         </div>
       )}
       {typeof tipPct === "number" && tipPct > 0 && !isUntouchedDefault && (
@@ -322,7 +322,7 @@ export function CheckoutGate({
     goToStripe({ guestEmail });
   };
 
-  const iStyle = { display:"block", width:"100%", padding:"13px 14px", border:"1px solid rgba(250,246,239,0.15)", borderRadius:12, fontSize:15, color:"#FAF6EF", background:"#1c1814", outline:"none", fontFamily:"'Inter',sans-serif", marginBottom:10, boxSizing:"border-box", minHeight:48, WebkitAppearance:"none", appearance:"none" };
+  const iStyle = { display:"block", width:"100%", padding:"13px 14px", border:"1px solid rgba(250,246,239,0.15)", borderRadius:12, fontSize:16, color:"#FAF6EF", background:"#1c1814", outline:"none", fontFamily:"'Inter',sans-serif", marginBottom:10, boxSizing:"border-box", minHeight:48, WebkitAppearance:"none", appearance:"none" };
   const socialBtn = { width:"100%", padding:"11px 16px", background:"#1c1814", color:"#FAF6EF", border:"0.5px solid rgba(250,246,239,0.15)", borderRadius:10, fontSize:13, fontWeight:500, cursor:"pointer", fontFamily:"'Inter',sans-serif", display:"flex", alignItems:"center", gap:10, marginBottom:8 };
 
   return (
@@ -705,7 +705,7 @@ export function CartDrawer({
                         border: "1px solid rgba(250,246,239,0.15)",
                         borderRadius: 8,
                         color: "#FAF6EF",
-                        fontSize: 13,
+                        fontSize: 16,
                         outline: "none"
                       }}
                     />
@@ -894,7 +894,7 @@ export function CartDrawer({
                             border: "1px solid rgba(250,246,239,0.15)",
                             borderRadius: 8,
                             color: "#FAF6EF",
-                            fontSize: 12.5,
+                            fontSize: 16,
                             outline: "none"
                           }}
                         />

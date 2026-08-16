@@ -104,7 +104,7 @@ export function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl
 
           <p style={{ fontSize:12, fontWeight:500, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", margin:"1rem 0 8px" }}>Special instructions</p>
           <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Allergies, dietary notes, extra spice requests…"
-            style={{ width:"100%", border:"1.5px solid rgba(250,246,239,0.1)", borderRadius:10, padding:"10px 12px", fontFamily:"'Inter',sans-serif", fontSize:14, color:"#FAF6EF", background:"#1c1814", resize:"none", height:70, marginBottom:"1.25rem", outline:"none" }} />
+            style={{ width:"100%", border:"1.5px solid rgba(250,246,239,0.1)", borderRadius:10, padding:"10px 12px", fontFamily:"'Inter',sans-serif", fontSize:16, color:"#FAF6EF", background:"#1c1814", resize:"none", height:70, marginBottom:"1.25rem", outline:"none" }} />
         </div>
         {/* Footer */}
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"1rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)", background:"rgba(18,16,14,0.57)", backdropFilter:"blur(20px) saturate(180%)", WebkitBackdropFilter:"blur(20px) saturate(180%)", position:"sticky", bottom:0, zIndex:1 }}>

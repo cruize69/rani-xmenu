@@ -18,7 +18,7 @@ const input = {
   border: "1px solid rgba(250,246,239,0.15)",
   background: "#1c1814",
   color: "#FAF6EF",
-  fontSize: 15,
+  fontSize: 16,
   fontFamily: "'Inter',sans-serif",
   outline: "none",
   boxSizing: "border-box",
