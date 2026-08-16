@@ -19,6 +19,7 @@
 import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, neverOrderedNudgeEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 const MIN_AGE_DAYS = 5;
 const MAX_PER_RUN = 200;
@@ -73,7 +74,9 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, sent, skipped, candidates: candidates.length });
+    const result = { sent, skipped, candidates: candidates.length };
+    await recordCronRun("never-ordered-nudge", result);
+    return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Never-ordered nudge cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });

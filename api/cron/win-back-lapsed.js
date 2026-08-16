@@ -24,6 +24,7 @@
 import { kv } from "@vercel/kv";
 import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, winBackEmailHtml, winBackSmsBody, winBackTouch2EmailHtml, winBackTouch2SmsBody } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 const LAPSE_DAYS = 30;
 const TOUCH2_LAPSE_DAYS = 45;
@@ -161,7 +162,9 @@ export default async function handler(req, res) {
     const touch1 = await runTouch1(candidates1);
     const touch2 = await runTouch2(candidates2);
 
-    return res.status(200).json({ ok: true, touch1: { ...touch1, candidates: candidates1.length }, touch2: { ...touch2, candidates: candidates2.length } });
+    const result = { touch1: { ...touch1, candidates: candidates1.length }, touch2: { ...touch2, candidates: candidates2.length } };
+    await recordCronRun("win-back-lapsed", result);
+    return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Win-back cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });

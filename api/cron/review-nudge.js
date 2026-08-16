@@ -13,6 +13,7 @@
 import { kv } from "@vercel/kv";
 import { getOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { sendEmail, sendSMS, reviewNudgeEmailHtml, reviewNudgeSmsBody } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 export default async function handler(req, res) {
   if (process.env.CRON_SECRET) {
@@ -67,7 +68,9 @@ export default async function handler(req, res) {
       await kv.zrem("review-nudge-queue", orderId);
     }
 
-    return res.status(200).json({ ok: true, sent, skipped, checked: dueIds.length });
+    const result = { sent, skipped, checked: dueIds.length };
+    await recordCronRun("review-nudge", result);
+    return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Review nudge cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });

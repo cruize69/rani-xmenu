@@ -23,6 +23,7 @@ import {
   secondOrderTouch1EmailHtml, secondOrderTouch1SmsBody,
   secondOrderTouch2EmailHtml, secondOrderTouch2SmsBody,
 } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows are deliberately a full day wide (not a single instant) so a
@@ -141,6 +142,7 @@ export default async function handler(req, res) {
       mintIncentive: true,
     });
 
+    await recordCronRun("second-order-push", { touch1, touch2 });
     return res.status(200).json({ ok: true, touch1, touch2 });
   } catch (e) {
     console.error("Second-order push cron failed:", e);

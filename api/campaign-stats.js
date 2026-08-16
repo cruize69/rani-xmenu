@@ -43,17 +43,28 @@ export default async function handler(req, res) {
 
   try {
     const rows = await Promise.all(KNOWN_SOURCES.map(async source => {
-      const [sent, claimed] = await Promise.all([
+      const [sent, claimed, converted, revenue] = await Promise.all([
         kv.get(`campaign-stats:${source}:sent`),
         kv.get(`campaign-stats:${source}:claimed`),
+        kv.get(`campaign-stats:${source}:converted`),
+        kv.get(`campaign-stats:${source}:revenue`),
       ]);
       const sentN = Number(sent) || 0;
       const claimedN = Number(claimed) || 0;
+      const convertedN = Number(converted) || 0;
+      const revenueN = Number(revenue) || 0;
       return {
         source,
         sent: sentN,
         claimed: claimedN,
+        // "Converted" = the voucher was actually on a PAID order (see
+        // lib/syncStripe.js), not just a started checkout session —
+        // claimed will always be >= converted, since some claimed
+        // sessions get abandoned before payment.
+        converted: convertedN,
+        revenue: Number(revenueN.toFixed(2)),
         claimRate: sentN > 0 ? Number((claimedN / sentN * 100).toFixed(1)) : null,
+        conversionRate: sentN > 0 ? Number((convertedN / sentN * 100).toFixed(1)) : null,
       };
     }));
 

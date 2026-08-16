@@ -800,6 +800,159 @@ const CAMPAIGN_LABELS = {
   "catering-cross-sell":    "Catering cross-sell",
 };
 
+const CRON_LABELS = {
+  "win-back-lapsed":       { label: "Win-back (lapsed 30d/45d)",   schedule: "Daily · 4:00 PM ET" },
+  "second-order-push":     { label: "Second-order push",           schedule: "Daily · 3:00 PM ET" },
+  "never-ordered-nudge":   { label: "Never-ordered nudge",         schedule: "Daily · 5:00 PM ET" },
+  "catering-cross-sell":   { label: "Catering cross-sell",         schedule: "Daily · 6:00 PM ET" },
+  "newsletter-digest":     { label: "Newsletter monthly digest",   schedule: "Monthly · 1st, 2:00 PM ET" },
+  "sweep-abandoned-carts": { label: "Abandoned-cart sweep",        schedule: "Every 5 min" },
+  "review-nudge":          { label: "Review nudge",                schedule: "Every 15 min" },
+};
+
+function timeAgo(iso) {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
+
+// Flattens whatever shape a given cron's lastRun result happens to have
+// (they differ — win-back-lapsed nests touch1/touch2, others are flat)
+// into short "key: value" chips instead of hardcoding a renderer per job.
+function summarizeRun(lastRun) {
+  if (!lastRun) return [];
+  const chips = [];
+  const walk = (obj, prefix = "") => {
+    Object.entries(obj).forEach(([k, v]) => {
+      if (k === "ranAt") return;
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        walk(v, prefix ? `${prefix}.${k}` : k);
+      } else {
+        chips.push({ key: prefix ? `${prefix}.${k}` : k, value: v });
+      }
+    });
+  };
+  walk(lastRun);
+  return chips;
+}
+
+function CronStatusBoard() {
+  const [jobs, setJobs] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [running, setRunning] = useState(null); // job name currently in-flight
+  const [confirmJob, setConfirmJob] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/cron-status`, {
+        headers: { "x-manager-secret": getManagerSecret() },
+      });
+      if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
+      const json = await res.json();
+      setJobs(json.jobs ?? []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runNow = async (job) => {
+    setConfirmJob(null);
+    setRunning(job);
+    try {
+      const res = await fetch(`${API_BASE}/api/campaign-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-manager-secret": getManagerSecret() },
+        body: JSON.stringify({ job }),
+      });
+      if (!res.ok) throw new Error(`Run failed (HTTP ${res.status})`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: 40, color: TEXT_MUTED }}>⚡ Loading cron status...</div>;
+  }
+
+  return (
+    <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, textTransform: "uppercase", letterSpacing: "0.06em" }}>⚙️ Lifecycle Cron Status</h3>
+        <button onClick={load} style={{ background: "none", border: "none", color: ACCENT, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>↺ Refresh</button>
+      </div>
+      <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+        Every job here is idempotent (per-customer dedup) — running one early never double-messages anyone already reached. Sends real emails/SMS to real customers.
+      </p>
+      {error && (
+        <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 10, padding: 12, color: "#FCA5A5", fontSize: 12, marginBottom: 12 }}>
+          ⚠️ {error}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {(jobs ?? []).map(({ name, lastRun }) => {
+          const meta = CRON_LABELS[name] ?? { label: name, schedule: "—" };
+          const chips = summarizeRun(lastRun);
+          return (
+            <div key={name} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: TEXT_MAIN }}>{meta.label}</div>
+                  <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>
+                    {meta.schedule} · Last ran: {lastRun ? timeAgo(lastRun.ranAt) : "never"}
+                  </div>
+                </div>
+                {confirmJob === name ? (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 700 }}>Send real messages now?</span>
+                    <button onClick={() => runNow(name)}
+                      style={{ padding: "6px 12px", borderRadius: 8, background: "#F43F5E", border: "none", color: "#FFF", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                      Confirm
+                    </button>
+                    <button onClick={() => setConfirmJob(null)}
+                      style={{ padding: "6px 12px", borderRadius: 8, background: "transparent", border: `1px solid ${CARD_BORDER}`, color: TEXT_MUTED, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmJob(name)} disabled={running === name}
+                    style={{ padding: "6px 14px", borderRadius: 8, background: ACCENT_LIGHT, border: `1px solid ${CARD_BORDER}`, color: ACCENT, fontSize: 11, fontWeight: 800, cursor: running === name ? "default" : "pointer", opacity: running === name ? 0.6 : 1 }}>
+                    {running === name ? "Running..." : "▶ Run Now"}
+                  </button>
+                )}
+              </div>
+              {chips.length > 0 && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                  {chips.map(c => (
+                    <span key={c.key} style={{ fontSize: 10, fontWeight: 700, color: TEXT_MUTED, background: "rgba(255,255,255,0.04)", padding: "3px 8px", borderRadius: 6 }}>
+                      {c.key}: <strong style={{ color: TEXT_MAIN }}>{String(c.value)}</strong>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CampaignsTab() {
   const [campaigns, setCampaigns] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -828,8 +981,11 @@ function CampaignsTab() {
   const totals = useMemo(() => (campaigns ?? []).reduce((acc, c) => ({
     sent: acc.sent + c.sent,
     claimed: acc.claimed + c.claimed,
-  }), { sent: 0, claimed: 0 }), [campaigns]);
-  const overallRate = totals.sent > 0 ? Number((totals.claimed / totals.sent * 100).toFixed(1)) : null;
+    converted: acc.converted + c.converted,
+    revenue: acc.revenue + c.revenue,
+  }), { sent: 0, claimed: 0, converted: 0, revenue: 0 }), [campaigns]);
+  const overallClaimRate = totals.sent > 0 ? Number((totals.claimed / totals.sent * 100).toFixed(1)) : null;
+  const overallConvRate = totals.sent > 0 ? Number((totals.converted / totals.sent * 100).toFixed(1)) : null;
 
   if (loading) {
     return <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>⚡ Loading campaign stats...</div>;
@@ -846,18 +1002,20 @@ function CampaignsTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         <StatCard title="Total Sent" value={totals.sent.toLocaleString()} icon="📤" color={ACCENT} sub="Across all lifecycle campaigns" />
-        <StatCard title="Total Claimed" value={totals.claimed.toLocaleString()} icon="🎟️" color="#10B981" sub="Vouchers used at checkout" />
-        <StatCard title="Overall Claim Rate" value={overallRate !== null ? `${overallRate}%` : "—"} icon="📈" color="#38BDF8" sub="Claimed ÷ sent" />
-        <button onClick={load}
-          style={{ height: "auto", padding: "16px 18px", borderRadius: 14, background: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: ACCENT, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
-          ↺ Refresh
-        </button>
+        <StatCard title="Claimed at Checkout" value={totals.claimed.toLocaleString()} icon="🎟️" color="#38BDF8" sub={`${overallClaimRate !== null ? overallClaimRate + "%" : "—"} of sent`} />
+        <StatCard title="Actually Paid" value={totals.converted.toLocaleString()} icon="✅" color="#10B981" sub={`${overallConvRate !== null ? overallConvRate + "%" : "—"} of sent`} />
+        <StatCard title="Revenue Attributed" value={fmt(totals.revenue)} icon="💰" color="#A855F7" sub="From converted orders" />
       </div>
 
+      <CronStatusBoard />
+
       <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>📣 Lifecycle Campaign Performance</h3>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, textTransform: "uppercase", letterSpacing: "0.06em" }}>📣 Lifecycle Campaign Performance</h3>
+          <button onClick={load} style={{ background: "none", border: "none", color: ACCENT, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>↺ Refresh</button>
+        </div>
         <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
-          "Claimed" means a checkout session started with that voucher — not that the order was ultimately paid. Directional, not full revenue attribution.
+          Claimed = checkout session started with that voucher. Converted = the order was actually paid (lib/syncStripe.js). Claimed will always be ≥ converted — the gap is abandoned checkouts.
         </p>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
@@ -866,7 +1024,9 @@ function CampaignsTab() {
                 <th style={{ padding: "10px 8px" }}>Campaign</th>
                 <th style={{ padding: "10px 8px" }}>Sent</th>
                 <th style={{ padding: "10px 8px" }}>Claimed</th>
-                <th style={{ padding: "10px 8px" }}>Claim Rate</th>
+                <th style={{ padding: "10px 8px" }}>Paid</th>
+                <th style={{ padding: "10px 8px" }}>Revenue</th>
+                <th style={{ padding: "10px 8px" }}>Conv. Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -875,14 +1035,16 @@ function CampaignsTab() {
                   <td style={{ padding: "12px 8px", fontWeight: "bold", color: TEXT_MAIN }}>{CAMPAIGN_LABELS[c.source] ?? c.source}</td>
                   <td style={{ padding: "12px 8px" }}>{c.sent.toLocaleString()}</td>
                   <td style={{ padding: "12px 8px" }}>{c.claimed.toLocaleString()}</td>
-                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: c.claimRate === null ? TEXT_MUTED : c.claimRate >= 15 ? "#10B981" : c.claimRate >= 5 ? "#F59E0B" : "#F43F5E" }}>
-                    {c.claimRate === null ? "—" : `${c.claimRate}%`}
+                  <td style={{ padding: "12px 8px" }}>{c.converted.toLocaleString()}</td>
+                  <td style={{ padding: "12px 8px", color: "#10B981", fontWeight: "bold" }}>{fmt(c.revenue)}</td>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: c.conversionRate === null ? TEXT_MUTED : c.conversionRate >= 10 ? "#10B981" : c.conversionRate >= 3 ? "#F59E0B" : "#F43F5E" }}>
+                    {c.conversionRate === null ? "—" : `${c.conversionRate}%`}
                   </td>
                 </tr>
               ))}
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: 20, color: TEXT_MUTED }}>No campaign sends recorded yet.</td>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 20, color: TEXT_MUTED }}>No campaign sends recorded yet.</td>
                 </tr>
               )}
             </tbody>

@@ -4,6 +4,7 @@
 // schedules, so it now runs independently and no longer adds load to the
 // staff-dashboard polling hot path.
 import { sweepAbandonedCarts } from "../../lib/abandonedCart.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 export default async function handler(req, res) {
   // Vercel signs Cron requests with this header when CRON_SECRET is set —
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const result = await sweepAbandonedCarts();
+    await recordCronRun("sweep-abandoned-carts", result);
     return res.status(200).json({ ok: true, result });
   } catch (err) {
     console.error("Cron sweepAbandonedCarts error:", err);

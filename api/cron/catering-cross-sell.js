@@ -18,6 +18,7 @@
 import { kv } from "@vercel/kv";
 import { getOrder } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, cateringCrossSellEmailHtml, cateringCrossSellSmsBody } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 const ORDER_COUNT_THRESHOLD = 5;
 const MAX_PER_RUN = 200;
@@ -76,7 +77,9 @@ export default async function handler(req, res) {
       }
     } while (String(cursor) !== "0" && scanned < MAX_PER_RUN);
 
-    return res.status(200).json({ ok: true, sent, skipped, scanned });
+    const result = { sent, skipped, scanned };
+    await recordCronRun("catering-cross-sell", result);
+    return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Catering cross-sell cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });

@@ -20,6 +20,7 @@
 import { kv } from "@vercel/kv";
 import { MENU_ITEMS } from "../../lib/menu.js";
 import { sendEmail, newsletterDigestEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 const BESTSELLERS = MENU_ITEMS.filter(i => i.badge === "bestseller");
 
@@ -35,12 +36,16 @@ export default async function handler(req, res) {
     const monthKey = new Date().toISOString().slice(0, 7); // "YYYY-MM"
     const claimed = await kv.set(`newsletter-digest:sent:${monthKey}`, "1", { nx: true, ex: 40 * 24 * 60 * 60 });
     if (!claimed) {
-      return res.status(200).json({ ok: true, skipped: true, reason: "already_sent_this_month" });
+      const result = { skipped: true, reason: "already_sent_this_month" };
+      await recordCronRun("newsletter-digest", result);
+      return res.status(200).json({ ok: true, ...result });
     }
 
     const subscribers = await kv.zrange("newsletter-subscribers", 0, -1);
     if (subscribers.length === 0) {
-      return res.status(200).json({ ok: true, sent: 0, reason: "no_subscribers" });
+      const result = { sent: 0, reason: "no_subscribers" };
+      await recordCronRun("newsletter-digest", result);
+      return res.status(200).json({ ok: true, ...result });
     }
 
     // Deterministic rotation, not random — the same dish for everyone in a
@@ -56,7 +61,9 @@ export default async function handler(req, res) {
     });
     await recordCampaignSent("newsletter-digest");
 
-    return res.status(200).json({ ok: true, sent: subscribers.length, dish: dish.name });
+    const result = { sent: subscribers.length, dish: dish.name };
+    await recordCronRun("newsletter-digest", result);
+    return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Newsletter digest cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });
