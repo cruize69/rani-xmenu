@@ -20,85 +20,40 @@ captureUtmFromUrl();
 // see lib/errorAlerts.js for what happens with it server-side.
 installGlobalErrorReporting();
 
-// Prevent iOS Safari pinch-to-zoom, and — the part that actually matters —
-// guarantee it's never a one-way trip if a pinch gets through anyway.
+// Zoom handling: deliberately just the passive viewport meta tag
+// (index.html) now — no JS-based gesture interception here at all.
 //
-// Full prevention isn't something any web page can 100% guarantee on
-// modern iOS: Apple has deliberately kept pinch-zoom available since iOS
-// 10 even when a page sets user-scalable=no, specifically for
-// accessibility, and `gesturestart` is a legacy WebKit-only event that
-// doesn't fire for every pinch. A previous attempt here tried hard-
-// blocking every 2-finger touchmove unconditionally — that's not
-// verifiably effective at stopping the INITIAL zoom (native pinch
-// recognition can begin above the level JS touch handlers see), and it
-// actively made things worse: once a zoom had already started, the same
-// blanket block also swallowed the pinch-OUT gesture someone would use to
-// undo it, which is what "stuck, can't get back out" actually was.
+// Three attempts in this file all tried to fight or "fix" pinch-zoom with
+// custom JS (gesturestart interception, then a blanket 2-finger touchmove
+// block, then a visualViewport-driven auto-reset), and each one was
+// reported as making the actual problem WORSE — culminating in "even
+// harder to get back to normal state." The likely reason: gesturestart
+// fires at the start of ANY pinch, including the pinch someone uses to
+// recover from an existing zoom — unconditionally preventDefault-ing it
+// doesn't just fail to stop zooming in, it can block the zoom-OUT
+// recovery gesture too, which is a worse trap than doing nothing.
 //
-// So the strategy here is recovery, not prevention: gesturestart/dblclick
-// stay as a soft first layer, but the real fix is watching
-// window.visualViewport for an actual zoomed-in scale and snapping it
-// back to 1.0 the moment a gesture ends — never fighting an in-progress
-// pinch (which would feel broken and janky), only cleaning up
-// immediately after. The reset itself is the standard iOS trick: toggling
-// the viewport meta's user-scalable value forces Safari to recompute and
-// drop back to scale 1, then it's restored to "no" on the next frame.
+// None of those attempts were ever verified against real iOS Safari —
+// only against a desktop browser automation tool that doesn't run
+// WebKit's actual touch/gesture/zoom engine, which is exactly why each
+// one shipped looking "fixed" and wasn't. Rather than add a fourth
+// unverified guess, this backs out to the one thing that can't make
+// recovery harder: nothing here blocks iOS's own native double-tap-to-
+// reset or native pinch-back-out, because nothing here touches gestures
+// at all anymore. If pinch-zoom-IN still happens, that's a real, well-
+// documented iOS limitation (Apple has kept it available since iOS 10
+// specifically for accessibility, regardless of what a page requests) —
+// but the platform's own built-in way out should now be unobstructed.
 if (typeof document !== "undefined") {
-  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("dblclick", (e) => {
-    // Only prevent double click zoom on buttons, inputs, and interactive surfaces
+    // Only prevent double click zoom on buttons, inputs, and interactive
+    // surfaces — a synthesized mouse dblclick, not the native touch
+    // double-tap-to-reset-zoom gesture, so this doesn't interfere with
+    // recovery the way gesturestart interception did.
     if (e.target.closest && (e.target.closest("button") || e.target.closest("a") || e.target.closest("input"))) {
       e.preventDefault();
     }
   }, { passive: false });
-
-  const resetIOSZoom = () => {
-    const meta = document.querySelector('meta[name="viewport"]');
-    if (!meta) return;
-    const original = meta.getAttribute("content");
-    if (!original || !original.includes("user-scalable=no")) return;
-    meta.setAttribute("content", original.replace("user-scalable=no", "user-scalable=yes"));
-    requestAnimationFrame(() => meta.setAttribute("content", original));
-  };
-
-  if (window.visualViewport) {
-    const maybeReset = () => {
-      // >1.02 (not >1) — visualViewport.scale carries float rounding noise
-      // even at "normal" zoom, so a hair-trigger threshold would reset on
-      // every legitimate resize (keyboard opening, orientation change).
-      if (window.visualViewport.scale > 1.02) resetIOSZoom();
-    };
-
-    // touchend/gestureend fire on the touch/gesture LIFECYCLE, not on the
-    // viewport's actual scale — in practice visualViewport.scale hadn't
-    // always finished updating by the time those fired, so the check read
-    // a stale (pre-zoom) value and silently did nothing, which is exactly
-    // "locks at whatever level the pinch landed on" — the reset logic was
-    // running, just reading the wrong number when it ran.
-    //
-    // visualViewport's own "resize" event is the direct, purpose-built
-    // signal for "the scale actually changed," so it can't have this
-    // staleness problem — it only fires once the browser has already
-    // committed the new value. Debounced so a live multi-step pinch (scale
-    // still actively changing) doesn't get fought mid-gesture: each resize
-    // during an active pinch just pushes the timer back, and the actual
-    // reset only fires once scale has held still for 220ms — i.e. once the
-    // gesture has genuinely stopped, however it stopped.
-    let resetTimer = null;
-    window.visualViewport.addEventListener("resize", () => {
-      clearTimeout(resetTimer);
-      resetTimer = setTimeout(maybeReset, 220);
-    });
-
-    // Kept as a fast-path for the common clean case (fingers lifted
-    // together) — harmless if visualViewport's resize handler above beats
-    // it to the reset, since resetIOSZoom() no-ops once scale is already
-    // back to 1 (the meta content check bails out via the string-includes
-    // guard failing to matter here, but the actual page is already reset
-    // by then either way).
-    document.addEventListener("touchend", maybeReset, { passive: true });
-    document.addEventListener("gestureend", maybeReset, { passive: true });
-  }
 }
 
 // Order confirmation is public — Stripe's success_url redirects here.
