@@ -13,14 +13,13 @@
 // source of truth for what a given cron actually does.
 
 import { CRON_JOBS } from "../lib/cronStatus.js";
-import { isManagerSecretValid } from "../lib/auth.js";
+import { checkManagerAuth } from "../lib/auth.js";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.cc/order").replace(/\/$/, "");
 
 export default async function handler(req, res) {
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }

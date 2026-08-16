@@ -12,7 +12,7 @@
 // real revenue attribution against paid orders.
 
 import { kv } from "@vercel/kv";
-import { isManagerSecretValid } from "../lib/auth.js";
+import { checkManagerAuth } from "../lib/auth.js";
 
 // Fixed list rather than a KV scan — every source string a voucher/email
 // can be tagged with lives in exactly the call sites below, so there's no
@@ -34,9 +34,8 @@ const KNOWN_SOURCES = [
 ];
 
 export default async function handler(req, res) {
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }

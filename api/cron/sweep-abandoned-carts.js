@@ -5,15 +5,11 @@
 // staff-dashboard polling hot path.
 import { sweepAbandonedCarts } from "../../lib/abandonedCart.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
+import { isCronSecretValid } from "../../lib/auth.js";
 
 export default async function handler(req, res) {
-  // Vercel signs Cron requests with this header when CRON_SECRET is set —
-  // verify it if configured so the endpoint can't be triggered by outsiders.
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] ?? "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+  if (!isCronSecretValid(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

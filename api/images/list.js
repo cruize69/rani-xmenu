@@ -3,9 +3,9 @@
 // Returns { images: { "item-garlic-naan": "https://...", ... } }
 // Called by ImageManager portal on load and by RaniMahal.jsx on page load
 //
-// Two auth levels:
-//   - With x-manager-secret header → full list (for Image Manager)
-//   - Without header → public (for customer menu — no sensitive data exposed)
+// Public, unauthenticated, single response shape for every caller — the
+// data (menu-item image URLs + upload coverage counts) isn't sensitive, so
+// there's no manager-only variant to gate.
 
 import { kv } from "@vercel/kv";
 import { MENU_ITEMS } from "../../lib/menu.js";

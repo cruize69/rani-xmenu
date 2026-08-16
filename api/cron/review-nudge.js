@@ -14,13 +14,11 @@ import { kv } from "@vercel/kv";
 import { getOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { sendEmail, sendSMS, reviewNudgeEmailHtml, reviewNudgeSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
+import { isCronSecretValid } from "../../lib/auth.js";
 
 export default async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] ?? "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+  if (!isCronSecretValid(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

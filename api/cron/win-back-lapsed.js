@@ -25,6 +25,7 @@ import { kv } from "@vercel/kv";
 import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, winBackEmailHtml, winBackSmsBody, winBackTouch2EmailHtml, winBackTouch2SmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
+import { isCronSecretValid } from "../../lib/auth.js";
 
 const LAPSE_DAYS = 30;
 const TOUCH2_LAPSE_DAYS = 45;
@@ -146,11 +147,8 @@ async function runTouch2(candidates) {
 }
 
 export default async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] ?? "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+  if (!isCronSecretValid(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

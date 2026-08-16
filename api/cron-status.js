@@ -9,13 +9,12 @@
 // omitted, so the dashboard can show "never run" explicitly.
 
 import { kv } from "@vercel/kv";
-import { isManagerSecretValid } from "../lib/auth.js";
+import { checkManagerAuth } from "../lib/auth.js";
 import { CRON_JOBS } from "../lib/cronStatus.js";
 
 export default async function handler(req, res) {
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }

@@ -1,12 +1,9 @@
 User-agent: *
-Disallow: /manager
-Disallow: /kitchen
-Disallow: /kitchen-tv
-Disallow: /tv-kitchen
-Disallow: /images
-Disallow: /sales
-Disallow: /dashboard
-Disallow: /order-success
-Allow: /
+Disallow: /
+Allow: /$
+Allow: /rewards
+Allow: /catering
+Allow: /privacy
+Allow: /terms
 
 Sitemap: https://ranimahal.cc/sitemap.xml

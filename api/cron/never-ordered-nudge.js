@@ -20,6 +20,7 @@ import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, neverOrderedNudgeEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
+import { isCronSecretValid } from "../../lib/auth.js";
 
 const MIN_AGE_DAYS = 5;
 const MAX_PER_RUN = 200;
@@ -27,11 +28,8 @@ const MAX_PER_RUN = 200;
 const DEDUP_TTL_SEC = 2 * 365 * 24 * 60 * 60;
 
 export default async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] ?? "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+  if (!isCronSecretValid(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

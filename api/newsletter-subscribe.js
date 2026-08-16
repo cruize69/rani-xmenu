@@ -39,6 +39,16 @@ export default async function handler(req, res) {
   try {
     const existing = await kv.get(`newsletter:${clean}`);
     if (!existing) {
+      // Global cap independent of the per-IP limit above — bounds worst-case
+      // voucher-minting cost even against a distributed/botnet attempt that
+      // isn't stopped by IP throttling alone (mirrors referral-claim.js's
+      // per-code caps for the same reason: an unverified-email signup with
+      // an immediate spendable voucher is the one flow here with no
+      // "already has a real relationship with us" gate behind it).
+      if (await overLimit("newsletter-vouchers:daily", 200, 24 * 60 * 60)) {
+        return res.status(429).json({ error: "Too many signups right now. Please try again later." });
+      }
+
       await kv.set(`newsletter:${clean}`, JSON.stringify({ email: clean, subscribedAt: new Date().toISOString() }));
       await kv.zadd("newsletter-subscribers", { score: Date.now(), member: clean });
 

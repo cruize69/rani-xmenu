@@ -6,7 +6,7 @@
 import { kv } from "@vercel/kv";
 import { getOrdersByDate, getNYDateString } from "../lib/orders.js";
 import { syncStripeSessions } from "../lib/syncStripe.js";
-import { isManagerSecretValid } from "../lib/auth.js";
+import { checkManagerAuth } from "../lib/auth.js";
 
 // Food cost weights for COGS estimation
 const FOOD_COST_WEIGHTS = {
@@ -23,9 +23,8 @@ const FOOD_COST_WEIGHTS = {
 };
 
 export default async function handler(req, res) {
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }

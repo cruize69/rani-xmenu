@@ -24,6 +24,7 @@ import {
   secondOrderTouch2EmailHtml, secondOrderTouch2SmsBody,
 } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
+import { isCronSecretValid } from "../../lib/auth.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows are deliberately a full day wide (not a single instant) so a
@@ -123,11 +124,8 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
 }
 
 export default async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers["authorization"] ?? "";
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+  if (!isCronSecretValid(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

@@ -11,7 +11,7 @@ import { kv }        from "@vercel/kv";
 import { IncomingForm } from "formidable";
 import { buffer }    from "micro";
 import fs from "fs";
-import { isManagerSecretValid } from "../../lib/auth.js";
+import { checkManagerAuth } from "../../lib/auth.js";
 
 // bodyParser must stay off for multipart upload; DELETE's JSON body is
 // parsed manually below since this config applies to the whole handler.
@@ -25,9 +25,8 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const ACCEPTED  = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 export default async function handler(req, res) {
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   if (req.method === "POST")   return handleUpload(req, res);
   if (req.method === "DELETE") return handleDelete(req, res);
@@ -110,6 +109,11 @@ async function handleDelete(req, res) {
     return res.status(400).json({ error: "Invalid JSON body" });
   }
   if (!itemId) return res.status(400).json({ error: "itemId required" });
+  // Same allowlist handleUpload enforces — itemId is interpolated into a
+  // KV key here too, and DELETE had no format check at all.
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(itemId)) {
+    return res.status(400).json({ error: "Invalid itemId" });
+  }
 
   try {
     const url = await kv.get(`image:${itemId}`);

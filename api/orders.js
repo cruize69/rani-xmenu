@@ -18,7 +18,7 @@ import { kv } from "@vercel/kv";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion, publicOrderView } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
-import { isManagerSecretValid } from "../lib/auth.js";
+import { checkManagerAuth } from "../lib/auth.js";
 import { reportPaidOrderBuildFailed } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
 
@@ -32,9 +32,8 @@ export default async function handler(req, res) {
 
 
 
-  if (!isManagerSecretValid(req.headers["x-manager-secret"])) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await checkManagerAuth(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   if (req.method === "GET")   return handleGet(req, res);
   if (req.method === "PATCH") return handleUpdate(req, res);

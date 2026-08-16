@@ -6,6 +6,7 @@
 import { saveLead } from "../../lib/abandonedCart.js";
 import { sendSMS } from "../../lib/notifications.js";
 import { overLimit, clientIp } from "../../lib/rateLimit.js";
+import { VALID_ITEMS } from "../../lib/menu.js";
 
 const MAX_PER_IP_PER_HOUR = 15;
 const MAX_PER_PHONE_PER_DAY = 3;
@@ -57,8 +58,17 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Build resume URL with item payloads
-    const ids = items.flatMap(i => Array(Math.max(1, i.qty || 1)).fill(i.baseId));
+    // 2. Build resume URL with item payloads — only baseIds that resolve to
+    // a real menu/quick-add item, so an arbitrary client-supplied string
+    // never reaches the outbound SMS body (this is sent to a phone number,
+    // not just rendered in a UI we control).
+    const validIds = items.map(i => i.baseId).filter(id => typeof id === "string" && VALID_ITEMS[id]);
+    if (validIds.length === 0) {
+      return res.status(400).json({ error: "Cart is empty." });
+    }
+    const ids = items
+      .filter(i => VALID_ITEMS[i.baseId])
+      .flatMap(i => Array(Math.max(1, i.qty || 1)).fill(i.baseId));
     const link = `${BASE_URL}/?add=${ids.map(encodeURIComponent).join(",")}`;
 
     const cartCount = items.reduce((s, i) => s + (i.qty || 1), 0);

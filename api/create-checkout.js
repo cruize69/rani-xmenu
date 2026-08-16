@@ -20,6 +20,7 @@ import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { kv } from "@vercel/kv";
 import { recordCampaignClaimed } from "../lib/notifications.js";
+import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -45,23 +46,9 @@ const MAX_QTY_PER_LINE = 25;
 // JSON.parse fails on the way back out in lib/syncStripe.js (inside a catch
 // that swallows it) and the address silently becomes null. Verified: a ~500
 // char delivery note produces a PAID delivery order whose ticket has no
-// address at all. Cap each field so the encoded object always fits, and
-// degrade by dropping the note rather than losing the address.
-function sanitizeDeliveryAddress(a) {
-  if (!a || typeof a !== "object") return null;
-  const s = (v, n) => (typeof v === "string" ? v.slice(0, n).trim() : "");
-  const addr = {
-    street: s(a.street, 100),
-    apt:    s(a.apt, 30),
-    city:   s(a.city, 50),
-    zip:    s(a.zip, 10),
-    notes:  s(a.notes, 150),
-  };
-  // Belt-and-braces: if anything above still pushes the JSON over Stripe's
-  // limit, shed the note (recoverable) instead of the address (not).
-  if (JSON.stringify(addr).length > 480) addr.notes = "";
-  return addr;
-}
+// address at all. sanitizeDeliveryAddress (lib/sanitize.js) caps each field
+// so the encoded object always fits, and degrades by dropping the note
+// rather than losing the address.
 const STRIPE_PCT = 0.029;
 const STRIPE_FLAT = 0.30;
 
