@@ -517,6 +517,16 @@ export default function RaniMahal() {
     updateCart(prev => {
       const key = item.id+"_1";
       if (qty===0) { const n={...prev}; delete n[key]; return n; }
+      // If this is the very first item added in this session, prompt the fulfillment sheet
+      // so the user effortlessly sets pickup/delivery and optionally leaves a phone number early.
+      if (Object.keys(prev).length === 0 && qty > 0) {
+        try {
+          if (!sessionStorage.getItem("rani_fulfillment_prompted")) {
+            sessionStorage.setItem("rani_fulfillment_prompted", "1");
+            setTimeout(() => setShowFulfillmentSheet(true), 350);
+          }
+        } catch {}
+      }
       return { ...prev, [key]:{ name:item.name, price:item.price, qty, spice, note, baseId:item.id } };
     });
     if (qty > 0) trackEvent("add_to_cart", { currency: "USD", value: item.price * qty, items: [{ item_id: item.id, item_name: item.name, quantity: qty, price: item.price }] });
@@ -962,6 +972,83 @@ export default function RaniMahal() {
         </div>
       )}
 
+      {/* Exit Intent / Idle Save Cart Drawer */}
+      {showExitDrawer && (
+        <>
+          <div onClick={() => setShowExitDrawer(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:350 }} />
+          <div style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            margin: "0 auto",
+            maxWidth: 520,
+            background: "#161311",
+            border: "1px solid rgba(232,168,46,0.3)",
+            borderRadius: "16px 16px 0 0",
+            padding: "20px 24px 24px",
+            zIndex: 360,
+            boxShadow: "0 -8px 32px rgba(0,0,0,0.8)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <span style={{ fontSize: 18, marginRight: 6 }}>🥘</span>
+                <span style={{ fontFamily: "'Fraunces',serif", fontSize: 18, color: "#FAF6EF", fontWeight: 500 }}>
+                  Planning dinner later?
+                </span>
+                <p style={{ fontSize: 13, color: "#B8A995", margin: "4px 0 0" }}>
+                  Save your cart so you don't lose it. We'll text you a 1-tap link to resume anytime.
+                </p>
+              </div>
+              <button onClick={() => setShowExitDrawer(false)} style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 20, cursor: "pointer" }}>×</button>
+            </div>
+
+            {exitSaved ? (
+              <p style={{ fontSize: 13.5, color: "#10B981", fontWeight: 600, margin: "8px 0 0", textAlign: "center" }}>
+                ✓ Cart saved! We texted you your link.
+              </p>
+            ) : (
+              <form onSubmit={handleSaveExitCart} style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <input
+                  type="tel"
+                  value={exitPhone}
+                  onChange={e => setExitPhone(e.target.value)}
+                  placeholder="Mobile phone #"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    background: "#080706",
+                    border: "1px solid rgba(250,246,239,0.15)",
+                    borderRadius: 8,
+                    color: "#FAF6EF",
+                    fontSize: 14,
+                    outline: "none"
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    padding: "10px 18px",
+                    background: "#E8A82E",
+                    border: "none",
+                    borderRadius: 8,
+                    color: "#080706",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  Save Cart
+                </button>
+              </form>
+            )}
+            {exitError && <p style={{ fontSize: 12, color: "#EF4444", margin: "6px 0 0" }}>{exitError}</p>}
+          </div>
+        </>
+      )}
+
       <CartDrawer
         drawerOpen={drawerOpen}
         setDrawerOpen={setDrawerOpen}
@@ -985,7 +1072,15 @@ export default function RaniMahal() {
         deliveryAddress={deliveryAddress}
         deliveryFee={deliveryFee}
         onOpenFulfillmentSheet={() => { setDrawerOpen(false); setShowFulfillmentSheet(true); }}
-        handleCheckout={handleCheckout}
+        guestEmail={guestEmail}
+        setGuestEmail={setGuestEmail}
+        handleCheckout={handleProceedToCheckout}
+        phone={guestPhone}
+        setPhone={setGuestPhone}
+        onSaveLead={saveDraftLead}
+        draftId={draftIdRef.current}
+        welcomeEligible={welcomeEligible}
+        onApplyWelcomeDiscount={() => setWelcomeDiscountAmt(parseFloat((subtotal * 0.10).toFixed(2)))}
       />
     </div>
   );

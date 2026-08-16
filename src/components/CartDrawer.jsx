@@ -561,13 +561,83 @@ export function CartDrawer({
   guestEmail = "",
   setGuestEmail,
   handleCheckout,
+  phone = "",
+  setPhone,
+  onSaveLead,
+  draftId,
+  welcomeEligible = false,
+  onApplyWelcomeDiscount,
 }) {
+  const { isSignedIn } = useUser();
   const drawerSwipe = useSwipeToClose(() => setDrawerOpen(false));
   const entries = Object.values(cart);
   const isDelivery = orderMode === "delivery";
   const zone = isDelivery ? getDeliveryZoneForZip(deliveryAddress?.zip) : null;
   const zoneMin = zone?.minOrder || DELIVERY_CONFIG.DEFAULT_MINIMUM;
   const isBelowMin = isDelivery && subtotal < zoneMin;
+
+  // Local state for early lead capture and text-cart features
+  const [unlockPhone, setUnlockPhone] = useState(phone || "");
+  const [unlockStatus, setUnlockStatus] = useState(null); // 'saving', 'saved', 'error'
+  const [unlockMsg, setUnlockMsg] = useState("");
+
+  const [showTextCart, setShowTextCart] = useState(false);
+  const [textCartPhone, setTextCartPhone] = useState(phone || "");
+  const [textCartSending, setTextCartSending] = useState(false);
+  const [textCartSuccess, setTextCartSuccess] = useState(false);
+  const [textCartError, setTextCartError] = useState(null);
+
+  const handleUnlockDiscount = (e) => {
+    e.preventDefault();
+    const digits = unlockPhone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      setUnlockStatus("error");
+      setUnlockMsg("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    const clean = `+1${digits}`;
+    if (setPhone) setPhone(clean);
+    if (onSaveLead) onSaveLead({ phone: clean, smsConsent: true });
+    if (onApplyWelcomeDiscount) onApplyWelcomeDiscount();
+    try { localStorage.setItem("rani_guest_phone", clean); } catch {}
+    setUnlockStatus("saved");
+    setUnlockMsg("👑 10% Welcome discount unlocked!");
+  };
+
+  const handleSendCartText = async (e) => {
+    e.preventDefault();
+    setTextCartError(null);
+    const digits = textCartPhone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      setTextCartError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    const clean = `+1${digits}`;
+    setTextCartSending(true);
+    try {
+      const itemsPayload = entries.map(i => ({ baseId: i.baseId, qty: i.qty }));
+      const res = await fetch("/api/cart/send-cart-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: clean,
+          draftId,
+          items: itemsPayload,
+          orderMode,
+          deliveryAddress: isDelivery ? deliveryAddress : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send link");
+      if (setPhone) setPhone(clean);
+      try { localStorage.setItem("rani_guest_phone", clean); } catch {}
+      setTextCartSuccess(true);
+    } catch (err) {
+      setTextCartError(err.message || "Could not text cart link.");
+    } finally {
+      setTextCartSending(false);
+    }
+  };
 
   if (!drawerOpen) return null;
 
@@ -609,6 +679,61 @@ export function CartDrawer({
         ) : (
           <>
             <div style={{ flex:1, overflowY:"auto", minHeight:0 }}>
+              {/* Early Lead Capture: Unlock 10% Off Banner (for guests without phone) */}
+              {!isSignedIn && !phone && unlockStatus !== "saved" && (
+                <div style={{
+                  margin: "12px 1.25rem 6px",
+                  padding: "12px 14px",
+                  background: "linear-gradient(135deg, rgba(232,168,46,0.15) 0%, rgba(20,16,14,0.6) 100%)",
+                  border: "1px solid rgba(232,168,46,0.35)",
+                  borderRadius: 12,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 16 }}>👑</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#FAF6EF" }}>First time? Get 10% OFF right now</span>
+                  </div>
+                  <form onSubmit={handleUnlockDiscount} style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="tel"
+                      value={unlockPhone}
+                      onChange={e => { setUnlockPhone(e.target.value); setUnlockStatus(null); }}
+                      placeholder="Mobile phone #"
+                      style={{
+                        flex: 1,
+                        padding: "8px 12px",
+                        background: "#080706",
+                        border: "1px solid rgba(250,246,239,0.15)",
+                        borderRadius: 8,
+                        color: "#FAF6EF",
+                        fontSize: 13,
+                        outline: "none"
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        padding: "8px 14px",
+                        background: "#E8A82E",
+                        border: "none",
+                        borderRadius: 8,
+                        color: "#080706",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      Unlock 10%
+                    </button>
+                  </form>
+                  {unlockMsg && (
+                    <p style={{ fontSize: 11.5, color: unlockStatus === "error" ? "#EF4444" : "#10B981", margin: "6px 0 0" }}>
+                      {unlockMsg}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {entries.map(entry => (
                 <CartRow key={entry.baseId} entry={entry} onQty={adjustQty} onRemove={removeItem} />
               ))}
@@ -732,6 +857,70 @@ export function CartDrawer({
                   >
                     Proceed to checkout — {fmt(total)}
                   </button>
+
+                  {/* Secondary Action: Text Me My Cart for Later */}
+                  <div style={{ marginTop: 10, textAlign: "center" }}>
+                    {!showTextCart && !textCartSuccess ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowTextCart(true)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#B8A995",
+                          fontSize: 12,
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          padding: "4px 8px"
+                        }}
+                      >
+                        📲 Text me this cart to order later
+                      </button>
+                    ) : textCartSuccess ? (
+                      <p style={{ fontSize: 12, color: "#10B981", margin: "4px 0 0", fontWeight: 500 }}>
+                        ✓ Link sent! We texted you a link to resume this order anytime.
+                      </p>
+                    ) : (
+                      <form onSubmit={handleSendCartText} style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <input
+                          type="tel"
+                          value={textCartPhone}
+                          onChange={e => setTextCartPhone(e.target.value)}
+                          placeholder="Your mobile phone #"
+                          style={{
+                            flex: 1,
+                            padding: "8px 10px",
+                            background: "#080706",
+                            border: "1px solid rgba(250,246,239,0.15)",
+                            borderRadius: 8,
+                            color: "#FAF6EF",
+                            fontSize: 12.5,
+                            outline: "none"
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          disabled={textCartSending}
+                          style={{
+                            padding: "8px 12px",
+                            background: "#1c1814",
+                            border: "1px solid #E8A82E",
+                            borderRadius: 8,
+                            color: "#E8A82E",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {textCartSending ? "Sending…" : "Send Link"}
+                        </button>
+                      </form>
+                    )}
+                    {textCartError && (
+                      <p style={{ fontSize: 11.5, color: "#EF4444", margin: "4px 0 0" }}>{textCartError}</p>
+                    )}
+                  </div>
                 </>
               )}
             </div>

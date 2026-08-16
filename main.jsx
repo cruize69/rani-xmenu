@@ -19,6 +19,17 @@ captureUtmFromUrl();
 // see lib/errorAlerts.js for what happens with it server-side.
 installGlobalErrorReporting();
 
+// Prevent iOS Safari pinch-to-zoom gestures and double-tap zoom that disrupt layout
+if (typeof document !== "undefined") {
+  document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+  document.addEventListener("dblclick", (e) => {
+    // Only prevent double click zoom on buttons, inputs, and interactive surfaces
+    if (e.target.closest && (e.target.closest("button") || e.target.closest("a") || e.target.closest("input"))) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
+
 // Order confirmation is public — Stripe's success_url redirects here.
 const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
 
