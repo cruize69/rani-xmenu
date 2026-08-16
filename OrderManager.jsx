@@ -38,9 +38,27 @@ async function apiFetch(path, opts = {}) {
   return res.json();
 }
 
+// Browsers suspend a freshly-created AudioContext until a user gesture
+// unlocks it, so a chime fired from a poll (no gesture in the call stack)
+// would otherwise stay silent. Reuse one context, unlocked below by the
+// first click/keydown on the page — same fix TvKitchenDisplay.jsx uses.
+let globalAudioCtx = null;
+
+function getAudioContext() {
+  if (!globalAudioCtx && typeof window !== "undefined") {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
+    globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
 function playChime() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     const now = ctx.currentTime;
     [523.25, 659.25, 783.99].forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -79,6 +97,19 @@ export default function OrderManager() {
     const fn = () => setIsWide(window.innerWidth >= 1024);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
+  }, []);
+
+  // Unlock the shared AudioContext on the first click/keydown so the new-
+  // order chime (fired later from a poll, with no gesture in the call
+  // stack) isn't silently blocked by the browser's autoplay policy.
+  useEffect(() => {
+    const unlock = () => getAudioContext();
+    window.addEventListener("click", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("click", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, []);
 
   // Flash the browser tab's title while a new-order alert is active and
