@@ -558,6 +558,7 @@ export function CartDrawer({
   tip,
   ccFee,
   total,
+  deliverySavings = 0,
   orderMode = "pickup",
   deliveryAddress = {},
   deliveryFee = 0,
@@ -818,6 +819,16 @@ export function CartDrawer({
                     </div>
                   );
                 })}
+                {deliverySavings > 0 && (
+                  <div style={{
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    marginTop:10, padding:"7px 10px", borderRadius:8,
+                    background:"rgba(16,185,129,0.10)", border:"0.5px solid rgba(16,185,129,0.25)",
+                    fontSize:12.5, fontWeight:500, color:"#10B981", textAlign:"center"
+                  }}>
+                    You're saving {fmt(deliverySavings)} vs. ordering this on Uber Eats, DoorDash or Grubhub
+                  </div>
+                )}
                 {ccFee > 0 && (
                   <p style={{ fontSize:11, color:"#8A7560", margin:"6px 0 0", lineHeight:1.4 }}>
                     This card fee only covers what Stripe actually charges to process your payment — no 20–30% delivery-app markup added on top of your food.

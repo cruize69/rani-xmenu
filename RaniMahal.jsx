@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { MENU_ITEMS, ITEM_MAP, QA, TAX_RATE, SECTIONS } from "./lib/menu.js";
+import { computeDeliverySavings } from "./lib/deliveryPrices.js";
 import { getOpenStatus, getUpcomingWindows, formatTime } from "./lib/hours.js";
 import { trackEvent, getStoredUtm } from "./src/utils/analytics.js";
 import { reportError } from "./src/utils/errorReport.js";
@@ -731,10 +732,14 @@ export default function RaniMahal() {
     setTimeout(() => setShowExitDrawer(false), 2500);
   };
 
-  const { entries, itemCount, subtotal, reorderDiscountAmt, discountLabel, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
+  const { entries, itemCount, subtotal, reorderDiscountAmt, discountLabel, deliveryFee, tax, tip, ccFee, total, deliverySavings } = useMemo(() => {
     const entriesList = Object.values(cart);
     const count       = entriesList.reduce((s,v)=>s+v.qty, 0);
     const rawSub      = entriesList.reduce((s,v)=>s+v.price*v.qty, 0);
+    // "Order direct and save" — purely informational, compares our own
+    // prices against the delivery-app (Uber/DoorDash/Grubhub) snapshot in
+    // lib/deliveryPrices.js. Never affects the actual charge.
+    const savings     = computeDeliverySavings(entriesList);
     // A voucher/referral token always wins if present — welcome is a
     // fallback display for a signed-in, never-ordered customer with no
     // token active. Mirrors the !hasDiscount gate in create-checkout.js so
@@ -756,7 +761,7 @@ export default function RaniMahal() {
     const tipAmt      = tipPct === "custom" ? Math.max(0, parseFloat(tipCustom) || 0) : rawSub * tipPct;
     const cardFee     = count > 0 ? parseFloat(((sub + fee + taxAmt + tipAmt + 0.30) / (1 - 0.029) - (sub + fee + taxAmt + tipAmt)).toFixed(2)) : 0;
     const totalAmt    = sub + fee + taxAmt + tipAmt + cardFee;
-    return { entries: entriesList, itemCount: count, subtotal: rawSub, reorderDiscountAmt: discAmt, discountLabel: label, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt };
+    return { entries: entriesList, itemCount: count, subtotal: rawSub, reorderDiscountAmt: discAmt, discountLabel: label, deliveryFee: fee, tax: taxAmt, tip: tipAmt, ccFee: cardFee, total: totalAmt, deliverySavings: savings };
   }, [cart, orderMode, tipPct, tipCustom, reorderDiscount, welcomeEligible]);
 
   const section = SECTIONS.find(s=>s.id===activeSection);
@@ -1198,6 +1203,7 @@ export default function RaniMahal() {
         tip={tip}
         ccFee={ccFee}
         total={total}
+        deliverySavings={deliverySavings}
         orderMode={orderMode}
         deliveryAddress={deliveryAddress}
         deliveryFee={deliveryFee}
