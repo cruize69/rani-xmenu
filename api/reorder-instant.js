@@ -12,6 +12,7 @@ import { buildOrder, saveOrder } from "../lib/orders.js";
 import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";
 import { getStripe } from "../lib/syncStripe.js";
 import { overLimit } from "../lib/rateLimit.js";
+import { getOpenStatus } from "../lib/hours.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -50,6 +51,13 @@ export default async function handler(req, res) {
     const { orderId } = req.body;
 
     if (!orderId) return res.status(400).json({ error: "Missing orderId" });
+
+    // Unlike normal checkout (which can be scheduled for a future window),
+    // this is an immediate off-session charge that fires a live kitchen
+    // ticket right now — it must never fire while the restaurant is closed.
+    if (!getOpenStatus().isOpen) {
+      return res.status(400).json({ error: "We're closed right now. Please check back during business hours to reorder." });
+    }
 
     // This is the only endpoint that charges a stored card with no further
     // customer interaction — one POST is one real charge and one real ticket
@@ -175,6 +183,14 @@ export default async function handler(req, res) {
     newOrder.customerEmail = originalOrder.customerEmail ?? null;
     newOrder.customerName  = originalOrder.customerName ?? "Guest";
     newOrder.customerPhone = originalOrder.customerPhone ?? null;
+
+    // buildOrder()'s total is subtotal+fee+tax+tip only — it has no notion
+    // of ccFee, but the PaymentIntent above actually charged finalTotal
+    // (which includes it). Without this, the saved order/receipt/kitchen
+    // ticket understate what the card was really charged, and the refund
+    // path's "remaining" balance cap is computed against the wrong total.
+    newOrder.ccFee = ccFee;
+    newOrder.total = finalTotal;
 
     await saveOrder(newOrder);
 
