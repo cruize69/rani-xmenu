@@ -11,6 +11,29 @@ import { CookieConsentBanner } from "./src/components/CookieConsentBanner.jsx";
 // No-op until VITE_SENTRY_DSN is set — see src/utils/sentryClient.js.
 initSentryClient();
 
+// Recover from stale-chunk errors instead of leaving the user on a dead
+// page. Every deploy gives JS chunks new content-hashed filenames — a tab
+// left open (or a bfcache restore) across a deploy still holds an
+// index.html referencing the OLD hashes, so any lazy import() below
+// (OrderManager, SalesDashboard, etc. — first hit when staff click into a
+// route, often minutes/hours after the tab was opened) 404s with "Failed
+// to fetch dynamically imported module". Vite's own preload/import helper
+// fires this specific "vite:preloadError" event for exactly that failure
+// mode (distinct from a real code bug, which throws elsewhere). A single
+// hard reload fetches the current index.html and fixes it; the
+// sessionStorage guard stops a genuinely broken deploy from reload-looping
+// the tab forever.
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    const key = "rani_chunk_reload_at";
+    const last = Number(sessionStorage.getItem(key) || 0);
+    if (Date.now() - last < 15000) return; // already tried recently — let it surface as a real error
+    sessionStorage.setItem(key, String(Date.now()));
+    event.preventDefault();
+    window.location.reload();
+  });
+}
+
 // Capture ?utm_source= etc. once at boot, before RaniMahal.jsx's own effects
 // strip other query params — this only reads, never mutates the URL, so it
 // has no ordering dependency on anything else that touches location.search.

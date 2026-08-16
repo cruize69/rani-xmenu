@@ -221,7 +221,13 @@ function NewsletterSignup() {
 
 // ── Main App Container ─────────────────────────────────────────────
 export default function RaniMahal() {
-  const [view, setView] = useState("menu"); // "menu" | "account"
+  // Deep-linkable so the marketing site's account icon (same origin, shared
+  // Clerk session) can send signed-in users straight here — e.g.
+  // ranimahal.cc/order?view=account — instead of landing on the menu and
+  // making them find the Account button themselves.
+  const [view, setView] = useState(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "account" ? "account" : "menu"
+  ); // "menu" | "account"
   const [activeSection, setActiveSection] = useState("appetizers");
   const [cart, setCart]         = useState(loadStoredCart);
   const [modalItem, setModalItem] = useState(null);
