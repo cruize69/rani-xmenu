@@ -440,18 +440,20 @@ export function CheckoutGate({
               {/* Sign-in offered as a compact strip, not a separate screen —
                   guests reach the payment button one tap sooner. */}
               {CLERK_ENABLED && (
-                <div style={{ display:"flex", flexDirection:"column", gap:10, background:"#161310", border:"0.5px solid rgba(232,168,46,0.2)", borderRadius:12, padding:"14px", marginBottom:16 }}>
-                  <span style={{ fontSize:12.5, color:"#B8A995", lineHeight:1.4, whiteSpace:"nowrap" }}>10% off first order, 5% off every order after</span>
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, textAlign:"center", background:"rgba(232,168,46,0.07)", border:"1px solid rgba(232,168,46,0.35)", borderRadius:12, padding:"16px 14px", marginBottom:16, boxShadow:"0 0 20px rgba(232,168,46,0.08)" }}>
+                  <span style={{ fontSize:12.5, color:"#FAF6EF", lineHeight:1.4, whiteSpace:"nowrap" }}>
+                    👑 <strong style={{ color:"#E8A82E" }}>10% off</strong> first order, <strong style={{ color:"#E8A82E" }}>5% off</strong> every order after
+                  </span>
                   <ClerkSignInButton
                     style={{
                       width:"100%",
-                      padding:"11px 16px",
-                      background:"transparent",
+                      padding:"12px 16px",
+                      background:"rgba(232,168,46,0.14)",
                       color:"#E8A82E",
-                      border:"1px solid rgba(232,168,46,0.4)",
+                      border:"1.5px solid #E8A82E",
                       borderRadius:24,
-                      fontSize:13.5,
-                      fontWeight:600,
+                      fontSize:14,
+                      fontWeight:700,
                       cursor:"pointer",
                       fontFamily:"'Inter',sans-serif",
                       display:"inline-flex",
