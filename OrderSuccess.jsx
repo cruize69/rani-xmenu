@@ -246,11 +246,9 @@ function LiveTracker({ orderId, initialStatus }) {
       {isReady && (
         <div style={{ background:"#FAFAF5", borderRadius:14, border:"0.5px solid rgba(0,0,0,0.08)", padding:"16px 20px", marginBottom:20, textAlign:"center" }}>
           <p style={{ fontSize:13, color:"#8A7560", marginBottom:10 }}>Enjoying your meal? A quick review helps us more than you'd think.</p>
-          {/* Same fix as lib/notifications.js's GOOGLE_WRITE_REVIEW_URL —
-              the old placeid 404'd. Maps Search URL API by exact name +
-              address instead of a guessed placeid; swap for a real
-              Google Business Profile "Ask for reviews" link if available. */}
-          <a href={"https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("Rani Mahal Fine Indian Cuisine, 327 Mamaroneck Ave, Mamaroneck, NY 10543")} target="_blank" rel="noopener noreferrer"
+          {/* Real "Ask for reviews" short link from Google Business Profile —
+              replaces the old writereview?placeid=... link, which 404'd. */}
+          <a href="https://g.page/r/CXNevQ8KoPZSEBM/review" target="_blank" rel="noopener noreferrer"
             style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:12.5, fontWeight:700, color:"#C8853A", textDecoration:"none", border:"1px solid rgba(200,133,58,0.4)", borderRadius:20, padding:"9px 18px" }}>
             ⭐ Leave a Google Review
           </a>
