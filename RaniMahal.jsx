@@ -617,6 +617,85 @@ export default function RaniMahal() {
     setShowCheckoutGate(true);
   };
 
+  // Exit-Intent & Inactivity Drawer: Captures phone before user closes or leaves tab
+  const [showExitDrawer, setShowExitDrawer] = useState(false);
+  const [exitPhone, setExitPhone] = useState(guestPhone || "");
+  const [exitSaved, setExitSaved] = useState(false);
+  const [exitError, setExitError] = useState(null);
+  const exitPromptedRef = useRef(false);
+
+  useEffect(() => {
+    if (clerkIsSignedIn || guestPhone || exitPromptedRef.current || Object.keys(cart).length === 0) return;
+
+    // 1. Desktop mouse-leave top of window
+    const handleMouseLeave = (e) => {
+      if (e.clientY <= 10 && !exitPromptedRef.current) {
+        exitPromptedRef.current = true;
+        setShowExitDrawer(true);
+      }
+    };
+
+    // 2. Mobile / Inactivity timer: 75 seconds of idle with cart > 0
+    let idleTimer = setTimeout(() => {
+      if (!exitPromptedRef.current && !anyOverlayOpen) {
+        exitPromptedRef.current = true;
+        setShowExitDrawer(true);
+      }
+    }, 75000);
+
+    const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        if (!exitPromptedRef.current && !anyOverlayOpen) {
+          exitPromptedRef.current = true;
+          setShowExitDrawer(true);
+        }
+      }, 75000);
+    };
+
+    document.addEventListener("mouseleave", handleMouseLeave);
+    window.addEventListener("touchstart", resetIdle, { passive: true });
+    window.addEventListener("scroll", resetIdle, { passive: true });
+
+    return () => {
+      clearTimeout(idleTimer);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+      window.removeEventListener("touchstart", resetIdle);
+      window.removeEventListener("scroll", resetIdle);
+    };
+  }, [clerkIsSignedIn, guestPhone, cart, anyOverlayOpen]);
+
+  const handleSaveExitCart = (e) => {
+    e.preventDefault();
+    setExitError(null);
+    const digits = exitPhone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      setExitError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    const clean = `+1${digits}`;
+    setGuestPhone(clean);
+    saveDraftLead({ phone: clean, smsConsent: true });
+    saveStoredPhone(clean);
+
+    // Also trigger the cart resume SMS
+    const itemsPayload = Object.values(cart).map(i => ({ baseId: i.baseId, qty: i.qty }));
+    fetch("/api/cart/send-cart-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: clean,
+        draftId: draftIdRef.current,
+        items: itemsPayload,
+        orderMode,
+        deliveryAddress: orderMode === "delivery" ? deliveryAddress : undefined,
+      }),
+    }).catch(() => {});
+
+    setExitSaved(true);
+    setTimeout(() => setShowExitDrawer(false), 2500);
+  };
+
   const { entries, itemCount, subtotal, reorderDiscountAmt, discountLabel, deliveryFee, tax, tip, ccFee, total } = useMemo(() => {
     const entriesList = Object.values(cart);
     const count       = entriesList.reduce((s,v)=>s+v.qty, 0);
