@@ -68,8 +68,34 @@ if (typeof document !== "undefined") {
       // every legitimate resize (keyboard opening, orientation change).
       if (window.visualViewport.scale > 1.02) resetIOSZoom();
     };
-    // Fires after the gesture is actually over, not mid-pinch — this is
-    // what makes the reset feel like "it snapped back," not "it fought me."
+
+    // touchend/gestureend fire on the touch/gesture LIFECYCLE, not on the
+    // viewport's actual scale — in practice visualViewport.scale hadn't
+    // always finished updating by the time those fired, so the check read
+    // a stale (pre-zoom) value and silently did nothing, which is exactly
+    // "locks at whatever level the pinch landed on" — the reset logic was
+    // running, just reading the wrong number when it ran.
+    //
+    // visualViewport's own "resize" event is the direct, purpose-built
+    // signal for "the scale actually changed," so it can't have this
+    // staleness problem — it only fires once the browser has already
+    // committed the new value. Debounced so a live multi-step pinch (scale
+    // still actively changing) doesn't get fought mid-gesture: each resize
+    // during an active pinch just pushes the timer back, and the actual
+    // reset only fires once scale has held still for 220ms — i.e. once the
+    // gesture has genuinely stopped, however it stopped.
+    let resetTimer = null;
+    window.visualViewport.addEventListener("resize", () => {
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(maybeReset, 220);
+    });
+
+    // Kept as a fast-path for the common clean case (fingers lifted
+    // together) — harmless if visualViewport's resize handler above beats
+    // it to the reset, since resetIOSZoom() no-ops once scale is already
+    // back to 1 (the meta content check bails out via the string-includes
+    // guard failing to matter here, but the actual page is already reset
+    // by then either way).
     document.addEventListener("touchend", maybeReset, { passive: true });
     document.addEventListener("gestureend", maybeReset, { passive: true });
   }
