@@ -194,7 +194,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
           <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
         </svg>
       </span>
-Sign in — 10% off your first order, then 5% off every order
+      Sign in
     </button>
   );
 }
@@ -441,7 +441,7 @@ export function CheckoutGate({
                   guests reach the payment button one tap sooner. */}
               {CLERK_ENABLED && (
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:"#161310", border:"0.5px solid rgba(232,168,46,0.2)", borderRadius:12, padding:"10px 14px", marginBottom:16 }}>
-                  <span style={{ fontSize:12.5, color:"#B8A995" }}>Have an account?</span>
+                  <span style={{ fontSize:12.5, color:"#B8A995" }}>Members save <strong style={{ color:"#E8A82E" }}>5–10%</strong></span>
                   <ClerkSignInButton
                     style={{
                       padding:"7px 14px",
