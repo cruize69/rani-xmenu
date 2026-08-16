@@ -17,6 +17,19 @@ export function Badge({ type, label }) {
   );
 }
 
+// Shared "no photo yet" glyph — every placeholder in this file uses the
+// same icon so the "still renovating, not broken" signal reads
+// consistently whether it shows up in a 110px grid thumbnail or a 340px
+// modal hero.
+export function CameraGlyph({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="rgba(232,168,46,0.55)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8a2 2 0 0 1 2-2h1.5l1-1.5h9l1 1.5H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
+      <circle cx="12" cy="12.5" r="3.5" />
+    </svg>
+  );
+}
+
 export function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
   const qty = cartEntry?.qty ?? 0;
   return (
@@ -38,7 +51,10 @@ export function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
       <div style={{ width:110, height:110, flexShrink:0, order:2, position:"relative" }}>
         <div style={{ width:"100%", height:"100%", borderRadius:10, backgroundColor:"#1c1814", backgroundSize:"cover", backgroundPosition:"center", overflow:"hidden", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
           {!imageUrl && (
-            <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+            <div style={{ width:"100%", height:"100%", background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, padding:6 }}>
+              <CameraGlyph size={16} />
+              <span style={{ fontFamily:"'Inter',sans-serif", fontSize:8, fontWeight:600, letterSpacing:"0.03em", color:"rgba(232,168,46,0.55)", textAlign:"center", lineHeight:1.25 }}>Photo<br/>coming soon</span>
+            </div>
           )}
         </div>
         {qty > 0 && (
@@ -56,7 +72,10 @@ export function QuickAddCard({ id, cart, onQty, imageUrl }) {
   return (
     <div style={{ flexShrink:0, width:126, height:150, position:"relative", zIndex:0, borderRadius:12, overflow:"hidden", backgroundColor:"#12100e", backgroundSize:"cover", backgroundPosition:"center", backgroundImage: imageUrl ? `url(${imageUrl})` : "none" }}>
       {!imageUrl && (
-        <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)" }} />
+        <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, paddingBottom:44 }}>
+          <CameraGlyph size={18} />
+          <span style={{ fontFamily:"'Inter',sans-serif", fontSize:8.5, fontWeight:600, letterSpacing:"0.03em", color:"rgba(232,168,46,0.55)", textAlign:"center", lineHeight:1.25 }}>Photo<br/>coming soon</span>
+        </div>
       )}
       {item.star && (
         <span style={{ position:"absolute", top:6, left:6, zIndex:2, fontSize:8, fontWeight:600, letterSpacing:"0.05em", color:"#080706", background:"#E8A82E", padding:"2px 6px", borderRadius:10 }}>MOST LOVED</span>

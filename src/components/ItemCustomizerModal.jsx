@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSwipeToClose } from "../hooks/useSwipeToClose.js";
 import { getModalUpsells, SPICE_LEVELS, QA_ITEM_ID } from "../utils/upsells.js";
-import { QuickAddCard } from "./MenuItemCard.jsx";
+import { QuickAddCard, CameraGlyph } from "./MenuItemCard.jsx";
 
 const fmt = (n) => "$" + n.toFixed(2);
 
@@ -38,7 +38,15 @@ export function ItemModal({ item, cart, onClose, onCommit, onUpsellQty, imageUrl
       <div style={{ background:"#12100e", borderRadius:"16px 16px 0 0", width:"100%", maxWidth:540, maxHeight:"90vh", overflowY:"auto", ...sheetStyle }}>
         {/* Photo hero */}
         <div {...handleProps} style={{ width:"100%", height:340, background: photo?`url(${photo}) center/cover`:"#1c1814", position:"relative", flexShrink:0 }}>
-          {!photo && <span style={{ position:"absolute", top:"38%", left:"50%", transform:"translate(-50%,-50%)", fontSize:40, opacity:0.3, color:"#E8A82E" }}>⬡</span>}
+          {!photo && (
+            <div style={{ position:"absolute", top:"38%", left:"50%", transform:"translate(-50%,-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:10, textAlign:"center", padding:"0 32px" }}>
+              <CameraGlyph size={34} />
+              <div>
+                <p style={{ fontFamily:"'Fraunces',serif", fontSize:16, fontWeight:500, color:"rgba(232,168,46,0.75)", margin:"0 0 3px" }}>Photo coming soon</p>
+                <p style={{ fontFamily:"'Inter',sans-serif", fontSize:12, color:"rgba(184,169,149,0.75)", margin:0, lineHeight:1.4 }}>Pardon our appearance — we're mid-renovation.</p>
+              </div>
+            </div>
+          )}
           <div style={{ position:"absolute", left:0, right:0, bottom:0, height:230, background:"linear-gradient(to top, #12100e 0%, #12100e 38%, rgba(18,16,14,0) 100%)" }} />
           <button onClick={onClose} style={{ position:"absolute", top:12, right:12, width:32, height:32, borderRadius:"50%", background:"rgba(8,7,6,0.75)", border:"none", fontSize:18, color:"#FAF6EF", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1 }}>×</button>
           <div style={{ position:"absolute", left:"1.25rem", right:"1.25rem", bottom:18 }}>
