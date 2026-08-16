@@ -289,7 +289,7 @@ function AccountPortalPage({
           {openSignIn && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
               <button
-                onClick={() => openSignIn({ fallbackRedirectUrl: window.location.href })}
+                onClick={() => openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href })}
                 style={{
                   padding: "12px 28px",
                   background: "#E8A82E",

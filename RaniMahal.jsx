@@ -880,6 +880,8 @@ export default function RaniMahal() {
           setOrderMode={setOrderMode}
           deliveryAddress={deliveryAddress}
           onOpenFulfillmentSheet={() => setShowFulfillmentSheet(true)}
+          isSignedIn={clerkIsSignedIn}
+          userInitial={clerkUser?.firstName?.[0] ?? clerkUser?.primaryEmailAddress?.emailAddress?.[0] ?? null}
         />
 
         {/* Menu Body */}

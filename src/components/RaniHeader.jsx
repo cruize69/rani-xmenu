@@ -13,6 +13,8 @@ export function RaniHeader({
   setOrderMode,
   deliveryAddress,
   onOpenFulfillmentSheet,
+  isSignedIn = false,
+  userInitial = null,
 }) {
   return (
     <header style={{ background:"rgba(8,7,6,0.57)", backdropFilter:"blur(20px) saturate(180%)", WebkitBackdropFilter:"blur(20px) saturate(180%)", position:"sticky", top:0, zIndex:100, borderBottom:"0.5px solid rgba(250,246,239,0.08)" }}>
@@ -97,26 +99,57 @@ export function RaniHeader({
               cursor: "pointer",
             }}
           >
-            <span className="rm-header-chip-circle"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: "rgba(232,168,46,0.10)",
-                border: "1px solid rgba(232,168,46,0.30)",
-                color: "#E8A82E",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-              </svg>
+            <span className="rm-header-chip-circle" style={{ position: "relative", display: "inline-flex" }}>
+              <span
+                style={isSignedIn ? {
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #E8A82E 0%, #B87A14 100%)",
+                  color: "#080706",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  boxShadow: "0 2px 8px rgba(232,168,46,0.35)",
+                  transition: "all 0.15s ease",
+                } : {
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "rgba(232,168,46,0.10)",
+                  border: "1px solid rgba(232,168,46,0.30)",
+                  color: "#E8A82E",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {isSignedIn ? (
+                  (userInitial ?? "•").toUpperCase()
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                  </svg>
+                )}
+              </span>
+              {isSignedIn && (
+                <span aria-hidden="true" style={{
+                  position: "absolute",
+                  bottom: -1,
+                  right: -1,
+                  width: 11,
+                  height: 11,
+                  borderRadius: "50%",
+                  background: "#4ADE80",
+                  border: "2px solid #080706",
+                }} />
+              )}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#B8A995" }}>Account</span>
+            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#B8A995" }}>{isSignedIn ? "Signed In" : "Account"}</span>
           </button>
 
           {/* Centered — logo emblem + name/tagline stacked, linking back to

@@ -46,7 +46,7 @@ function AccountClaimCard({ email }) {
         <button
           onClick={() => {
             if (clerk) {
-              clerk.openSignUp({ initialValues: { emailAddress: email } });
+              clerk.openSignUp({ initialValues: { emailAddress: email }, forceRedirectUrl: window.location.href });
             } else {
               window.location.href = `/account?email=${encodeURIComponent(email || "")}`;
             }
