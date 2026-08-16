@@ -819,8 +819,8 @@ export default function RaniMahal() {
           actually carries meaning. */}
       {!openStatus.isOpen && (
         <div style={{
-          background: "rgba(217,72,44,0.10)",
-          borderBottom: "1px solid rgba(217,72,44,0.28)",
+          background: "rgba(217,72,44,0.13)",
+          borderBottom: "1px solid rgba(217,72,44,0.34)",
           padding: "7px 16px",
           display: "flex",
           justifyContent: "center",
@@ -829,10 +829,19 @@ export default function RaniMahal() {
           flexWrap: "wrap",
           rowGap: 2,
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F0846A" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3.5 2" />
-          </svg>
+          {/* The pulsing ring is the "don't miss this" cue — same compact
+              single-line strip, nothing added to its height, but a static
+              icon reads as pure decoration on a scroll-past glance while a
+              slow breathing glow catches peripheral vision even when
+              someone isn't reading the text yet. Kept slow (2.2s) and low-
+              contrast on purpose: fast/bright pulsing reads as an error or
+              alarm, which "we're closed but still taking orders" isn't. */}
+          <span className="rm-pulse-ring" style={{ display: "inline-flex", flexShrink: 0, borderRadius: "50%" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F0846A" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3.5 2" />
+            </svg>
+          </span>
           <span style={{ fontSize: 12, fontWeight: 700, color: "#F0846A", whiteSpace: "nowrap" }}>
             Closed — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}
           </span>
@@ -843,8 +852,9 @@ export default function RaniMahal() {
             type="button"
             onClick={() => setShowFulfillmentSheet(true)}
             style={{
-              padding: 0, border: "none", background: "none", cursor: "pointer",
-              fontSize: 12, fontWeight: 700, color: "#E8A82E", textDecoration: "underline",
+              padding: "1px 8px", borderRadius: 10, cursor: "pointer",
+              border: "1px solid rgba(232,168,46,0.45)", background: "rgba(232,168,46,0.12)",
+              fontSize: 11.5, fontWeight: 700, color: "#E8A82E",
               whiteSpace: "nowrap",
             }}
           >

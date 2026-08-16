@@ -144,8 +144,11 @@ export function RaniHeader({
           </a>
         </div>
 
-        {/* Integrated Interactive Fulfillment Bar — enlarged now that it sits above the gold line */}
-        <div style={{ padding:"2px 16px 14px", display:"flex", justifyContent:"center" }}>
+        {/* Integrated Interactive Fulfillment Bar — enlarged now that it sits above the gold line.
+            Padding trimmed (10px 22px -> 7px 20px vertical) after it read as
+            oversized on smaller phones (iPhone 16e etc.) — same tap target,
+            less height eaten before the menu even starts. */}
+        <div style={{ padding:"2px 16px 10px", display:"flex", justifyContent:"center" }}>
           <button
             type="button"
             onClick={() => onOpenFulfillmentSheet?.()}
@@ -153,8 +156,8 @@ export function RaniHeader({
               display: "inline-flex",
               alignItems: "center",
               gap: 10,
-              padding: "10px 22px",
-              borderRadius: 28,
+              padding: "7px 20px",
+              borderRadius: 24,
               border: "1px solid rgba(232,168,46,0.35)",
               background: "rgba(18,16,14,0.75)",
               color: "#FAF6EF",
@@ -169,7 +172,7 @@ export function RaniHeader({
             onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(232,168,46,0.35)"}
           >
             <span style={{ color: "#E8A82E", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 7 }}>
-              {orderMode === "delivery" ? <><DeliveryIcon size={17} color="#E8A82E" /> Delivery to:</> : <><PickupIcon size={17} color="#E8A82E" /> Pickup:</>}
+              {orderMode === "delivery" ? <><DeliveryIcon size={16} color="#E8A82E" /> Delivery to:</> : <><PickupIcon size={16} color="#E8A82E" /> Pickup:</>}
             </span>
             <span style={{ color: "#FAF6EF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {orderMode === "delivery"
