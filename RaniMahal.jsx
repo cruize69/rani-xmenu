@@ -1153,13 +1153,13 @@ export default function RaniMahal() {
         onOpenFulfillmentSheet={() => { setDrawerOpen(false); setShowFulfillmentSheet(true); }}
         guestEmail={guestEmail}
         setGuestEmail={setGuestEmail}
-        handleCheckout={handleProceedToCheckout}
+        handleCheckout={handleCheckout}
         phone={guestPhone}
         setPhone={setGuestPhone}
         onSaveLead={saveDraftLead}
         draftId={draftIdRef.current}
         welcomeEligible={welcomeEligible}
-        onApplyWelcomeDiscount={() => setWelcomeDiscountAmt(parseFloat((subtotal * 0.10).toFixed(2)))}
+        onApplyWelcomeDiscount={() => setReorderDiscount(0.10)}
       />
     </div>
   );
