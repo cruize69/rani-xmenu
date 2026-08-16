@@ -117,17 +117,26 @@ function MaybeClerkProvider({ children }) {
   return <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>{children}</ClerkProvider>;
 }
 
+// Every route wrapped in ErrorBoundary — previously only the default "/"
+// fallback was. A real incident exposed the gap: a CSP change on the
+// marketing site (which these staff routes are proxied through) blocked a
+// stylesheet preload, Vite's preload helper threw, and because /manager
+// had nothing catching it, React unmounted the whole tree — a silent
+// blank page with zero on-screen indication anything went wrong, on a
+// route staff need to actually work. ErrorBoundary at least shows
+// something recoverable instead of leaving whoever's staring at it with
+// no idea whether to reload, wait, or call for help.
 const ROUTES = {
-  "/order-success": () => <MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider>,
-  "/rewards": () => <Rewards />,
-  "/catering": () => <Catering />,
-  "/manager":    () => <StaffGate><OrderManager /></StaffGate>,
-  "/kitchen":    () => <StaffGate><KitchenDisplay /></StaffGate>,
-  "/kitchen-tv": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
-  "/tv-kitchen": () => <StaffGate><TvKitchenDisplay /></StaffGate>,
-  "/images":     () => <StaffGate><ImageManager /></StaffGate>,
-  "/sales":      () => <StaffGate><SalesDashboard /></StaffGate>,
-  "/dashboard":  () => <StaffGate><SalesDashboard /></StaffGate>,
+  "/order-success": () => <ErrorBoundary><MaybeClerkProvider><OrderSuccess /></MaybeClerkProvider></ErrorBoundary>,
+  "/rewards": () => <ErrorBoundary><Rewards /></ErrorBoundary>,
+  "/catering": () => <ErrorBoundary><Catering /></ErrorBoundary>,
+  "/manager":    () => <ErrorBoundary><StaffGate><OrderManager /></StaffGate></ErrorBoundary>,
+  "/kitchen":    () => <ErrorBoundary><StaffGate><KitchenDisplay /></StaffGate></ErrorBoundary>,
+  "/kitchen-tv": () => <ErrorBoundary><StaffGate><TvKitchenDisplay /></StaffGate></ErrorBoundary>,
+  "/tv-kitchen": () => <ErrorBoundary><StaffGate><TvKitchenDisplay /></StaffGate></ErrorBoundary>,
+  "/images":     () => <ErrorBoundary><StaffGate><ImageManager /></StaffGate></ErrorBoundary>,
+  "/sales":      () => <ErrorBoundary><StaffGate><SalesDashboard /></StaffGate></ErrorBoundary>,
+  "/dashboard":  () => <ErrorBoundary><StaffGate><SalesDashboard /></StaffGate></ErrorBoundary>,
 };
 
 // ranimahal.cc (the marketing site) reverse-proxies /order/:path* to this
