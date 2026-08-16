@@ -20,8 +20,30 @@ captureUtmFromUrl();
 // see lib/errorAlerts.js for what happens with it server-side.
 installGlobalErrorReporting();
 
-// Prevent iOS Safari pinch-to-zoom gestures and double-tap zoom that disrupt layout
+// Prevent iOS Safari pinch-to-zoom gestures and double-tap zoom that disrupt layout.
+//
+// This has regressed more than once despite the viewport meta's
+// user-scalable=no and the gesturestart listener below both still being
+// intact every time — because neither one is actually a reliable block on
+// its own. iOS has increasingly ignored user-scalable=no for accessibility
+// reasons since iOS 10, and `gesturestart` is a legacy, WebKit-only event
+// that doesn't consistently fire for every pinch gesture on current
+// versions (notably over some scrollable containers). touch-action CSS
+// (index.html, now on both html and body) helps but browsers don't always
+// apply it consistently either when a gesture starts over a nested
+// scrollable element.
+//
+// The one thing that reliably works regardless of any of the above: a
+// touchmove listener that hard-blocks the instant a SECOND finger joins —
+// e.touches.length > 1 is unambiguous evidence of a pinch attempt, and
+// preventDefault() here stops the browser's native zoom before it can act
+// on it, independent of viewport meta, touch-action, or gesturestart all
+// three having failed. Keeping the other two anyway (defense in depth) —
+// this one is just the layer that shouldn't be able to fail the same way.
 if (typeof document !== "undefined") {
+  document.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
   document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
   document.addEventListener("dblclick", (e) => {
     // Only prevent double click zoom on buttons, inputs, and interactive surfaces
