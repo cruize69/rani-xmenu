@@ -808,38 +808,44 @@ export default function RaniMahal() {
         })()}
       </div>
 
+      {/* Compact single-line strip — was 3 stacked lines (icon badge +
+          "Closed now" + full sentence + a boxed pill button) that alone
+          could push 60-70px of mobile viewport before any menu content,
+          just to say "closed, still orderable, here's when." Same
+          information, same tap target, a fraction of the height: icon and
+          status inline, reopen time takes over for the old paragraph, and
+          the CTA is a plain underlined link instead of a bordered pill —
+          no badge background, no button chrome, nothing but the text that
+          actually carries meaning. */}
       {!openStatus.isOpen && (
         <div style={{
           background: "rgba(217,72,44,0.10)",
           borderBottom: "1px solid rgba(217,72,44,0.28)",
-          padding: "10px 16px",
+          padding: "7px 16px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          gap: 10,
+          gap: 6,
           flexWrap: "wrap",
+          rowGap: 2,
         }}>
-          <span style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-            background: "rgba(217,72,44,0.16)", color: "#F0846A",
-          }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3.5 2" />
-            </svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F0846A" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3.5 2" />
+          </svg>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#F0846A", whiteSpace: "nowrap" }}>
+            Closed — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}
           </span>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: "#F0846A" }}>Closed now</span>
-          <span style={{ fontSize: 12.5, fontWeight: 500, color: "#D9B9A8" }}>
-            — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}. You can still order{scheduledFor ? ` — we'll fire it at ${formatTime(scheduledFor.time)}` : ""}.
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#D9B9A8" }}>
+            · {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "order now, we'll fire it when we open"}
           </span>
           <button
             type="button"
             onClick={() => setShowFulfillmentSheet(true)}
             style={{
-              padding: "4px 12px", borderRadius: 16, fontSize: 11.5, fontWeight: 700,
-              border: "1px solid rgba(232,168,46,0.4)", background: "rgba(232,168,46,0.1)",
-              color: "#E8A82E", cursor: "pointer", whiteSpace: "nowrap",
+              padding: 0, border: "none", background: "none", cursor: "pointer",
+              fontSize: 12, fontWeight: 700, color: "#E8A82E", textDecoration: "underline",
+              whiteSpace: "nowrap",
             }}
           >
             {scheduledFor ? "Change time" : "Choose a time"}
