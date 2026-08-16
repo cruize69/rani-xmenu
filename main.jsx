@@ -6,6 +6,7 @@ import StaffGate from "./StaffGate.jsx";
 import { captureUtmFromUrl } from "./src/utils/analytics.js";
 import { installGlobalErrorReporting } from "./src/utils/errorReport.js";
 import { initSentryClient } from "./src/utils/sentryClient.js";
+import { CookieConsentBanner } from "./src/components/CookieConsentBanner.jsx";
 
 // No-op until VITE_SENTRY_DSN is set — see src/utils/sentryClient.js.
 initSentryClient();
@@ -84,8 +85,15 @@ const ROUTES = {
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
 const renderRoute = ROUTES[path];
 
+// Staff tools are already behind StaffGate's password and aren't where
+// analytics consent is relevant — the banner only shows on customer-
+// facing routes (home, order-success, rewards, catering).
+const STAFF_PATHS = ["/manager", "/kitchen", "/kitchen-tv", "/tv-kitchen", "/images", "/sales", "/dashboard"];
+const isStaffRoute = STAFF_PATHS.includes(path);
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    {!isStaffRoute && <CookieConsentBanner />}
     <Suspense fallback={
       <div style={{ background: "#0F0800", height: "100vh", width: "100vw", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif", color: "#C8853A" }}>
         Loading...

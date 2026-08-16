@@ -6,8 +6,25 @@
 const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || null;
 let loaded = false;
 
+// Cookie consent — separate domain from ranimahal.cc (the marketing site),
+// so a choice made there can never be read here: cookies/localStorage are
+// scoped per-origin by the browser, and .cc/.food aren't subdomains of a
+// shared parent that could carry a decision across. This site needs its
+// own gate for the same reason the marketing site needs one — GA4 below
+// is the same category of tracking either way.
+const CONSENT_KEY = "rani_cookie_consent"; // "granted" | "denied" | unset
+
+export function getConsent() {
+  try { return localStorage.getItem(CONSENT_KEY); } catch { return null; }
+}
+
+export function setConsent(value) {
+  try { localStorage.setItem(CONSENT_KEY, value); } catch {}
+}
+
 function ensureLoaded() {
   if (!GA_ID || loaded || typeof document === "undefined") return;
+  if (getConsent() !== "granted") return; // no consent yet (or declined) — never loads GA
   loaded = true;
   const script = document.createElement("script");
   script.async = true;
