@@ -431,7 +431,7 @@ export default async function handler(req, res) {
       .digest("hex");
 
     const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || reqOrigin || "https://ranimahal.food").replace(/\/$/, "");
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || reqOrigin || "https://ranimahal.cc/order").replace(/\/$/, "");
 
     const session = await stripe.checkout.sessions.create({
       mode:                 "payment",

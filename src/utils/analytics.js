@@ -6,13 +6,19 @@
 const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || null;
 let loaded = false;
 
-// Cookie consent — separate domain from ranimahal.cc (the marketing site),
-// so a choice made there can never be read here: cookies/localStorage are
-// scoped per-origin by the browser, and .cc/.food aren't subdomains of a
-// shared parent that could carry a decision across. This site needs its
-// own gate for the same reason the marketing site needs one — GA4 below
-// is the same category of tracking either way.
-const CONSENT_KEY = "rani_cookie_consent"; // "granted" | "denied" | unset
+// Cookie consent. Now that ranimahal.cc (marketing) reverse-proxies
+// /order/:path* to this app, a visitor arriving via /order shares the
+// SAME origin as the marketing site — same localStorage, same cookies —
+// so this reads/writes the identical key and value strings the marketing
+// site's src/lib/cookieConsent.ts already uses ("rani-cookie-consent",
+// "accepted"/"declined"), not a separate key. A choice made on either
+// side of the proxy now genuinely carries over, unlike before the merge.
+// Someone who reaches this app directly via the standalone ranimahal.food
+// domain (kept alive for anything already printed/texted with that URL)
+// is on a real separate origin with no prior consent to read — the
+// banner (src/components/CookieConsentBanner.jsx) still exists for
+// exactly that case.
+const CONSENT_KEY = "rani-cookie-consent"; // "accepted" | "declined" | unset
 
 export function getConsent() {
   try { return localStorage.getItem(CONSENT_KEY); } catch { return null; }
@@ -24,7 +30,7 @@ export function setConsent(value) {
 
 function ensureLoaded() {
   if (!GA_ID || loaded || typeof document === "undefined") return;
-  if (getConsent() !== "granted") return; // no consent yet (or declined) — never loads GA
+  if (getConsent() !== "accepted") return; // no consent yet (or declined) — never loads GA
   loaded = true;
   const script = document.createElement("script");
   script.async = true;

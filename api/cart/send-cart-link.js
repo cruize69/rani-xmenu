@@ -9,7 +9,7 @@ import { overLimit, clientIp } from "../../lib/rateLimit.js";
 
 const MAX_PER_IP_PER_HOUR = 15;
 const MAX_PER_PHONE_PER_DAY = 3;
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.food").replace(/\/$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.cc/order").replace(/\/$/, "");
 
 function normalizePhone(raw) {
   if (!raw || typeof raw !== "string") return null;

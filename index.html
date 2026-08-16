@@ -5,18 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Rani Mahal — Order Online</title>
     <meta name="description" content="Order online from Rani Mahal — Fine Indian Cuisine, Mamaroneck, NY. Pickup and delivery, ready in 25–60 minutes." />
-    <link rel="canonical" href="https://ranimahal.food/" />
+    <!-- ranimahal.cc/order is this app's real public address now — the
+         marketing site (Next.js, ranimahal.cc) reverse-proxies /order/*
+         here, and owns "/" itself, so this is the correct canonical
+         rather than a duplicate of the marketing homepage. ranimahal.food
+         stays live as a working direct address (kept for anything already
+         printed/texted with it) but isn't the one search engines/social
+         previews should treat as canonical going forward. -->
+    <link rel="canonical" href="https://ranimahal.cc/order" />
     <link rel="icon" href="/logo/apsara-logo-256.png" type="image/png" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Rani Mahal" />
     <meta property="og:title" content="Rani Mahal — Order Online" />
     <meta property="og:description" content="Order online from Rani Mahal — Fine Indian Cuisine, Mamaroneck, NY. Pickup and delivery, ready in 25–60 minutes." />
-    <meta property="og:url" content="https://ranimahal.food/" />
-    <meta property="og:image" content="https://ranimahal.food/logo/apsara-logo-256.png" />
+    <meta property="og:url" content="https://ranimahal.cc/order" />
+    <meta property="og:image" content="https://ranimahal.cc/logo/apsara-logo-256.png" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Rani Mahal — Order Online" />
     <meta name="twitter:description" content="Order online from Rani Mahal — Fine Indian Cuisine, Mamaroneck, NY." />
-    <meta name="twitter:image" content="https://ranimahal.food/logo/apsara-logo-256.png" />
+    <meta name="twitter:image" content="https://ranimahal.cc/logo/apsara-logo-256.png" />
   </head>
   <body style="background:#080706;margin:0;padding:0;color:#FAF6EF;touch-action:pan-x pan-y;">
     <div id="root"></div>

@@ -15,7 +15,7 @@
 import { CRON_JOBS } from "../lib/cronStatus.js";
 import { isManagerSecretValid } from "../lib/auth.js";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.food").replace(/\/$/, "");
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.cc/order").replace(/\/$/, "");
 
 export default async function handler(req, res) {
   if (!isManagerSecretValid(req.headers["x-manager-secret"])) {

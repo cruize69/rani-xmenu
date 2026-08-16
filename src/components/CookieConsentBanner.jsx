@@ -1,7 +1,11 @@
 // src/components/CookieConsentBanner.jsx
-// Gates GA4 (src/utils/analytics.js) behind an explicit choice — see that
-// file's CONSENT_KEY comment for why this can't just read a decision made
-// on ranimahal.cc (different domain, no shared cookie/localStorage scope).
+// Gates GA4 (src/utils/analytics.js) behind an explicit choice — shares its
+// key/value scheme with ranimahal.cc's own consent banner (see that file's
+// CONSENT_KEY comment). Reached via the /order proxy (same origin as the
+// marketing site), a prior choice made there already satisfies this and
+// the banner correctly never shows. Reached directly via the standalone
+// ranimahal.food domain, there's no prior consent to read — a genuinely
+// separate origin — so this still prompts on its own.
 //
 // Deliberately a slim, non-blocking bar rather than a modal: nothing on
 // the page is disabled while it's up, and it never reappears once a
@@ -55,13 +59,13 @@ export function CookieConsentBanner() {
       </p>
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
         <button
-          onClick={() => respond("denied")}
+          onClick={() => respond("declined")}
           style={{ padding: "9px 16px", borderRadius: 20, background: "transparent", border: "1px solid rgba(250,246,239,0.2)", color: "#B8A995", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
         >
           No thanks
         </button>
         <button
-          onClick={() => respond("granted")}
+          onClick={() => respond("accepted")}
           style={{ padding: "9px 18px", borderRadius: 20, background: "#E8A82E", border: "none", color: "#080706", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
         >
           Accept

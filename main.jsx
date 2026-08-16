@@ -82,7 +82,20 @@ const ROUTES = {
   "/dashboard":  () => <StaffGate><SalesDashboard /></StaffGate>,
 };
 
-const path = window.location.pathname.replace(/\/+$/, "") || "/";
+// ranimahal.cc (the marketing site) reverse-proxies /order/:path* to this
+// app's origin (see its next.config.ts) so the whole business lives under
+// one public domain. Vercel's rewrite forwards the REQUEST with /order
+// stripped (the origin here really does receive /rewards, /order-success,
+// etc., exactly as before), but the BROWSER's address bar still shows the
+// original /order/... URL — and this router reads window.location from
+// the browser, not from what the origin was asked for. Without stripping
+// the same prefix here, every proxied route would fail to match ROUTES
+// and silently fall back to the home page. ranimahal.food itself (this
+// app's own domain, kept alive for anything already printed/texted with
+// it) never has this prefix, so stripping it only when present is safe
+// for both entry points.
+const rawPath = window.location.pathname.replace(/\/+$/, "") || "/";
+const path = rawPath === "/order" ? "/" : rawPath.startsWith("/order/") ? rawPath.slice(6) : rawPath;
 const renderRoute = ROUTES[path];
 
 // Staff tools are already behind StaffGate's password and aren't where

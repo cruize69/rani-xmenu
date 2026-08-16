@@ -331,7 +331,7 @@ function LiveTracker({ orderId, initialStatus }) {
 function ReferralCard({ referralCode }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
-    const inviteLink = `https://ranimahal.food/?invite=${referralCode}`;
+    const inviteLink = `https://ranimahal.cc/order?invite=${referralCode}`;
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
         setCopied(true);
