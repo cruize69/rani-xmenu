@@ -440,22 +440,24 @@ export function CheckoutGate({
               {/* Sign-in offered as a compact strip, not a separate screen —
                   guests reach the payment button one tap sooner. */}
               {CLERK_ENABLED && (
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:"#161310", border:"0.5px solid rgba(232,168,46,0.2)", borderRadius:12, padding:"10px 14px", marginBottom:16 }}>
-                  <span style={{ fontSize:12.5, color:"#B8A995", lineHeight:1.4 }}>10% off your first order,<br/>then 5% off every order</span>
+                <div style={{ display:"flex", flexDirection:"column", gap:10, background:"#161310", border:"0.5px solid rgba(232,168,46,0.2)", borderRadius:12, padding:"14px", marginBottom:16 }}>
+                  <span style={{ fontSize:12.5, color:"#B8A995", lineHeight:1.4, whiteSpace:"nowrap" }}>10% off first order, 5% off every order after</span>
                   <ClerkSignInButton
                     style={{
-                      padding:"7px 14px",
+                      width:"100%",
+                      padding:"11px 16px",
                       background:"transparent",
                       color:"#E8A82E",
                       border:"1px solid rgba(232,168,46,0.4)",
-                      borderRadius:20,
-                      fontSize:12,
+                      borderRadius:24,
+                      fontSize:13.5,
                       fontWeight:600,
                       cursor:"pointer",
                       fontFamily:"'Inter',sans-serif",
                       display:"inline-flex",
                       alignItems:"center",
-                      gap:6,
+                      justifyContent:"center",
+                      gap:8,
                       whiteSpace:"nowrap",
                     }}
                     disabled={loading}
