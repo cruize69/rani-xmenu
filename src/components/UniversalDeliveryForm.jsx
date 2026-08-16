@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { isZipInDeliveryZone, lookupTownByZip } from "../utils/deliveryConfig.js";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 
@@ -45,6 +45,16 @@ export function UniversalDeliveryForm({
   const zipDone    = zip.trim().length === 5;
   const isZipValid = zipDone && isZipInDeliveryZone(zip);
 
+  // City/ZIP are resolved automatically from the address search below and
+  // stay hidden by default — that's the whole point of collapsing this to
+  // one box. Nominatim occasionally can't resolve a real address though
+  // (new construction, an unusual road name), so a manual fallback has to
+  // exist somewhere; it's just tucked behind an explicit toggle instead of
+  // being two more boxes every customer sees regardless of whether they
+  // need them.
+  const [manualOverride, setManualOverride] = useState(false);
+  const showManualFields = manualOverride || (street.trim().length > 0 && !zipDone);
+
   const update = (patch) => {
     setError?.(null);
     const next = { street, apt, city, zip, notes, ...patch };
@@ -80,9 +90,10 @@ export function UniversalDeliveryForm({
         )}
       </div>
 
-      {/* Street — full-width autocomplete */}
+      {/* Single searchable address field — city/ZIP resolve silently from
+          whichever suggestion the customer picks. */}
       <div>
-        <label htmlFor="delivery-street" style={labelStyle}>Street Address *</label>
+        <label htmlFor="delivery-street" style={labelStyle}>Address *</label>
         <AddressAutocomplete
           street={street}
           // Verified live on production: editing the street text after an
@@ -102,14 +113,69 @@ export function UniversalDeliveryForm({
           setZip={(val) => update({ zip: val })}
           onSelectAddress={(selected) => {
             setError?.(null);
+            setManualOverride(false);
             setDeliveryAddress?.({ street: selected.street, apt, city: selected.city, zip: selected.zip, notes });
           }}
-          placeholder="Street address"
+          placeholder="Start typing your address…"
           style={{ fontSize: 16, padding: "13px 14px", minHeight: 48 }}
         />
+        {/* Resolved city/ZIP readout — confirms what got matched without
+            asking the customer to type it again in a separate box. */}
+        {zipDone && !showManualFields && (
+          <p style={{ fontSize: 12, color: "#8A7F70", margin: "6px 0 0" }}>
+            {city ? `${city}, ` : ""}{zip}{" "}
+            <button
+              type="button"
+              onClick={() => setManualOverride(true)}
+              style={{ background: "none", border: "none", padding: 0, color: "#E8A82E", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
+            >
+              Not right? Edit
+            </button>
+          </p>
+        )}
       </div>
 
-      {/* Apt + City row */}
+      {/* Manual city/ZIP fallback — only shown if the search couldn't
+          resolve a real match, or the customer explicitly asks to correct
+          it. Everyone else never sees these two fields at all. */}
+      {showManualFields && (
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1.6 }}>
+            <label htmlFor="delivery-city" style={labelStyle}>City</label>
+            <input
+              id="delivery-city"
+              type="text"
+              placeholder="City"
+              autoComplete="address-level2"
+              value={city}
+              onChange={(e) => update({ city: e.target.value })}
+              style={input}
+            />
+          </div>
+          <div style={{ width: 110, flexShrink: 0 }}>
+            <label htmlFor="delivery-zip" style={labelStyle}>ZIP *</label>
+            <input
+              id="delivery-zip"
+              type="text"
+              placeholder="ZIP"
+              maxLength={5}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              value={zip}
+              onChange={(e) => update({ zip: e.target.value })}
+              style={{
+                ...input,
+                textAlign: "center",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                borderColor: zipDone ? (isZipValid ? "#1A6B3A" : "rgba(240,132,106,0.5)") : "rgba(250,246,239,0.15)",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Apt + Driver Notes row — the only other fields every customer sees */}
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1 }}>
           <label htmlFor="delivery-apt" style={labelStyle}>Apt / Suite</label>
@@ -124,43 +190,6 @@ export function UniversalDeliveryForm({
           />
         </div>
         <div style={{ flex: 1.6 }}>
-          <label htmlFor="delivery-city" style={labelStyle}>City</label>
-          <input
-            id="delivery-city"
-            type="text"
-            placeholder="City"
-            autoComplete="address-level2"
-            value={city}
-            onChange={(e) => update({ city: e.target.value })}
-            style={input}
-          />
-        </div>
-      </div>
-
-      {/* ZIP + Driver Notes row */}
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ width: 110, flexShrink: 0 }}>
-          <label htmlFor="delivery-zip" style={labelStyle}>ZIP *</label>
-          <input
-            id="delivery-zip"
-            type="text"
-            placeholder="ZIP"
-            maxLength={5}
-            inputMode="numeric"
-            autoComplete="postal-code"
-            value={zip}
-            onChange={(e) => update({ zip: e.target.value })}
-            style={{
-              ...input,
-              textAlign: "center",
-              fontWeight: 700,
-              fontSize: 16,
-              letterSpacing: "0.08em",
-              borderColor: zipDone ? (isZipValid ? "#1A6B3A" : "rgba(240,132,106,0.5)") : "rgba(250,246,239,0.15)",
-            }}
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
           <label htmlFor="delivery-notes" style={labelStyle}>Driver Notes</label>
           <input
             id="delivery-notes"
