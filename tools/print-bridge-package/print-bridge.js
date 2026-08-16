@@ -16,8 +16,20 @@ import { buildReceipt, buildPlainTextReceipt, buildKitchenChit } from "./lib/pri
 
 // ── Configuration ────────────────────────────────────────────────
 const CONFIG = {
-  // Ordering site API URL
+  // Ordering site API URL — used for THIS machine's own polling/updates
+  // calls (fetch(`${apiBase}/api/orders`) etc.), never shown to a customer,
+  // so hitting the origin directly (not the ranimahal.cc proxy) is fine.
   apiBase: process.env.API_BASE ?? "https://ranimahal.food",
+
+  // Customer-facing base URL — printed on receipts and encoded into the
+  // reorder QR code, so this must be the canonical public domain
+  // (ranimahal.cc, not the old ranimahal.food) and must include /order:
+  // "/" on ranimahal.cc is the separate marketing site, not this app —
+  // ranimahal.cc/order is what Vercel's rewrite actually proxies to it
+  // (see ranimahal-marketing/next.config.ts). Using apiBase's bare
+  // ranimahal.food root here was printing a working-but-wrong-brand QR
+  // code on every reorder voucher.
+  customerBase: process.env.CUSTOMER_BASE ?? "https://ranimahal.cc/order",
 
   // Manager secret password
   managerSecret: process.env.MANAGER_SECRET ?? "change-me",
@@ -139,7 +151,7 @@ async function poll() {
         // qrcode renders the PNG in-process with zero network call, same
         // 150px size, same file path the PowerShell renderer below already
         // reads from — nothing downstream of this file changes.
-        await QRCode.toFile(qrPath, `${CONFIG.apiBase}/?reorder=${order.reorderToken}`, { width: 150 });
+        await QRCode.toFile(qrPath, `${CONFIG.customerBase}?reorder=${order.reorderToken}`, { width: 150 });
 
         const voucherText = buildReorderVoucherText(order, qrPath);
         if (CONFIG.printer.type === "tcp") {
