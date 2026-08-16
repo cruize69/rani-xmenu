@@ -24,6 +24,26 @@
     <meta name="twitter:title" content="Rani Mahal — Order Online" />
     <meta name="twitter:description" content="Order online from Rani Mahal — Fine Indian Cuisine, Mamaroneck, NY." />
     <meta name="twitter:image" content="https://ranimahal.cc/logo/apsara-logo-256.png" />
+    <style>
+      /* iOS Safari auto-zooms the whole page when a focused form control's
+         font-size computes below 16px — this has regressed multiple times
+         because every input here is styled with an inline `style={}` prop,
+         and it's easy to add a new one (or copy an old 14px value) without
+         remembering the 16px floor. Every previous fix only patched the
+         specific inputs found at the time, so the same bug kept coming
+         back on the next new field.
+         !important is deliberate and necessary here, not a code smell: a
+         plain CSS rule can never win against an inline style (inline always
+         has higher specificity), so without !important this rule would be
+         silently ignored by every input that already sets its own
+         font-size — which is all of them. This is the one place !important
+         is actually the correct tool, because it turns "remember to set
+         16px" into "impossible to ship below 16px," even for form controls
+         added after this comment is forgotten. */
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+    </style>
   </head>
   <body style="background:#080706;margin:0;padding:0;color:#FAF6EF;touch-action:pan-x pan-y;">
     <div id="root"></div>

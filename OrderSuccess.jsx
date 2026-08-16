@@ -167,7 +167,7 @@ function SmsOptIn({ orderId }) {
           value={phone}
           onChange={e => setPhone(e.target.value)}
           required
-          style={{ flex:1, padding:"10px 14px", border:"1px solid rgba(0,0,0,0.12)", borderRadius:10, fontSize:14, color:"#0F0800", background:"#FAFAF5", outline:"none", fontFamily:"'Inter',sans-serif" }}
+          style={{ flex:1, padding:"10px 14px", border:"1px solid rgba(0,0,0,0.12)", borderRadius:10, fontSize:16, color:"#0F0800", background:"#FAFAF5", outline:"none", fontFamily:"'Inter',sans-serif" }}
         />
         <button type="submit" disabled={status === "loading"}
           style={{ padding:"10px 18px", background:"#C8853A", color:"#FFFFFF", border:"none", borderRadius:10, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif", whiteSpace:"nowrap", opacity: status === "loading" ? 0.7 : 1 }}>
