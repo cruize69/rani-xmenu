@@ -11,6 +11,8 @@
 
 import { kv } from "@vercel/kv";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
+import { mintVoucherToken } from "../lib/orders.js";
+import { sendEmail, newsletterWelcomeEmailHtml, recordCampaignSent } from "../lib/notifications.js";
 
 function isValidEmail(v) {
   return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -39,6 +41,23 @@ export default async function handler(req, res) {
     if (!existing) {
       await kv.set(`newsletter:${clean}`, JSON.stringify({ email: clean, subscribedAt: new Date().toISOString() }));
       await kv.zadd("newsletter-subscribers", { score: Date.now(), member: clean });
+
+      // Previously this was the entire feature — an email landed in KV and
+      // nothing ever sent to it. A newsletter subscriber is functionally
+      // the same "hasn't ordered yet" prospect as a first-time checkout, so
+      // it gets the same welcome-rate voucher, immediately, instead of
+      // sitting silent until (if ever) a future campaign reads the list.
+      const voucher = await mintVoucherToken({
+        discountPct: 0.10,
+        ttlDays: 14,
+        meta: { source: "newsletter-welcome" },
+      });
+      await sendEmail({
+        to: clean,
+        subject: "Welcome — 10% off your first order",
+        html: newsletterWelcomeEmailHtml({ link: voucher.resumeUrl }),
+      });
+      await recordCampaignSent("newsletter-welcome");
     }
     // Already-subscribed is not an error — re-submitting the same email
     // (e.g. a second visit) should feel like success, not a rejection.

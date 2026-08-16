@@ -10,7 +10,10 @@
     { "path": "/api/cron/promote-scheduled-orders", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/review-nudge", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/win-back-lapsed", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/second-order-push", "schedule": "0 15 * * *" }
+    { "path": "/api/cron/second-order-push", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/never-ordered-nudge", "schedule": "0 17 * * *" },
+    { "path": "/api/cron/catering-cross-sell", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/newsletter-digest", "schedule": "0 14 1 * *" }
   ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },

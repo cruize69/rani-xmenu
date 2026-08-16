@@ -15,6 +15,7 @@
 
 import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../lib/orders.js";
+import { recordCampaignSent } from "../lib/notifications.js";
 
 // Deliberately tight. Each claim mints an independently-redeemable 10%
 // voucher off a single order's token, so a high cap is a discount farm, not
@@ -73,6 +74,11 @@ export default async function handler(req, res) {
       ttlDays: 14,
       meta: { source: "referral", referrerOrderId: source.orderId },
     });
+    // "Sent" here means the invite link was actually opened/claimed
+    // (there's no email/SMS send to instrument — the link itself is the
+    // touch), paired with create-checkout.js's recordCampaignClaimed when
+    // this same voucher gets used at checkout.
+    await recordCampaignSent("referral");
 
     return res.status(200).json({ token: voucher.token, discountPct: 0.10, expiresAt: voucher.expiresAt });
   } catch (err) {

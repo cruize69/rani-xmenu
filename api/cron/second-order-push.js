@@ -19,7 +19,7 @@
 import { kv } from "@vercel/kv";
 import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import {
-  sendEmail, sendSMS,
+  sendEmail, sendSMS, recordCampaignSent,
   secondOrderTouch1EmailHtml, secondOrderTouch1SmsBody,
   secondOrderTouch2EmailHtml, secondOrderTouch2SmsBody,
 } from "../../lib/notifications.js";
@@ -110,6 +110,7 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
         jobs.push(sendSMS(contact.phone, buildSms({ isMember: contact.isMember, link })));
       }
       await Promise.all(jobs);
+      await recordCampaignSent(`second-order-${touchName}`);
 
       await kv.set(dedupKey, "1", { ex: DEDUP_TTL_SEC });
       sent++;

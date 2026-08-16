@@ -19,6 +19,7 @@ import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { kv } from "@vercel/kv";
+import { recordCampaignClaimed } from "../lib/notifications.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -197,6 +198,7 @@ export default async function handler(req, res) {
 
           hasDiscount = true;
           discountPct = typeof tokenData.discountPct === "number" ? tokenData.discountPct : 0.10;
+          if (tokenData.meta?.source) await recordCampaignClaimed(tokenData.meta.source);
         } else {
           return res.status(400).json({ error: "Reorder voucher is invalid or has already been redeemed." });
         }
