@@ -90,49 +90,65 @@ export function UniversalDeliveryForm({
         )}
       </div>
 
-      {/* Single searchable address field — city/ZIP resolve silently from
-          whichever suggestion the customer picks. */}
-      <div>
-        <label htmlFor="delivery-street" style={labelStyle}>Address *</label>
-        <AddressAutocomplete
-          street={street}
-          // Verified live on production: editing the street text after an
-          // address was already selected left the OLD city/zip in place —
-          // "15 Chatsworth Ave" (a real Larchmont/10538 street) stayed
-          // stamped "Mamaroneck, 10543" from a prior selection, still
-          // showing "Eligible for Delivery ✓", with no re-validation tying
-          // the three fields together. Any manual edit to the street now
-          // clears city/zip immediately, so the eligibility badge disappears
-          // until the customer either picks a fresh suggestion (which sets
-          // all three atomically via onSelectAddress below) or retypes a
-          // city/zip that actually matches what they just typed.
-          setStreet={(val) => update({ street: val, city: "", zip: "" })}
-          city={city}
-          setCity={(val) => update({ city: val })}
-          zip={zip}
-          setZip={(val) => update({ zip: val })}
-          onSelectAddress={(selected) => {
-            setError?.(null);
-            setManualOverride(false);
-            setDeliveryAddress?.({ street: selected.street, apt, city: selected.city, zip: selected.zip, notes });
-          }}
-          placeholder="Start typing your address…"
-          style={{ fontSize: 16, padding: "13px 14px", minHeight: 48 }}
-        />
-        {/* Resolved city/ZIP readout — confirms what got matched without
-            asking the customer to type it again in a separate box. */}
-        {zipDone && !showManualFields && (
-          <p style={{ fontSize: 12, color: "#8A7F70", margin: "6px 0 0" }}>
-            {city ? `${city}, ` : ""}{zip}{" "}
-            <button
-              type="button"
-              onClick={() => setManualOverride(true)}
-              style={{ background: "none", border: "none", padding: 0, color: "#E8A82E", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
-            >
-              Not right? Edit
-            </button>
-          </p>
-        )}
+      {/* Address search + Apt/Suite inline on one row — the two fields
+          every customer actually needs to type, side by side instead of
+          stacked. City/ZIP resolve silently from whichever suggestion the
+          customer picks. */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div style={{ flex: 2.2, minWidth: 0 }}>
+          <label htmlFor="delivery-street" style={labelStyle}>Address *</label>
+          <AddressAutocomplete
+            street={street}
+            // Verified live on production: editing the street text after an
+            // address was already selected left the OLD city/zip in place —
+            // "15 Chatsworth Ave" (a real Larchmont/10538 street) stayed
+            // stamped "Mamaroneck, 10543" from a prior selection, still
+            // showing "Eligible for Delivery ✓", with no re-validation tying
+            // the three fields together. Any manual edit to the street now
+            // clears city/zip immediately, so the eligibility badge disappears
+            // until the customer either picks a fresh suggestion (which sets
+            // all three atomically via onSelectAddress below) or retypes a
+            // city/zip that actually matches what they just typed.
+            setStreet={(val) => update({ street: val, city: "", zip: "" })}
+            city={city}
+            setCity={(val) => update({ city: val })}
+            zip={zip}
+            setZip={(val) => update({ zip: val })}
+            onSelectAddress={(selected) => {
+              setError?.(null);
+              setManualOverride(false);
+              setDeliveryAddress?.({ street: selected.street, apt, city: selected.city, zip: selected.zip, notes });
+            }}
+            placeholder="Start typing your address…"
+            style={{ fontSize: 16, padding: "13px 14px", minHeight: 48 }}
+          />
+          {/* Resolved city/ZIP readout — confirms what got matched without
+              asking the customer to type it again in a separate box. */}
+          {zipDone && !showManualFields && (
+            <p style={{ fontSize: 12, color: "#8A7F70", margin: "6px 0 0" }}>
+              {city ? `${city}, ` : ""}{zip}{" "}
+              <button
+                type="button"
+                onClick={() => setManualOverride(true)}
+                style={{ background: "none", border: "none", padding: 0, color: "#E8A82E", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
+              >
+                Not right? Edit
+              </button>
+            </p>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <label htmlFor="delivery-apt" style={labelStyle}>Apt / Suite</label>
+          <input
+            id="delivery-apt"
+            type="text"
+            placeholder="Apt, floor"
+            autoComplete="address-line2"
+            value={apt}
+            onChange={(e) => update({ apt: e.target.value })}
+            style={input}
+          />
+        </div>
       </div>
 
       {/* Manual city/ZIP fallback — only shown if the search couldn't
@@ -175,32 +191,19 @@ export function UniversalDeliveryForm({
         </div>
       )}
 
-      {/* Apt + Driver Notes row — the only other fields every customer sees */}
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="delivery-apt" style={labelStyle}>Apt / Suite</label>
-          <input
-            id="delivery-apt"
-            type="text"
-            placeholder="Apt, suite, floor"
-            autoComplete="address-line2"
-            value={apt}
-            onChange={(e) => update({ apt: e.target.value })}
-            style={input}
-          />
-        </div>
-        <div style={{ flex: 1.6 }}>
-          <label htmlFor="delivery-notes" style={labelStyle}>Driver Notes</label>
-          <input
-            id="delivery-notes"
-            type="text"
-            placeholder="Driver notes (optional)"
-            autoComplete="off"
-            value={notes}
-            onChange={(e) => update({ notes: e.target.value })}
-            style={input}
-          />
-        </div>
+      {/* Driver Notes — now the only remaining row, so it gets the full
+          width instead of splitting it with Apt/Suite. */}
+      <div>
+        <label htmlFor="delivery-notes" style={labelStyle}>Driver Notes</label>
+        <input
+          id="delivery-notes"
+          type="text"
+          placeholder="Gate code, buzzer, parking, landmarks… (optional)"
+          autoComplete="off"
+          value={notes}
+          onChange={(e) => update({ notes: e.target.value })}
+          style={input}
+        />
       </div>
 
     </div>
