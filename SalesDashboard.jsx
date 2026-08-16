@@ -780,6 +780,119 @@ function CartRecoveryTab({ funnel }) {
   );
 }
 
+// TAB 6: Marketing Campaigns — sent/claimed instrumentation for the
+// lifecycle email/SMS crons (win-back, second-order-push, abandoned-cart,
+// newsletter, referral, catering cross-sell). "Claimed" means a checkout
+// session was started with that voucher, not that the order was ultimately
+// paid — directional, not full revenue attribution.
+const CAMPAIGN_LABELS = {
+  "winback":                "Win-back (30d lapsed)",
+  "winback-touch2":         "Win-back — last call (45d)",
+  "second-order-touch1":    "Second-order push — touch 1",
+  "second-order-touch2":    "Second-order push — touch 2",
+  "abandoned-lead-touch1":  "Abandoned lead (pre-checkout)",
+  "abandoned-draft-touch1": "Abandoned cart — touch 1",
+  "abandoned-cart":         "Abandoned cart — touch 2 (10% off)",
+  "newsletter-welcome":     "Newsletter — welcome",
+  "never-ordered":          "Never-ordered nudge",
+  "newsletter-digest":      "Newsletter — monthly digest",
+  "referral":               "Referral invite claimed",
+  "catering-cross-sell":    "Catering cross-sell",
+};
+
+function CampaignsTab() {
+  const [campaigns, setCampaigns] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/campaign-stats`, {
+        headers: { "x-manager-secret": getManagerSecret() },
+      });
+      if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
+      const json = await res.json();
+      setCampaigns(json.campaigns ?? []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const sorted = useMemo(() => (campaigns ?? []).slice().sort((a, b) => b.sent - a.sent), [campaigns]);
+  const totals = useMemo(() => (campaigns ?? []).reduce((acc, c) => ({
+    sent: acc.sent + c.sent,
+    claimed: acc.claimed + c.claimed,
+  }), { sent: 0, claimed: 0 }), [campaigns]);
+  const overallRate = totals.sent > 0 ? Number((totals.claimed / totals.sent * 100).toFixed(1)) : null;
+
+  if (loading) {
+    return <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>⚡ Loading campaign stats...</div>;
+  }
+  if (error) {
+    return (
+      <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 14, padding: 20, color: "#FCA5A5" }}>
+        ⚠️ Error loading campaign stats: {error}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+        <StatCard title="Total Sent" value={totals.sent.toLocaleString()} icon="📤" color={ACCENT} sub="Across all lifecycle campaigns" />
+        <StatCard title="Total Claimed" value={totals.claimed.toLocaleString()} icon="🎟️" color="#10B981" sub="Vouchers used at checkout" />
+        <StatCard title="Overall Claim Rate" value={overallRate !== null ? `${overallRate}%` : "—"} icon="📈" color="#38BDF8" sub="Claimed ÷ sent" />
+        <button onClick={load}
+          style={{ height: "auto", padding: "16px 18px", borderRadius: 14, background: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: ACCENT, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+          ↺ Refresh
+        </button>
+      </div>
+
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>📣 Lifecycle Campaign Performance</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+          "Claimed" means a checkout session started with that voucher — not that the order was ultimately paid. Directional, not full revenue attribution.
+        </p>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", color: TEXT_MUTED }}>
+                <th style={{ padding: "10px 8px" }}>Campaign</th>
+                <th style={{ padding: "10px 8px" }}>Sent</th>
+                <th style={{ padding: "10px 8px" }}>Claimed</th>
+                <th style={{ padding: "10px 8px" }}>Claim Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(c => (
+                <tr key={c.source} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: TEXT_MAIN }}>{CAMPAIGN_LABELS[c.source] ?? c.source}</td>
+                  <td style={{ padding: "12px 8px" }}>{c.sent.toLocaleString()}</td>
+                  <td style={{ padding: "12px 8px" }}>{c.claimed.toLocaleString()}</td>
+                  <td style={{ padding: "12px 8px", fontWeight: "bold", color: c.claimRate === null ? TEXT_MUTED : c.claimRate >= 15 ? "#10B981" : c.claimRate >= 5 ? "#F59E0B" : "#F43F5E" }}>
+                    {c.claimRate === null ? "—" : `${c.claimRate}%`}
+                  </td>
+                </tr>
+              ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", padding: 20, color: TEXT_MUTED }}>No campaign sends recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Auxiliary Component for Menu Matrix quadrants
 function MenuEngineeringMatrix({ topDishes }) {
   const categorized = useMemo(() => {
@@ -910,6 +1023,7 @@ export default function SalesDashboard() {
             ["menu", "🍽️ Menu Intelligence"],
             ["geo", "📍 Geo Spatial"],
             ["recovery", "🛒 Cart Recovery"],
+            ["campaigns", "📣 Campaigns"],
           ].map(([k, lbl]) => (
             <button key={k} onClick={() => setTab(k)}
               style={{
@@ -926,7 +1040,11 @@ export default function SalesDashboard() {
 
       {/* Body Content */}
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 60px" }}>
-        {loading ? (
+        {tab === "campaigns" ? (
+          // Own independent fetch (/api/campaign-stats, no date-range param)
+          // — not gated behind the /api/analytics load/error state above.
+          <CampaignsTab />
+        ) : loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>
             <div style={{ fontSize: 24, marginBottom: 12 }}>⚡ Compiling Sales Intelligence...</div>
           </div>
