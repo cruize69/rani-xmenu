@@ -71,14 +71,14 @@ const PACKAGES = [
     name: "Essentials",
     blurb: "Office lunches, small team meetings",
     items: ["Samosa or Vegetable Pakora", "Chicken Tikka Masala or Chicken Makhni + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice", "Garlic Naan", "Raita"],
-    photoIds: ["item-samosa", "item-ctm", "item-garlic-naan"],
+    photoId: "item-ctm",
     tiers: [tier("catering-essentials", null)],
   },
   {
     name: "Signature",
     blurb: "Private parties, milestone celebrations, larger office events",
     items: ["Samosa + Chicken Malai Kabab", "3 mains + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice (or Chicken Biryani, +$2/person)", "Garlic + Onion Naan", "Raita + Mango Chutney"],
-    photoIds: ["item-chicken-malai", "item-rogan", "item-onion-naan"],
+    photoId: "item-chicken-malai",
     tiers: [
       tier("catering-signature", "Poultry & Veg"),
       tier("catering-signature-seafood", "With Seafood"),
@@ -89,7 +89,7 @@ const PACKAGES = [
     name: "Rani Feast",
     blurb: "Weddings, large celebrations, the full tandoor experience",
     items: ["Tandoori Chicken or Chicken Tikka starter", "4 mains including a seafood option", "Chicken or Vegetable Biryani", "Dal Maharani Makhni", "Garlic, Onion + Peshwari Naan", "Raita, Mango Chutney + Chef's Special Salad"],
-    photoIds: ["item-tandoori-chicken", "item-rogan", "item-peshwari"],
+    photoId: "item-tandoori-chicken",
     tiers: [
       tier("catering-feast", "No Lamb"),
       tier("catering-feast-lamb", "With Lamb"),
@@ -114,15 +114,18 @@ const ORDER_MINIMUM = Math.min(...PACKAGES.flatMap((p) => p.tiers.map((t) => t.p
 const HERO_VIDEO_URL = "https://ranimahal.cc/videos/tandoor-oven-burning.mp4";
 const HERO_POSTER_URL = "https://ranimahal.cc/videos/tandoor-oven-burning-poster.jpg";
 
-function DishPhoto({ url, size = 92, radius = 12 }) {
+// Full-bleed photo across the top of the card — one large, real dish photo
+// per package instead of three cramped thumbnails. Falls back to the same
+// placeholder pattern as everywhere else on this page.
+function PackagePhoto({ url }) {
   return (
-    <div style={{ width: size, height: size, flexShrink: 0, borderRadius: radius, overflow: "hidden", background: "#1c1814" }}>
+    <div style={{ position: "relative", width: "100%", height: 190, background: "#1c1814" }}>
       {url ? (
         <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       ) : (
-        <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 }}>
-          <CameraGlyph size={16} />
-          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 7.5, fontWeight: 600, letterSpacing: "0.03em", color: "rgba(232,168,46,0.55)", textAlign: "center", lineHeight: 1.2 }}>Photo<br />soon</span>
+        <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 10px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <CameraGlyph size={26} />
+          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", color: "rgba(232,168,46,0.55)" }}>Photo coming soon</span>
         </div>
       )}
     </div>
@@ -130,6 +133,29 @@ function DishPhoto({ url, size = 92, radius = 12 }) {
 }
 
 function fmt(n) { return "$" + n.toFixed(2); }
+
+// Small +/- stepper — the old "Number of guests" text box used the same
+// full-width style as the name/email inputs below and dwarfed everything
+// else on the card. This is sized to what it actually is: a quantity.
+function Stepper({ value, onChange, min }) {
+  const dec = () => onChange(String(Math.max(min, value - 1)));
+  const inc = () => onChange(String(value + 1));
+  const stepBtn = { width: 34, height: 34, borderRadius: 8, border: "1px solid rgba(250,246,239,0.15)", background: "#1c1814", color: "#FAF6EF", fontSize: 16, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <button type="button" onClick={dec} style={stepBtn} aria-label="Fewer guests">−</button>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: 52, textAlign: "center", padding: "7px 4px", borderRadius: 8, border: "1px solid rgba(250,246,239,0.15)", background: "#1c1814", color: "#FAF6EF", fontSize: 15, fontWeight: 600, fontFamily: "'Inter',sans-serif", outline: "none", boxSizing: "border-box" }}
+      />
+      <button type="button" onClick={inc} style={stepBtn} aria-label="More guests">+</button>
+    </div>
+  );
+}
 
 function PackageCard({ pkg, images }) {
   const [tierIdx, setTierIdx] = useState(0);
@@ -156,76 +182,70 @@ function PackageCard({ pkg, images }) {
   };
 
   return (
-    <div style={{ background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 18, padding: "20px 22px", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        {pkg.photoIds.map((id) => <DishPhoto key={id} url={images[id]} />)}
+    <div style={{ background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 18, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column", height: "100%" }}>
+      <PackagePhoto url={images[pkg.photoId]} />
+
+      <div style={{ padding: "18px 20px 20px", display: "flex", flexDirection: "column", flex: 1 }}>
+        <p style={{ fontFamily: "'Fraunces',serif", fontSize: 21, fontWeight: 500, color: "#FAF6EF", margin: "0 0 4px" }}>{pkg.name}</p>
+        <p style={{ fontSize: 12, color: "#8A7F70", margin: "0 0 12px" }}>{pkg.blurb}</p>
+
+        <ul style={{ margin: "0 0 16px", padding: "0 0 0 18px", fontSize: 13.5, color: "#D9CDBB", lineHeight: 1.75 }}>
+          {pkg.items.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+
+        {pkg.tiers.length > 1 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+            {pkg.tiers.map((t, idx) => (
+              <button
+                key={t.itemId}
+                type="button"
+                onClick={() => selectTier(idx)}
+                style={{
+                  padding: "7px 12px", borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                  border: idx === tierIdx ? "1px solid #E8A82E" : "1px solid rgba(250,246,239,0.15)",
+                  background: idx === tierIdx ? "rgba(232,168,46,0.14)" : "transparent",
+                  color: idx === tierIdx ? "#E8A82E" : "#B8A995",
+                  fontFamily: "'Inter',sans-serif",
+                }}
+              >
+                {t.label} · {fmt(t.price)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+          <div>
+            <p style={label}>Guests</p>
+            <Stepper value={guests} onChange={setHeadcount} min={activeTier.minimum} />
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: 11, color: "#8A7F70", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Total</p>
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#E8A82E", margin: 0, whiteSpace: "nowrap" }}>{fmt(total)}</p>
+          </div>
+        </div>
+
+        {belowMinimum && (
+          <p style={{ fontSize: 12, color: "#F0846A", margin: "0 0 10px" }}>
+            Minimum {activeTier.minimum} guests for this package.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={addToCart}
+          disabled={belowMinimum}
+          style={{
+            width: "100%", padding: "13px", borderRadius: 24, fontSize: 14.5, fontWeight: 700, fontFamily: "'Inter',sans-serif",
+            background: belowMinimum ? "rgba(232,168,46,0.25)" : "#E8A82E",
+            color: "#080706", border: "none", cursor: belowMinimum ? "default" : "pointer",
+          }}
+        >
+          Add to Order · {fmt(activeTier.price)}/person
+        </button>
       </div>
-
-      <p style={{ fontFamily: "'Fraunces',serif", fontSize: 21, fontWeight: 500, color: "#FAF6EF", margin: "0 0 4px" }}>{pkg.name}</p>
-      <p style={{ fontSize: 12, color: "#8A7F70", margin: "0 0 12px" }}>{pkg.blurb}</p>
-
-      <ul style={{ margin: "0 0 16px", padding: "0 0 0 18px", fontSize: 13.5, color: "#D9CDBB", lineHeight: 1.75 }}>
-        {pkg.items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
-
-      {pkg.tiers.length > 1 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-          {pkg.tiers.map((t, idx) => (
-            <button
-              key={t.itemId}
-              type="button"
-              onClick={() => selectTier(idx)}
-              style={{
-                padding: "7px 12px", borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                border: idx === tierIdx ? "1px solid #E8A82E" : "1px solid rgba(250,246,239,0.15)",
-                background: idx === tierIdx ? "rgba(232,168,46,0.14)" : "transparent",
-                color: idx === tierIdx ? "#E8A82E" : "#B8A995",
-                fontFamily: "'Inter',sans-serif",
-              }}
-            >
-              {t.label} · {fmt(t.price)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
-        <div style={{ flex: 1 }}>
-          <label style={label} htmlFor={`headcount-${pkg.name}`}>Number of guests</label>
-          <input
-            id={`headcount-${pkg.name}`}
-            type="number"
-            inputMode="numeric"
-            min={activeTier.minimum}
-            value={headcount}
-            onChange={(e) => setHeadcount(e.target.value)}
-            style={input}
-          />
-        </div>
-        <div style={{ textAlign: "right", paddingBottom: 13 }}>
-          <p style={{ fontSize: 11, color: "#8A7F70", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Total</p>
-          <p style={{ fontSize: 20, fontWeight: 700, color: "#E8A82E", margin: 0, whiteSpace: "nowrap" }}>{fmt(total)}</p>
-        </div>
-      </div>
-
-      {belowMinimum && (
-        <p style={{ fontSize: 12, color: "#F0846A", margin: "0 0 10px" }}>
-          Minimum {activeTier.minimum} guests for this package.
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={addToCart}
-        disabled={belowMinimum}
-        style={{
-          width: "100%", padding: "13px", borderRadius: 24, fontSize: 14.5, fontWeight: 700, fontFamily: "'Inter',sans-serif",
-          background: belowMinimum ? "rgba(232,168,46,0.25)" : "#E8A82E",
-          color: "#080706", border: "none", cursor: belowMinimum ? "default" : "pointer",
-        }}
-      >
-        Add to Order · {fmt(activeTier.price)}/person
-      </button>
     </div>
   );
 }
@@ -272,7 +292,21 @@ export default function Catering() {
 
   return (
     <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
-      <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
+      <style>{`
+        @import url('${FONT_LINK}');
+        html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh}
+        *{box-sizing:border-box}
+        /* 3 packages laid out side by side on desktop */
+        .catering-grid{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:18px;}
+        /* A swipeable horizontal carousel on narrower screens, rather than
+           a long vertical stack — each card snaps into place and bleeds
+           slightly past the page's own padding, the same "peek at the next
+           card" pattern most food-delivery apps use for this exact case. */
+        @media (max-width: 860px){
+          .catering-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 -20px;padding:0 20px 6px;-webkit-overflow-scrolling:touch;}
+          .catering-grid > *{flex:0 0 84%;scroll-snap-align:center;}
+        }
+      `}</style>
 
       {showBack && (
         <div style={{ position: "absolute", top: 0, left: 0, zIndex: 5, padding: "20px 20px 0" }}>
@@ -315,15 +349,18 @@ export default function Catering() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "36px 20px 72px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "36px 20px 72px" }}>
 
         {/* Packages — real pricing, real photography, and a real "Add to
             Order" button wired straight into the same cart/checkout the
             main ordering menu uses. Every curry's spice level is
-            adjustable per guest at no charge on every tier. */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+            adjustable per guest at no charge on every tier. 3 columns on
+            desktop (.catering-grid), a swipeable carousel on mobile. */}
+        <div className="catering-grid" style={{ marginBottom: 24 }}>
           {PACKAGES.map((pkg) => <PackageCard key={pkg.name} pkg={pkg} images={images} />)}
         </div>
+
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <p style={{ fontSize: 12, color: "#8A7F70", textAlign: "center", margin: "0 0 34px" }}>
           {fmt(ORDER_MINIMUM)} order minimum · free delivery · lead time 48hrs (5+ days for 40+ guests)
         </p>
@@ -397,6 +434,7 @@ export default function Catering() {
           <a href="tel:9148359066" style={{ color: "#E8A82E", textDecoration: "none", fontWeight: 600 }}>(914) 835-9066</a>
           <br />327 Mamaroneck Ave, Mamaroneck, NY
         </p>
+      </div>
 
       </div>
     </div>
