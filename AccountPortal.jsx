@@ -475,6 +475,13 @@ function AccountPortalPage({
               ? <>Your first order gets <strong style={{ color: "#FAF6EF" }}>10% off</strong> automatically — you're already in.</>
               : <>You're a member — <strong style={{ color: "#FAF6EF" }}>5% off</strong> is applied automatically on every order, no minimum and nothing to track.</>}
           </p>
+          {/* Catering is already priced as a fixed, standalone rate (see
+              api/create-checkout.js's CATERING_ITEM_IDS carve-out) — this
+              exists so a member doesn't assume the standing 5% quietly
+              applies there too and get a different total than expected. */}
+          <p style={{ fontSize: 11, color: "#8A7560", margin: "8px 0 0" }}>
+            Doesn't apply to <a href="/catering" style={{ color: "#8A7560", textDecoration: "underline" }}>catering packages</a> — those are already priced as a fixed rate.
+          </p>
           {/* First, small step toward using the order-count data this app
               already stores for something other than the discount math —
               plain recognition at a real regular's threshold, not a

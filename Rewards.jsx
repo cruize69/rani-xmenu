@@ -112,6 +112,17 @@ export default function Rewards() {
           ))}
         </div>
 
+        {/* Catering exclusion — the 10%/5% discounts apply to regular
+            à la carte ordering only. Catering packages are already priced
+            as a fixed, standalone rate (see /catering); the member
+            discount was never meant to stack on top of that. Stated
+            plainly here rather than left as a silent surprise at checkout. */}
+        <p style={{ fontSize: 12, color: "#8A7F70", textAlign: "center", lineHeight: 1.6, margin: "0 0 30px" }}>
+          Rani Royal Club discounts apply to regular ordering only —{" "}
+          <a href="/catering" style={{ color: "#B8A995", textDecoration: "underline" }}>catering packages</a>{" "}
+          are already priced as a fixed rate and aren't eligible for the member discount.
+        </p>
+
         {/* Why order direct — the same pitch the ordering site's top banner makes */}
         <div style={{ background: "rgba(232,168,46,0.07)", border: "1px solid rgba(232,168,46,0.22)", borderRadius: 16, padding: "18px 20px", marginBottom: 30 }}>
           <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#E8A82E", margin: "0 0 8px" }}>
