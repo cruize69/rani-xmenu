@@ -97,6 +97,14 @@ const PACKAGES = [
   },
 ];
 
+// The order minimum isn't an arbitrary round number — it's exactly what
+// the cheapest real package at its own minimum guest count costs
+// (Essentials, 16 guests: 16 x $19.99). Deriving it live from the same
+// data the package cards render means this can never drift out of sync
+// with what a customer can actually order, the way a hardcoded "$300"
+// eventually would once a price or minimum changes.
+const ORDER_MINIMUM = Math.min(...PACKAGES.flatMap((p) => p.tiers.map((t) => t.price * t.minimum)));
+
 // The hero banner up top — real footage (not AI/staged), the exact same
 // tandoor-flame clip the homepage hero already uses. Served by the
 // marketing app's own static assets (ranimahal-marketing/public/videos/)
@@ -317,7 +325,7 @@ export default function Catering() {
           {PACKAGES.map((pkg) => <PackageCard key={pkg.name} pkg={pkg} images={images} />)}
         </div>
         <p style={{ fontSize: 12, color: "#8A7F70", textAlign: "center", margin: "0 0 34px" }}>
-          $300 order minimum · free delivery · lead time 48hrs (5+ days for 40+ guests)
+          {fmt(ORDER_MINIMUM)} order minimum · free delivery · lead time 48hrs (5+ days for 40+ guests)
         </p>
 
         {status === "sent" ? (
