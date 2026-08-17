@@ -319,7 +319,16 @@ export default async function handler(req, res) {
       if (!Number.isFinite(qty) || qty < 1 || qty > maxQty) {
         return res.status(400).json({ error: `Invalid quantity for ${canonical.name}` });
       }
-      const itemPrice = hasDiscount ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2)) : canonical.price;
+      // Catering packages are already priced as a fixed, standalone rate
+      // (see lib/menu.js's CATERING_ITEMS/CATERING_PACKAGES) — welcome/
+      // member/reorder discounts are designed around à la carte pricing
+      // and were never meant to stack on top of that, so catering line
+      // items always charge full price regardless of hasDiscount. A mixed
+      // cart (catering + regular items) still discounts the regular items
+      // normally — this only carves out the catering ids specifically.
+      const itemPrice = (hasDiscount && !CATERING_ITEM_IDS.has(raw?.baseId))
+        ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2))
+        : canonical.price;
       validatedItems.push({
         baseId: raw.baseId,
         name:   canonical.name,
