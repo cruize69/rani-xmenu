@@ -61,7 +61,37 @@ async function resolveContact(customerKey) {
     phone: order.customerPhone || null,
     smsConsent: !!order.smsConsent,
     customerName: order.customerName || "Guest",
+    listKey,
   };
+}
+
+// Scans a customer's last few orders (capped, not their full 200-order
+// history — this only needs to be "their usual", not perfectly exact) and
+// returns the name of whichever dish they've ordered most by quantity.
+// Swapping the generic "we miss you" copy for their actual go-to dish is
+// what the win-back email/SMS use this for — null just falls back to the
+// existing generic copy, so a customer with no readable history isn't
+// blocked from getting the win-back at all.
+const FAVORITE_DISH_LOOKBACK = 10;
+
+async function resolveFavoriteDish(listKey) {
+  try {
+    const orderIds = await kv.lrange(listKey, 0, FAVORITE_DISH_LOOKBACK - 1);
+    if (!orderIds.length) return null;
+    const orders = await Promise.all(orderIds.map(getOrder));
+    const tally = new Map();
+    for (const order of orders) {
+      for (const item of order?.items ?? []) {
+        if (!item?.name) continue;
+        tally.set(item.name, (tally.get(item.name) || 0) + (item.qty || 1));
+      }
+    }
+    if (!tally.size) return null;
+    return [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  } catch (e) {
+    console.error(`resolveFavoriteDish failed for ${listKey}:`, e);
+    return null;
+  }
 }
 
 async function runTouch1(candidates) {
@@ -73,6 +103,7 @@ async function runTouch1(candidates) {
 
       const contact = await resolveContact(customerKey);
       if (!contact?.email) { skipped++; continue; }
+      const favoriteDish = await resolveFavoriteDish(contact.listKey);
 
       const voucher = await mintVoucherToken({
         discountPct: 0.10,
@@ -83,12 +114,12 @@ async function runTouch1(candidates) {
       const jobs = [
         sendEmail({
           to: contact.email,
-          subject: "We miss cooking for you — 10% off",
-          html: winBackEmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember: contact.isMember }),
+          subject: favoriteDish ? `Your ${favoriteDish} is waiting — 10% off` : "We miss cooking for you — 10% off",
+          html: winBackEmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember: contact.isMember, favoriteDish }),
         }),
       ];
       if (contact.phone && contact.smsConsent) {
-        jobs.push(sendSMS(contact.phone, winBackSmsBody({ link: voucher.resumeUrl, isMember: contact.isMember })));
+        jobs.push(sendSMS(contact.phone, winBackSmsBody({ link: voucher.resumeUrl, isMember: contact.isMember, favoriteDish })));
       }
       await Promise.all(jobs);
       await recordCampaignSent("winback");
@@ -117,6 +148,7 @@ async function runTouch2(candidates) {
 
       const contact = await resolveContact(customerKey);
       if (!contact?.email) { skipped++; continue; }
+      const favoriteDish = await resolveFavoriteDish(contact.listKey);
 
       const voucher = await mintVoucherToken({
         discountPct: 0.10,
@@ -128,11 +160,11 @@ async function runTouch2(candidates) {
         sendEmail({
           to: contact.email,
           subject: "Last call — 10% off expires soon",
-          html: winBackTouch2EmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember: contact.isMember }),
+          html: winBackTouch2EmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember: contact.isMember, favoriteDish }),
         }),
       ];
       if (contact.phone && contact.smsConsent) {
-        jobs.push(sendSMS(contact.phone, winBackTouch2SmsBody({ link: voucher.resumeUrl, isMember: contact.isMember })));
+        jobs.push(sendSMS(contact.phone, winBackTouch2SmsBody({ link: voucher.resumeUrl, isMember: contact.isMember, favoriteDish })));
       }
       await Promise.all(jobs);
       await recordCampaignSent("winback-touch2");
