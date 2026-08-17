@@ -37,7 +37,7 @@ export function ItemCard({ item, cartEntry, onOpen, imageUrl }) {
       onClick={() => onOpen(item)}
       onMouseEnter={e => e.currentTarget.style.background="#1c1814"}
       onMouseLeave={e => e.currentTarget.style.background="#12100e"}
-      style={{ background:"#12100e", padding:"16px 12px", display:"flex", gap:6, alignItems:"flex-start", cursor:"pointer", position:"relative", borderBottom:"0.5px solid rgba(250,246,239,0.07)", transition:"background 0.1s" }}>
+      style={{ background:"#12100e", padding:"16px 12px", display:"flex", gap:6, alignItems:"flex-start", cursor:"pointer", position:"relative", borderBottom:"0.5px solid rgba(250,246,239,0.07)", transition:"background 0.1s", WebkitTapHighlightColor:"transparent", WebkitTouchCallout:"none", WebkitUserSelect:"none", userSelect:"none", touchAction:"manipulation" }}>
       {/* Info */}
       <div style={{ flex:1, minWidth:0, order:1 }}>
         <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:8, marginBottom:4 }}>
