@@ -2,7 +2,6 @@ User-agent: *
 Disallow: /
 Allow: /$
 Allow: /rewards
-Allow: /catering
 Allow: /privacy
 Allow: /terms
 
