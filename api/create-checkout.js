@@ -10,7 +10,7 @@
 import Stripe from "stripe";
 import crypto from "crypto";
 import { createClerkClient } from "@clerk/backend";
-import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
+import { VALID_ITEMS, TAX_RATE, CATERING_ITEM_IDS } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
 import { isWithinServiceWindow, getOpenStatus, nyDateTimeToUtcMs } from "../lib/hours.js";
@@ -40,6 +40,11 @@ async function resolveVerifiedClerkUserId(req) {
 }
 
 const MAX_QTY_PER_LINE = 25;
+// Catering quantity IS the guest headcount, not a plate count — a real
+// wedding order can legitimately need well over 25. Bounded at 500 (not
+// unbounded) for the same sanity/overflow reasons the regular cap exists,
+// just sized for the actual use case instead of reusing the a-la-carte cap.
+const MAX_CATERING_QTY_PER_LINE = 500;
 
 // Stripe caps a metadata VALUE at 500 chars. The address is stored there as
 // JSON, and the old code just did .slice(0, 500) — which cuts mid-JSON, so
@@ -310,7 +315,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Unknown item: ${raw?.baseId ?? "(missing id)"}` });
       }
       const qty = Number.isInteger(raw.qty) ? raw.qty : Math.round(Number(raw.qty));
-      if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY_PER_LINE) {
+      const maxQty = CATERING_ITEM_IDS.has(raw?.baseId) ? MAX_CATERING_QTY_PER_LINE : MAX_QTY_PER_LINE;
+      if (!Number.isFinite(qty) || qty < 1 || qty > maxQty) {
         return res.status(400).json({ error: `Invalid quantity for ${canonical.name}` });
       }
       const itemPrice = hasDiscount ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2)) : canonical.price;
