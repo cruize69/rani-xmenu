@@ -1,16 +1,18 @@
 // api/create-catering-checkout.js
-// POST { itemId, guests, guestEmail, guestPhone, eventDate, orderMode, deliveryAddress, notes, utm }
+// POST { itemId, guests, guestEmail, guestPhone, eventDate, orderMode, deliveryAddress, notes, tip, utm }
 // Returns { url } — redirect customer to Stripe's hosted checkout page.
 //
 // Deliberately separate from api/create-checkout.js rather than a branch
-// inside it: the retail endpoint's shape (multi-item cart, tip, vouchers,
+// inside it: the retail endpoint's shape (multi-item cart, vouchers,
 // welcome/member discounts, scheduled-order hours validation) doesn't apply
 // to catering at all, and trying to make one endpoint cover both would mean
 // either catering inheriting retail concepts it explicitly opts out of
 // (catering is flat-rate — see lib/menu.js's CATERING_ITEM_IDS discount
 // exclusion) or the retail endpoint growing a pile of `if (isCatering)`
-// branches. A single real package line item, no cart, no vouchers, no tip —
-// this endpoint is small on purpose.
+// branches. A single real package line item, no cart, no vouchers — this
+// endpoint is small on purpose. Tip is real here (same dollar-amount
+// contract as create-checkout.js: computed client-side from a % of
+// subtotal, re-clamped server-side, never trusted as-is).
 //
 // SECURITY: same rule as create-checkout.js — price is never trusted from
 // the client. itemId is re-priced from CATERING_ITEMS every time.
@@ -77,6 +79,7 @@ export default async function handler(req, res) {
       orderMode = "pickup",
       deliveryAddress: rawDeliveryAddress,
       notes: rawNotes,
+      tip: rawTip,
       utm,
       returnPath: rawReturnPath,
     } = req.body || {};
@@ -134,7 +137,11 @@ export default async function handler(req, res) {
     const subtotal = parseFloat((price * guests).toFixed(2));
     const serverDeliveryFee = isDelivery && subtotal < 99 ? 6.99 : 0; // structurally mirrors create-checkout.js; never actually fires given catering's own minimums
     const tax = parseFloat((subtotal * TAX_RATE).toFixed(2));
-    const grossBeforeCc = subtotal + serverDeliveryFee + tax;
+    // Same clamp as create-checkout.js — a % of subtotal computed client-side
+    // (TipSelector on the catering modal), never trusted as-is: capped at 2x
+    // subtotal so a manipulated request can't inflate the charge arbitrarily.
+    const tip = Math.min(Math.max(0, Number(rawTip) || 0), subtotal * 2);
+    const grossBeforeCc = subtotal + serverDeliveryFee + tax + tip;
     const ccFee = parseFloat((((grossBeforeCc + STRIPE_FLAT) / (1 - STRIPE_PCT)) - grossBeforeCc).toFixed(2));
 
     const lineItems = [
@@ -159,6 +166,12 @@ export default async function handler(req, res) {
     if (tax > 0) {
       lineItems.push({
         price_data: { currency: "usd", product_data: { name: "Tax" }, unit_amount: Math.round(tax * 100) },
+        quantity: 1,
+      });
+    }
+    if (tip > 0) {
+      lineItems.push({
+        price_data: { currency: "usd", product_data: { name: isDelivery ? "Driver Tip" : "Staff Tip" }, unit_amount: Math.round(tip * 100) },
         quantity: 1,
       });
     }
@@ -188,7 +201,7 @@ export default async function handler(req, res) {
 
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(JSON.stringify({ itemId, guests, guestEmail, orderMode, minute: Math.floor(Date.now() / 60000) }))
+      .update(JSON.stringify({ itemId, guests, guestEmail, orderMode, tip, minute: Math.floor(Date.now() / 60000) }))
       .digest("hex");
 
     const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
@@ -214,7 +227,7 @@ export default async function handler(req, res) {
         clerkUserId: (clerkUserId ?? "").slice(0, 500),
         guestEmail: guestEmail.slice(0, 500),
         guestPhone: typeof guestPhone === "string" ? guestPhone.slice(0, 40) : "",
-        tip: "0.00",
+        tip: tip.toFixed(2),
         orderMode: isDelivery ? "delivery" : "pickup",
         deliveryFee: serverDeliveryFee.toFixed(2),
         deliveryAddress: isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress) : "",
