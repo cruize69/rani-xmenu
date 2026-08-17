@@ -25,7 +25,7 @@
 // receipt link, Google Business) gets a clean page with no dead control.
 import { useState, useEffect } from "react";
 import { CameraGlyph } from "./src/components/MenuItemCard.jsx";
-import { CATERING_ITEMS, CATERING_MINIMUMS } from "./lib/menu.js";
+import { CATERING_ITEMS, CATERING_MINIMUMS, CATERING_PACKAGES as CATERING_PACKAGES_RAW, CATERING_TIER_LABELS, CATERING_ORDER_MINIMUM } from "./lib/menu.js";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
@@ -51,59 +51,17 @@ const label = {
   marginBottom: 6,
 };
 
-const CATERING_BY_ID = Object.fromEntries(CATERING_ITEMS.map((i) => [i.id, i]));
-const tier = (itemId, label) => ({ itemId, label, price: CATERING_BY_ID[itemId].price, minimum: CATERING_MINIMUMS[itemId] });
-
-// Real, transparent packages — every local competitor checked (10 nearby
-// Indian restaurants) is quote-only with zero published pricing, same as
-// this page used to be. Publishing real numbers directly addresses
-// "pricing opacity," which research on what actually kills catering deals
-// flagged as a top-two reason a lead goes cold before ever calling.
-// Protein-tiered pricing on Signature/Rani Feast reflects real cost: on
-// our own à la carte menu lamb runs $5-8 above the equivalent chicken dish
-// and seafood a few dollars above — averaging that across every guest
-// regardless of what's served would either overcharge a poultry/veg event
-// or undercharge a lamb-heavy one. Price/minimum for every tier come from
-// CATERING_ITEMS/CATERING_MINIMUMS (lib/menu.js) — never hardcoded here,
-// so this page can't drift from what checkout actually charges.
-const PACKAGES = [
-  {
-    name: "Essentials",
-    blurb: "Office lunches, small team meetings",
-    items: ["Samosa or Vegetable Pakora", "Chicken Tikka Masala or Chicken Makhni + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice", "Garlic Naan", "Raita"],
-    photoId: "item-ctm",
-    tiers: [tier("catering-essentials", null)],
-  },
-  {
-    name: "Signature",
-    blurb: "Private parties, milestone celebrations, larger office events",
-    items: ["Samosa + Chicken Malai Kabab", "3 mains + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice (or Chicken Biryani, +$2/person)", "Garlic + Onion Naan", "Raita + Mango Chutney"],
-    photoId: "item-chicken-malai",
-    tiers: [
-      tier("catering-signature", "Poultry & Veg"),
-      tier("catering-signature-seafood", "With Seafood"),
-      tier("catering-signature-lamb", "With Lamb"),
-    ],
-  },
-  {
-    name: "Rani Feast",
-    blurb: "Weddings, large celebrations, the full tandoor experience",
-    items: ["Tandoori Chicken or Chicken Tikka starter", "4 mains including a seafood option", "Chicken or Vegetable Biryani", "Dal Maharani Makhni", "Garlic, Onion + Peshwari Naan", "Raita, Mango Chutney + Chef's Special Salad"],
-    photoId: "item-tandoori-chicken",
-    tiers: [
-      tier("catering-feast", "No Lamb"),
-      tier("catering-feast-lamb", "With Lamb"),
-    ],
-  },
-];
-
-// The order minimum isn't an arbitrary round number — it's exactly what
-// the cheapest real package at its own minimum guest count costs
-// (Essentials, 16 guests: 16 x $19.99). Deriving it live from the same
-// data the package cards render means this can never drift out of sync
-// with what a customer can actually order, the way a hardcoded "$300"
-// eventually would once a price or minimum changes.
-const ORDER_MINIMUM = Math.min(...PACKAGES.flatMap((p) => p.tiers.map((t) => t.price * t.minimum)));
+// PACKAGES/ORDER_MINIMUM are derived from CATERING_PACKAGES (lib/menu.js),
+// the single source of truth also consumed by api/catering-packages.js
+// (which the marketing site's /catering page fetches) — never redefined
+// here, so this page and the marketing site's rich catering widget can
+// never drift out of sync on price, description, or minimum.
+const ITEM_BY_ID = Object.fromEntries(CATERING_ITEMS.map((i) => [i.id, i]));
+const PACKAGES = CATERING_PACKAGES_RAW.map((p) => ({
+  ...p,
+  tiers: p.tierIds.map((id) => ({ itemId: id, label: CATERING_TIER_LABELS[id] ?? null, price: ITEM_BY_ID[id].price, minimum: CATERING_MINIMUMS[id] })),
+}));
+const ORDER_MINIMUM = CATERING_ORDER_MINIMUM;
 
 // The hero banner up top — real footage (not AI/staged), the exact same
 // tandoor-flame clip the homepage hero already uses. Served by the
