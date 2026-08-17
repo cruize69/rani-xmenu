@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
+import { useWakeLock } from "./src/hooks/useWakeLock.js";
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(path, {
@@ -349,6 +350,10 @@ function TvOrderCard({ order }) {
 
 // ── Main 4K TV Kitchen Display ────────────────────────────────────
 export default function TvKitchenDisplay() {
+  // Mounted TV display — never let the underlying device sleep/dim itself
+  // out from under a live order board nobody's touching by hand.
+  useWakeLock();
+
   const [orders, setOrders] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
   const [flashOrder, setFlashOrder] = useState(null);

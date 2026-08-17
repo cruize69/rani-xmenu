@@ -7,6 +7,7 @@ import { getManagerSecret } from "./lib/managerAuth.js";
 import OrderCard from "./OrderCard.jsx";
 import OrderDetailPanel from "./OrderDetailPanel.jsx";
 import RefundModal from "./RefundModal.jsx";
+import { useWakeLock } from "./src/hooks/useWakeLock.js";
 import "./manager.css";
 
 const API_BASE = "";
@@ -75,6 +76,10 @@ function playChime() {
 }
 
 export default function OrderManager() {
+  // Staff keep this open on a workstation for the whole shift — never let
+  // the screen dim/sleep out from under an in-progress order queue.
+  useWakeLock();
+
   const [orders, setOrders]               = useState([]);
   const [date, setDate]                   = useState(() =>
     new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })

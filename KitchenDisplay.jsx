@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
+import { useWakeLock } from "./src/hooks/useWakeLock.js";
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(path, {
@@ -178,6 +179,9 @@ function NewOrderFlash({ visible, orderNum, onDismiss }) {
 
 // ── Main app ─────────────────────────────────────────────────────
 export default function KitchenDisplay() {
+  // A mounted kitchen screen must never dim/sleep mid-service.
+  useWakeLock();
+
   const [orders, setOrders]     = useState([]);
   const [flash, setFlash]       = useState(null);
   const [filter, setFilter]     = useState("active");
