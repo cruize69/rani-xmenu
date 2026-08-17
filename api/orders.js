@@ -228,11 +228,17 @@ async function handleDequeue(req, res) {
   const raw = await kv.rpop("print_queue");
   if (!raw) return res.status(200).json({ orderId: null });
   // Queue values are JSON: { id, mode: "new"|"reprint", ticket? } — see
-  // print-bridge.js. A bare orderId string is the pre-ticket-selection
-  // queue format; treat it as a full "new" print rather than dropping it,
-  // so nothing already queued at deploy time is silently lost.
+  // print-bridge.js. @vercel/kv auto-deserializes JSON on read, so `raw`
+  // is usually already an object, not a string — JSON.parse-ing it
+  // directly throws and was corrupting orderId. A bare orderId string is
+  // the pre-ticket-selection queue format; treat it as a full "new" print
+  // rather than dropping it, so nothing already queued gets lost.
   let parsed;
-  try { parsed = JSON.parse(raw); } catch { parsed = { id: raw, mode: "new" }; }
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { parsed = { id: raw, mode: "new" }; }
+  } else {
+    parsed = raw;
+  }
   return res.status(200).json({ orderId: parsed.id ?? null, mode: parsed.mode ?? "new", ticket: parsed.ticket ?? null });
 }
 
