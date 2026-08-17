@@ -38,7 +38,14 @@ export const DELIVERY_ZONES = {
     name: "Zone 1 (Core Local)",
     label: "Zone 1: Mamaroneck, Larchmont, Harrison, Rye",
     minOrder: 50.00,
-    eta: "30–40 min",
+    // Was "30-40 min" — only 5 min more than PICKUP_ETA's "25-35 min" for
+    // an order that still has to be driven out and delivered on top of the
+    // same prep time. A real Zone 1 delivery order (Rye, 2026-08-17 dinner
+    // service) confirmed this reads as wrong to the customer — a pickup-
+    // speed number quoted for delivery. Widened to leave real room for
+    // drive time + traffic on top of prep, while staying clearly the
+    // fastest tier below Zone 2's 40-50.
+    eta: "35–50 min",
     zips: new Set([
       "10543", // Mamaroneck
       "10538", // Larchmont
