@@ -476,6 +476,8 @@ export default async function handler(req, res) {
         utmSource:           typeof utm?.utm_source   === "string" ? utm.utm_source.slice(0, 100)   : "",
         utmMedium:           typeof utm?.utm_medium   === "string" ? utm.utm_medium.slice(0, 100)   : "",
         utmCampaign:         typeof utm?.utm_campaign === "string" ? utm.utm_campaign.slice(0, 100) : "",
+        gclid:               typeof utm?.gclid        === "string" ? utm.gclid.slice(0, 100)        : "",
+        fbclid:              typeof utm?.fbclid       === "string" ? utm.fbclid.slice(0, 100)       : "",
       },
       success_url: `${baseUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${baseUrl}`,

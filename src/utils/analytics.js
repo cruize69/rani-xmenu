@@ -52,9 +52,13 @@ export function trackEvent(name, params = {}) {
 // Captures utm_* params from the current URL on first load and persists
 // them for the lifetime of this browser session, so a customer who lands
 // from a marketing-site link and browses for a while before ordering still
-// gets attributed correctly at checkout.
+// gets attributed correctly at checkout. gclid/fbclid (Google/Meta ad click
+// IDs) are captured the same way — not consumed by any ad-platform pixel on
+// this site yet, but worth storing now so real ad spend can be tied to real
+// orders once one exists, rather than losing the click ID the moment it
+// arrives here with nothing yet reading it.
 const UTM_KEY = "rm_utm_attribution";
-const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign"];
+const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "gclid", "fbclid"];
 
 export function captureUtmFromUrl() {
   try {
