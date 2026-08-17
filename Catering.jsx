@@ -81,21 +81,14 @@ const PACKAGES = [
   },
 ];
 
-// The hero banner up top — Tandoori Chicken is a real, photographed dish
-// (not staged/AI) and visually the strongest single shot available today.
-// Swap to a wider event/spread photo once one exists; this key is the only
-// thing that needs to change.
-// Served by the marketing app's own static assets (ranimahal-marketing/
-// public/images/ai-concept/) — an absolute URL resolves correctly here
-// even though this page itself is served from the backend app, since
-// /images/* isn't one of the paths next.config.ts proxies to /order.
-// AI-GENERATED — TEMPORARY, same caveat as the marketing repo's own
-// images.ts: swap for a real event/spread photo once one exists. Picked
-// specifically because it has no fabricated text baked into the image
-// (unlike thali-tray-wide.png in the same folder, which has garbled fake
-// engraved text reading "RANI MAHAL - A CELEBRATION OF..." — never use
-// that one for anything a visitor could read as a real product photo).
-const HERO_IMAGE_URL = "https://ranimahal.cc/images/ai-concept/table-fish-tandoori.png";
+// The hero banner up top — real footage (not AI/staged), the exact same
+// tandoor-flame clip the homepage hero already uses. Served by the
+// marketing app's own static assets (ranimahal-marketing/public/videos/)
+// — an absolute URL resolves correctly here even though this page is
+// served from the backend app, since /videos/* isn't one of the paths
+// next.config.ts proxies to /order.
+const HERO_VIDEO_URL = "https://ranimahal.cc/videos/tandoor-oven-burning.mp4";
+const HERO_POSTER_URL = "https://ranimahal.cc/videos/tandoor-oven-burning-poster.jpg";
 
 function DishPhoto({ url, size = 92, radius = 12 }) {
   return (
@@ -167,10 +160,19 @@ export default function Catering() {
         </div>
       )}
 
-      {/* Full-bleed hero — an AI-concept spread shot for now (see
-          HERO_IMAGE_URL comment), not a plain text masthead */}
+      {/* Full-bleed hero — real footage of the clay tandoor, same clip the
+          homepage hero uses, not a plain text masthead */}
       <div style={{ position: "relative", height: "44vh", minHeight: 280, maxHeight: 420, overflow: "hidden", background: "#1c1814" }}>
-        <img src={HERO_IMAGE_URL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={HERO_POSTER_URL}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        >
+          <source src={HERO_VIDEO_URL} type="video/mp4" />
+        </video>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,7,6,0.35) 0%, rgba(8,7,6,0.55) 55%, #080706 100%)" }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 20px 26px", textAlign: "center" }}>
           <img
