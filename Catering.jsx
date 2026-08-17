@@ -85,7 +85,17 @@ const PACKAGES = [
 // (not staged/AI) and visually the strongest single shot available today.
 // Swap to a wider event/spread photo once one exists; this key is the only
 // thing that needs to change.
-const HERO_PHOTO_ID = "item-tandoori-chicken";
+// Served by the marketing app's own static assets (ranimahal-marketing/
+// public/images/ai-concept/) — an absolute URL resolves correctly here
+// even though this page itself is served from the backend app, since
+// /images/* isn't one of the paths next.config.ts proxies to /order.
+// AI-GENERATED — TEMPORARY, same caveat as the marketing repo's own
+// images.ts: swap for a real event/spread photo once one exists. Picked
+// specifically because it has no fabricated text baked into the image
+// (unlike thali-tray-wide.png in the same folder, which has garbled fake
+// engraved text reading "RANI MAHAL - A CELEBRATION OF..." — never use
+// that one for anything a visitor could read as a real product photo).
+const HERO_IMAGE_URL = "https://ranimahal.cc/images/ai-concept/table-fish-tandoori.png";
 
 function DishPhoto({ url, size = 92, radius = 12 }) {
   return (
@@ -142,8 +152,6 @@ export default function Catering() {
     }
   };
 
-  const heroUrl = images[HERO_PHOTO_ID];
-
   return (
     <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
@@ -159,13 +167,10 @@ export default function Catering() {
         </div>
       )}
 
-      {/* Full-bleed hero — real photography, not a plain text masthead */}
+      {/* Full-bleed hero — an AI-concept spread shot for now (see
+          HERO_IMAGE_URL comment), not a plain text masthead */}
       <div style={{ position: "relative", height: "44vh", minHeight: 280, maxHeight: 420, overflow: "hidden", background: "#1c1814" }}>
-        {heroUrl ? (
-          <img src={heroUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.06) 0px,rgba(232,168,46,0.06) 1px,transparent 1px,transparent 10px)" }} />
-        )}
+        <img src={HERO_IMAGE_URL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,7,6,0.35) 0%, rgba(8,7,6,0.55) 55%, #080706 100%)" }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 20px 26px", textAlign: "center" }}>
           <img
