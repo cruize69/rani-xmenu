@@ -1,13 +1,20 @@
-// Catering.jsx — public catering lead-capture page.
+// Catering.jsx — public catering page: real packages, real pricing, real
+// photography where it exists yet (26 of 120 menu items have real uploaded
+// photos as of this writing — see /api/images/list). Anything not yet
+// photographed uses the same "Photo coming soon" placeholder tile the main
+// ordering menu already uses (MenuItemCard.jsx's CameraGlyph), so nothing
+// here fakes a photo that doesn't exist.
+//
 // Deliberately NOT a checkout flow. Catering is a phone/quote business —
-// event size, menu customization, and timing all need a human — so this
-// page's only job is to collect a qualified lead and get it to staff fast
-// (see api/catering-inquiry.js). No Stripe, no cart, no pricing shown.
+// event size, menu customization, and timing all need a human — so beyond
+// showing real pricing, this page's job is to collect a qualified lead and
+// get it to staff fast (see api/catering-inquiry.js). No Stripe, no cart.
 //
 // Same in-app-vs-external-visitor pattern as Rewards.jsx: a same-origin
 // referrer gets a real "back" control, an external visitor (social, a
 // receipt link, Google Business) gets a clean page with no dead control.
 import { useState, useEffect } from "react";
+import { CameraGlyph } from "./src/components/MenuItemCard.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
 
@@ -43,6 +50,10 @@ const label = {
 // and seafood a few dollars above — averaging that across every guest
 // regardless of what's served would either overcharge a poultry/veg event
 // or undercharge a lamb-heavy one.
+//
+// `photoIds` picks up to 3 real menu-item photos to represent each package
+// (falls back to a placeholder tile per slot if that item has no photo
+// uploaded yet) — real dish names from lib/menu.js, not staged food.
 const PACKAGES = [
   {
     name: "Essentials",
@@ -50,6 +61,7 @@ const PACKAGES = [
     minimum: "Minimum 15 guests",
     blurb: "Office lunches, small team meetings",
     items: ["Samosa or Vegetable Pakora", "Chicken Tikka Masala or Chicken Makhni + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice", "Garlic Naan", "Raita"],
+    photoIds: ["item-samosa", "item-ctm", "item-garlic-naan"],
   },
   {
     name: "Signature",
@@ -57,6 +69,7 @@ const PACKAGES = [
     minimum: "Minimum 20 guests · priced by protein (poultry & veg / seafood / lamb)",
     blurb: "Private parties, milestone celebrations, larger office events",
     items: ["Samosa + Chicken Malai Kabab", "3 mains — Chicken Makhni + your choice of a second chicken/veg, seafood, or Lamb Rogan Josh main + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice (or Chicken Biryani, +$2/person)", "Garlic + Onion Naan", "Raita + Mango Chutney"],
+    photoIds: ["item-chicken-malai", "item-rogan", "item-onion-naan"],
   },
   {
     name: "Rani Feast",
@@ -64,15 +77,42 @@ const PACKAGES = [
     minimum: "Minimum 25 guests · priced by protein (with or without lamb)",
     blurb: "Weddings, large celebrations, the full tandoor experience",
     items: ["Tandoori Chicken or Chicken Tikka starter", "4 mains including a seafood option, with or without Lamb Rogan Josh", "Chicken or Vegetable Biryani", "Dal Maharani Makhni", "Garlic, Onion + Peshwari Naan", "Raita, Mango Chutney + Chef's Special Salad"],
+    photoIds: ["item-tandoori-chicken", "item-rogan", "item-peshwari"],
   },
 ];
 
+// The hero banner up top — Tandoori Chicken is a real, photographed dish
+// (not staged/AI) and visually the strongest single shot available today.
+// Swap to a wider event/spread photo once one exists; this key is the only
+// thing that needs to change.
+const HERO_PHOTO_ID = "item-tandoori-chicken";
+
+function DishPhoto({ url, size = 92, radius = 12 }) {
+  return (
+    <div style={{ width: size, height: size, flexShrink: 0, borderRadius: radius, overflow: "hidden", background: "#1c1814" }}>
+      {url ? (
+        <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.08) 0px,rgba(232,168,46,0.08) 1px,transparent 1px,transparent 8px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3 }}>
+          <CameraGlyph size={16} />
+          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 7.5, fontWeight: 600, letterSpacing: "0.03em", color: "rgba(232,168,46,0.55)", textAlign: "center", lineHeight: 1.2 }}>Photo<br />soon</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Catering() {
   const [showBack, setShowBack] = useState(false);
+  const [images, setImages] = useState({});
   useEffect(() => {
     try {
       setShowBack(!!document.referrer && new URL(document.referrer).origin === window.location.origin);
     } catch {}
+    fetch("/api/images/list")
+      .then((r) => r.json())
+      .then((data) => setImages(data.images || {}))
+      .catch(() => {});
   }, []);
 
   const [form, setForm] = useState({ name: "", contact: "", eventDate: "", headcount: "", occasion: "", packageInterest: "", notes: "" });
@@ -102,59 +142,64 @@ export default function Catering() {
     }
   };
 
+  const heroUrl = images[HERO_PHOTO_ID];
+
   return (
-    <div style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1814 0%, #100e0c 65%, #0a0807 100%)", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
+    <div style={{ background: "#080706", minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: "#FAF6EF" }}>
       <style>{`@import url('${FONT_LINK}'); html,body{background:#080706 !important;color:#FAF6EF;margin:0;padding:0;min-height:100vh} *{box-sizing:border-box}`}</style>
 
       {showBack && (
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 0" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, zIndex: 5, padding: "20px 20px 0" }}>
           <button
             onClick={() => window.history.back()}
-            style={{ background: "transparent", border: "none", color: "#B8A995", fontSize: 13, cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 5, fontFamily: "'Inter',sans-serif" }}
+            style={{ background: "rgba(8,7,6,0.55)", backdropFilter: "blur(8px)", border: "1px solid rgba(250,246,239,0.15)", borderRadius: 20, color: "#FAF6EF", fontSize: 13, cursor: "pointer", padding: "7px 14px", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Inter',sans-serif" }}
           >
             ← Back
           </button>
         </div>
       )}
 
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: `${showBack ? 28 : 48}px 20px 72px` }}>
-
-        {/* Masthead */}
-        <div style={{ textAlign: "center", marginBottom: 30 }}>
+      {/* Full-bleed hero — real photography, not a plain text masthead */}
+      <div style={{ position: "relative", height: "44vh", minHeight: 280, maxHeight: 420, overflow: "hidden", background: "#1c1814" }}>
+        {heroUrl ? (
+          <img src={heroUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.06) 0px,rgba(232,168,46,0.06) 1px,transparent 1px,transparent 10px)" }} />
+        )}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,7,6,0.35) 0%, rgba(8,7,6,0.55) 55%, #080706 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 20px 26px", textAlign: "center" }}>
           <img
             src="/logo/apsara-logo.png"
             alt="Rani Mahal Logo"
-            style={{ width: 60, height: 60, objectFit: "contain", margin: "0 auto 12px", display: "block" }}
+            style={{ width: 52, height: 52, objectFit: "contain", marginBottom: 10, filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.5))" }}
           />
-          <p style={{ fontFamily: "'Great Vibes',cursive", fontSize: 32, color: "#FAF6EF", margin: 0, lineHeight: 1 }}>Rani Mahal</p>
-          <p style={{ fontSize: 10, color: "#E8A82E", letterSpacing: "0.22em", textTransform: "uppercase", margin: "6px 0 0", fontWeight: 600 }}>
-            Fine Indian Cuisine
-          </p>
-        </div>
-
-        {/* Headline */}
-        <div style={{ textAlign: "center", marginBottom: 30 }}>
-          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: 28, fontWeight: 500, color: "#FAF6EF", margin: "0 0 10px", lineHeight: 1.25 }}>
+          <h1 style={{ fontFamily: "'Fraunces',serif", fontSize: "clamp(30px, 6vw, 44px)", fontWeight: 500, color: "#FAF6EF", margin: "0 0 8px", lineHeight: 1.1, textShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>
             Catering
           </h1>
-          <p style={{ fontSize: 14.5, color: "#B8A995", lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: 14.5, color: "#EDE3D3", lineHeight: 1.6, margin: 0, maxWidth: 480, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
             Diwali parties, weddings, corporate lunches, graduations — real packages and
-            pricing below, or tell us what you're planning and we'll confirm your quote
-            within one business day.
+            pricing below, confirmed within one business day.
           </p>
         </div>
+      </div>
 
-        {/* Packages — real pricing, no "call for a quote" wall. Every curry's
-            spice level is adjustable per guest at no charge on every tier. */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 30 }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", padding: "36px 20px 72px" }}>
+
+        {/* Packages — real pricing + real photography, no "call for a
+            quote" wall. Every curry's spice level is adjustable per guest
+            at no charge on every tier. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 34 }}>
           {PACKAGES.map((pkg) => (
-            <div key={pkg.name} style={{ background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 16, padding: "18px 20px" }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-                <p style={{ fontFamily: "'Fraunces',serif", fontSize: 19, fontWeight: 500, color: "#FAF6EF", margin: 0 }}>{pkg.name}</p>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "#E8A82E", margin: 0, whiteSpace: "nowrap" }}>{pkg.price}</p>
+            <div key={pkg.name} style={{ background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 18, padding: "20px 22px", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                {pkg.photoIds.map((id) => <DishPhoto key={id} url={images[id]} />)}
               </div>
-              <p style={{ fontSize: 12, color: "#8A7F70", margin: "0 0 10px" }}>{pkg.blurb} · {pkg.minimum}</p>
-              <ul style={{ margin: 0, padding: "0 0 0 18px", fontSize: 13, color: "#D9CDBB", lineHeight: 1.7 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                <p style={{ fontFamily: "'Fraunces',serif", fontSize: 21, fontWeight: 500, color: "#FAF6EF", margin: 0 }}>{pkg.name}</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: "#E8A82E", margin: 0, whiteSpace: "nowrap" }}>{pkg.price}</p>
+              </div>
+              <p style={{ fontSize: 12, color: "#8A7F70", margin: "0 0 12px" }}>{pkg.blurb} · {pkg.minimum}</p>
+              <ul style={{ margin: 0, padding: "0 0 0 18px", fontSize: 13.5, color: "#D9CDBB", lineHeight: 1.75 }}>
                 {pkg.items.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </div>
