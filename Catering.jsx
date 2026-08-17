@@ -33,6 +33,40 @@ const label = {
   marginBottom: 6,
 };
 
+// Real, transparent packages — every local competitor checked (10 nearby
+// Indian restaurants) is quote-only with zero published pricing, same as
+// this page used to be. Publishing real numbers directly addresses
+// "pricing opacity," which research on what actually kills catering deals
+// flagged as a top-two reason a lead goes cold before ever calling.
+// Protein-tiered pricing on Signature/Rani Feast reflects real cost: on
+// our own à la carte menu lamb runs $5-8 above the equivalent chicken dish
+// and seafood a few dollars above — averaging that across every guest
+// regardless of what's served would either overcharge a poultry/veg event
+// or undercharge a lamb-heavy one.
+const PACKAGES = [
+  {
+    name: "Essentials",
+    price: "$19.99/person",
+    minimum: "Minimum 15 guests",
+    blurb: "Office lunches, small team meetings",
+    items: ["Samosa or Vegetable Pakora", "Chicken Tikka Masala or Chicken Makhni + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice", "Garlic Naan", "Raita"],
+  },
+  {
+    name: "Signature",
+    price: "$27.99 – $39.99/person",
+    minimum: "Minimum 20 guests · priced by protein (poultry & veg / seafood / lamb)",
+    blurb: "Private parties, milestone celebrations, larger office events",
+    items: ["Samosa + Chicken Malai Kabab", "3 mains — Chicken Makhni + your choice of a second chicken/veg, seafood, or Lamb Rogan Josh main + Palak Paneer", "Dal Maharani Makhni", "Basmati Rice (or Chicken Biryani, +$2/person)", "Garlic + Onion Naan", "Raita + Mango Chutney"],
+  },
+  {
+    name: "Rani Feast",
+    price: "$44.95 – $49.95/person",
+    minimum: "Minimum 25 guests · priced by protein (with or without lamb)",
+    blurb: "Weddings, large celebrations, the full tandoor experience",
+    items: ["Tandoori Chicken or Chicken Tikka starter", "4 mains including a seafood option, with or without Lamb Rogan Josh", "Chicken or Vegetable Biryani", "Dal Maharani Makhni", "Garlic, Onion + Peshwari Naan", "Raita, Mango Chutney + Chef's Special Salad"],
+  },
+];
+
 export default function Catering() {
   const [showBack, setShowBack] = useState(false);
   useEffect(() => {
@@ -41,7 +75,7 @@ export default function Catering() {
     } catch {}
   }, []);
 
-  const [form, setForm] = useState({ name: "", contact: "", eventDate: "", headcount: "", occasion: "", notes: "" });
+  const [form, setForm] = useState({ name: "", contact: "", eventDate: "", headcount: "", occasion: "", packageInterest: "", notes: "" });
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
   const [error, setError] = useState(null);
 
@@ -104,9 +138,29 @@ export default function Catering() {
             Catering
           </h1>
           <p style={{ fontSize: 14.5, color: "#B8A995", lineHeight: 1.6, margin: 0 }}>
-            Diwali parties, weddings, corporate lunches, graduations — tell us what you're
-            planning and we'll call you back with a real quote. No online checkout for
-            catering; every order is customized to the event.
+            Diwali parties, weddings, corporate lunches, graduations — real packages and
+            pricing below, or tell us what you're planning and we'll confirm your quote
+            within one business day.
+          </p>
+        </div>
+
+        {/* Packages — real pricing, no "call for a quote" wall. Every curry's
+            spice level is adjustable per guest at no charge on every tier. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 30 }}>
+          {PACKAGES.map((pkg) => (
+            <div key={pkg.name} style={{ background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 16, padding: "18px 20px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                <p style={{ fontFamily: "'Fraunces',serif", fontSize: 19, fontWeight: 500, color: "#FAF6EF", margin: 0 }}>{pkg.name}</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "#E8A82E", margin: 0, whiteSpace: "nowrap" }}>{pkg.price}</p>
+              </div>
+              <p style={{ fontSize: 12, color: "#8A7F70", margin: "0 0 10px" }}>{pkg.blurb} · {pkg.minimum}</p>
+              <ul style={{ margin: 0, padding: "0 0 0 18px", fontSize: 13, color: "#D9CDBB", lineHeight: 1.7 }}>
+                {pkg.items.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ))}
+          <p style={{ fontSize: 12, color: "#8A7F70", textAlign: "center", margin: "4px 0 0" }}>
+            $250 order minimum · $15–25 delivery/setup depending on distance · lead time 48hrs (5+ days for 40+ guests)
           </p>
         </div>
 
@@ -142,6 +196,13 @@ export default function Catering() {
             <div>
               <label style={label} htmlFor="cat-occasion">Occasion</label>
               <input id="cat-occasion" style={input} value={form.occasion} onChange={set("occasion")} placeholder="Diwali party, wedding, office lunch…" />
+            </div>
+            <div>
+              <label style={label} htmlFor="cat-package">Package you're interested in</label>
+              <select id="cat-package" style={input} value={form.packageInterest} onChange={set("packageInterest")}>
+                <option value="">Not sure yet — let's talk</option>
+                {PACKAGES.map((pkg) => <option key={pkg.name} value={pkg.name}>{pkg.name} ({pkg.price})</option>)}
+              </select>
             </div>
             <div>
               <label style={label} htmlFor="cat-notes">Anything else we should know</label>

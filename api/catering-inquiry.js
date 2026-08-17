@@ -23,7 +23,7 @@ function normalizePhone(raw) {
   return null;
 }
 
-function cateringInquiryEmailHtml({ name, contact, eventDate, headcount, occasion, notes }) {
+function cateringInquiryEmailHtml({ name, contact, eventDate, headcount, occasion, packageInterest, notes }) {
   const row = (label, value) => value
     ? `<tr><td style="padding:8px 0;font-size:12px;color:#8A7560;width:120px;vertical-align:top;">${label}</td><td style="padding:8px 0;font-size:14px;color:#FAF6EF;">${escapeHtml(value)}</td></tr>`
     : "";
@@ -37,6 +37,7 @@ function cateringInquiryEmailHtml({ name, contact, eventDate, headcount, occasio
         ${row("Event date", eventDate)}
         ${row("Headcount", headcount)}
         ${row("Occasion", occasion)}
+        ${row("Package", packageInterest)}
         ${row("Notes", notes)}
       </table>
       <p style="font-size:12px;color:#8A7560;margin:20px 0 0;">Reply directly to the customer using the contact info above — this inbox is not monitored by the customer.</p>
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, contact, eventDate, headcount, occasion, notes } = req.body || {};
+  const { name, contact, eventDate, headcount, occasion, packageInterest, notes } = req.body || {};
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Please enter your name." });
@@ -75,6 +76,7 @@ export default async function handler(req, res) {
     eventDate: clean(eventDate, 40),
     headcount: clean(headcount, 20),
     occasion: clean(occasion, 100),
+    packageInterest: clean(packageInterest, 50),
     notes: clean(notes, 1000),
     createdAt: new Date().toISOString(),
   };
