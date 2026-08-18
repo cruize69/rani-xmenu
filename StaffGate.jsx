@@ -1,13 +1,13 @@
 // StaffGate.jsx — password prompt guarding internal staff tools
 // (OrderManager, KitchenDisplay, ImageManager, SalesDashboard).
 //
-// The password is typed in and kept in sessionStorage only — it is never
-// baked into the build, so opening dev tools on one of these pages can't
-// reveal it the way a VITE_-prefixed env var would. Verified against the
-// real /api/orders endpoint (any 401 clears it and re-prompts).
+// The password itself is never persisted — it's exchanged once via
+// /api/manager-login for a signed, 12h-expiring session token, and that
+// token is what sessionStorage holds and every request replays. Verified
+// against the real /api/orders endpoint (any 401 clears it and re-prompts).
 
 import { useEffect, useState } from "react";
-import { getManagerSecret, setManagerSecret, clearManagerSecret } from "./lib/managerAuth.js";
+import { getManagerSecret, loginManager, clearManagerSecret } from "./lib/managerAuth.js";
 
 export default function StaffGate({ children }) {
   const [secret, setSecret]     = useState(() => getManagerSecret());
@@ -36,13 +36,19 @@ export default function StaffGate({ children }) {
     return () => { cancelled = true; };
   }, [secret]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    setManagerSecret(input.trim());
     setError(null);
     setChecking(true);
-    setSecret(input.trim());
+    const result = await loginManager(input.trim());
+    setInput("");
+    if (!result.ok) {
+      setChecking(false);
+      setError(result.error);
+      return;
+    }
+    setSecret(getManagerSecret());
   };
 
   if (checking) {

@@ -181,13 +181,32 @@ export default async function handler(req, res) {
       if (!((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt))) {
         return res.status(400).json({ error: "Reorder voucher is invalid or has already been redeemed." });
       }
+      // Non-referral vouchers (welcome, newsletter, win-back, etc.) exist
+      // to grant a discount, which catering never applies — claiming one
+      // here would silently burn a real voucher for zero benefit and the
+      // customer would think they'd used it. Reject up front instead.
+      // Referral tokens are the one exception: they're claimed (never
+      // discounted) so the referrer still gets credited — see below.
+      if (tokenData.meta?.source !== "referral") {
+        return res.status(400).json({ error: "This voucher can't be applied to catering orders." });
+      }
       if (tokenData.meta?.source === "referral" && tokenData.meta?.referrerOrderId) {
         if (!clerkUserId) {
           return res.status(400).json({ error: "Please sign in to use an invite link — it only takes a tap." });
         }
         const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
         const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
-        const claimedEmail = guestEmail.toLowerCase().trim();
+        // Resolve the email from Clerk, not the request body — guestEmail
+        // is client-supplied and can be set to anything even while signed
+        // in, so comparing it to referrer.customerEmail was defeated by
+        // simply lying about it. See api/create-checkout.js for the same fix.
+        let verifiedEmail = null;
+        try {
+          const clerkUser = await clerk.users.getUser(clerkUserId);
+          verifiedEmail = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+            ?? clerkUser.emailAddresses?.[0]?.emailAddress ?? null;
+        } catch {}
+        const claimedEmail = (verifiedEmail ?? "").toLowerCase().trim();
         const isSelf =
           (referrer?.customerEmail && referrer.customerEmail.toLowerCase().trim() === claimedEmail) ||
           (referrer?.clerkUserId && referrer.clerkUserId === clerkUserId);
@@ -275,15 +294,25 @@ export default async function handler(req, res) {
 
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(JSON.stringify({ itemId, guests, guestEmail, orderMode, tip, minute: Math.floor(Date.now() / 60000) }))
+      .update(JSON.stringify({ itemId, guests, guestEmail, orderMode, tip, deliveryAddress, eventDate, eventTime, reorderToken, minute: Math.floor(Date.now() / 60000) }))
       .digest("hex");
 
-    const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
     // Catering's success/cancel redirect goes back to the marketing site's
     // OWN /catering page (not the retail ordering app's /order-success) —
     // the whole point of this endpoint is staying on-brand and distraction-
     // free through the entire flow, payment included.
-    const baseUrl = (reqOrigin || "https://ranimahal.cc").replace(/\/$/, "");
+    //
+    // Deliberately hardcoded, never derived from req.headers.origin/referer:
+    // both are attacker-controlled request headers, and trusting either lets
+    // anyone stand up a lookalike page, drive a real customer through a real
+    // Stripe charge, and get them redirected back to the attacker's own
+    // domain carrying the real Stripe session_id in the query string — which
+    // the public, unauthenticated GET /api/orders lookup then resolves into
+    // the customer's full name/email/phone/delivery address. Also
+    // deliberately NOT process.env.NEXT_PUBLIC_BASE_URL — that var is set to
+    // the retail ordering app's own domain (ranimahal.food), not the
+    // marketing site catering lives on.
+    const baseUrl = "https://ranimahal.cc";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

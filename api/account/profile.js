@@ -13,7 +13,7 @@
 
 import { createClerkClient } from "@clerk/backend";
 import { kv }                from "@vercel/kv";
-import { getOrdersByDate }   from "../../lib/orders.js";
+import { getOrdersByDate, getNYDateString } from "../../lib/orders.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -48,7 +48,7 @@ async function findOrdersForEmail(targetEmail) {
   const dateStrings = Array.from({ length: 90 }, (_, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    return d.toISOString().slice(0, 10);
+    return getNYDateString(d);
   });
 
   const dailyOrdersLists = await Promise.all(

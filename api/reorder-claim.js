@@ -3,6 +3,7 @@
 // Validates a one-time 10% reorder token and returns items to preload.
 
 import { kv } from "@vercel/kv";
+import { overLimit, clientIp } from "../lib/rateLimit.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -11,8 +12,12 @@ export default async function handler(req, res) {
 
   const { token } = req.query;
 
-  if (!token) {
+  if (typeof token !== "string" || !/^[a-f0-9]{12}$/i.test(token)) {
     return res.status(400).json({ error: "Missing token parameter" });
+  }
+
+  if (await overLimit(`reorder-claim-rl:ip:${clientIp(req)}`, 30, 3600)) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
   try {

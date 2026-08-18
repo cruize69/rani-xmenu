@@ -177,7 +177,19 @@ export default async function handler(req, res) {
             }
             const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
             const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
-            const claimedEmail = (guestEmail ?? "").toLowerCase().trim();
+            // The email side of this check must come from Clerk, not the
+            // request body: guestEmail is client-supplied and free to omit
+            // or falsify even while signed in, so comparing it against
+            // referrer.customerEmail was trivially defeated by registering
+            // a second real Clerk account (different clerkUserId, same
+            // actual inbox) and simply not sending a matching guestEmail.
+            let verifiedEmail = null;
+            try {
+              const clerkUser = await clerk.users.getUser(clerkUserId);
+              verifiedEmail = clerkUser.emailAddresses?.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+                ?? clerkUser.emailAddresses?.[0]?.emailAddress ?? null;
+            } catch {}
+            const claimedEmail = (verifiedEmail ?? "").toLowerCase().trim();
             const isSelf =
               (referrer?.customerEmail && claimedEmail && referrer.customerEmail.toLowerCase().trim() === claimedEmail) ||
               (referrer?.clerkUserId && referrer.clerkUserId === clerkUserId);
@@ -443,7 +455,7 @@ export default async function handler(req, res) {
 
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(JSON.stringify({ cartJson, clerkUserId, guestEmail, orderMode, minute: Math.floor(Date.now() / 60000) }))
+      .update(JSON.stringify({ cartJson, clerkUserId, guestEmail, orderMode, tip, deliveryAddress, scheduledFor, reorderToken, minute: Math.floor(Date.now() / 60000) }))
       .digest("hex");
 
     const reqOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
