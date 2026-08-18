@@ -89,6 +89,12 @@ function useChartJs(cb, deps) {
     if (window.Chart) { load(); return; }
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js";
+    // SRI pin — cdnjs is CSP-allowlisted at the host level (paths aren't
+    // enforceable in CSP source lists per spec), so this integrity hash is
+    // what actually guarantees the bytes served are the real 4.4.1 build
+    // and not a compromised/substituted response from that host.
+    script.integrity = "sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG";
+    script.crossOrigin = "anonymous";
     script.onload = load;
     document.head.appendChild(script);
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
