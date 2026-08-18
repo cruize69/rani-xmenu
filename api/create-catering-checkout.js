@@ -28,6 +28,7 @@ import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
 import { getNYDateString } from "../lib/orders.js";
+import { formatTime } from "../lib/hours.js";
 import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
@@ -79,6 +80,7 @@ export default async function handler(req, res) {
       guestEmail,
       guestPhone,
       eventDate: rawEventDate,
+      eventTime: rawEventTime,
       orderMode = "pickup",
       deliveryAddress: rawDeliveryAddress,
       notes: rawNotes,
@@ -128,7 +130,32 @@ export default async function handler(req, res) {
       }
     }
 
-    const eventDate = typeof rawEventDate === "string" ? rawEventDate.slice(0, 20) : "";
+    // Event date/time is REQUIRED, not optional — a catering order with no
+    // known event date is exactly the kind of thing that turns into a bad
+    // same-day surprise for the kitchen. Minimum 1-day lead time is
+    // enforced here, server-side (the client's <input min=""> is a UX
+    // nicety only, never trusted as the real gate) — computed in NY time
+    // via getNYDateString, same helper every other date comparison in this
+    // app already uses, so "today"/"tomorrow" can't drift between here and
+    // anywhere else that cares.
+    if (typeof rawEventDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rawEventDate)) {
+      return res.status(400).json({ error: "An event date is required." });
+    }
+    if (typeof rawEventTime !== "string" || !/^\d{2}:\d{2}$/.test(rawEventTime)) {
+      return res.status(400).json({ error: "An event time is required." });
+    }
+    const todayNY = getNYDateString();
+    const tomorrowNY = getNYDateString(Date.now() + 24 * 60 * 60 * 1000);
+    if (rawEventDate < tomorrowNY) {
+      return res.status(400).json({
+        error: rawEventDate <= todayNY
+          ? "Same-day catering isn't available — please choose a date starting tomorrow."
+          : "That date has already passed.",
+      });
+    }
+    const eventDate = rawEventDate;
+    const eventTime = rawEventTime;
+    const eventDateTimeLabel = `${eventDate} at ${formatTime(eventTime)}`;
     const notes = typeof rawNotes === "string" ? rawNotes.slice(0, 300) : "";
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
@@ -197,7 +224,7 @@ export default async function handler(req, res) {
           currency: "usd",
           product_data: {
             name: canonical.name,
-            description: eventDate ? `Event date: ${eventDate}` : undefined,
+            description: `Event: ${eventDateTimeLabel}`,
           },
           unit_amount: Math.round(price * 100),
         },
@@ -270,7 +297,7 @@ export default async function handler(req, res) {
       },
       metadata: {
         ...metaCart,
-        specialInstructions: [eventDate ? `Event date: ${eventDate}.` : null, notes || null].filter(Boolean).join(" ").slice(0, 500),
+        specialInstructions: [`Event: ${eventDateTimeLabel}.`, notes || null].filter(Boolean).join(" ").slice(0, 500),
         clerkUserId: (clerkUserId ?? "").slice(0, 500),
         guestEmail: guestEmail.slice(0, 500),
         guestPhone: typeof guestPhone === "string" ? guestPhone.slice(0, 40) : "",
@@ -280,6 +307,7 @@ export default async function handler(req, res) {
         deliveryAddress: isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress) : "",
         source: "catering_direct",
         eventDate,
+        eventTime,
         reorderToken: reorderToken || "",
         utmSource: typeof utm?.utm_source === "string" ? utm.utm_source.slice(0, 100) : "",
         utmMedium: typeof utm?.utm_medium === "string" ? utm.utm_medium.slice(0, 100) : "",
