@@ -814,6 +814,8 @@ const CRON_LABELS = {
   "newsletter-digest":     { label: "Newsletter monthly digest",   schedule: "Monthly · 1st, 2:00 PM ET" },
   "sweep-abandoned-carts": { label: "Abandoned-cart sweep",        schedule: "Every 5 min" },
   "review-nudge":          { label: "Review nudge",                schedule: "Every 15 min" },
+  "cultural-calendar":     { label: "Cultural calendar reminders",  schedule: "Daily · 3:00 PM ET" },
+  "blog-draft-check":      { label: "Blog draft generation",        schedule: "Daily · 9:00 AM ET" },
 };
 
 function timeAgo(iso) {

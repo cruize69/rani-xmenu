@@ -22,6 +22,7 @@ import { getOrder, getNYDateString } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, culturalEventEmailHtml, culturalEventSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { runBlogGenerationPipeline } from "../../lib/blogGeneration.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_PER_RUN = 200;
@@ -35,6 +36,19 @@ const DEDUP_TTL_SEC = 60 * 24 * 60 * 60;
 // prevents a double-send, not window precision.
 const LEAD_DAYS_MIN = 10;
 const LEAD_DAYS_MAX = 14;
+
+// Blog-draft lead window — deliberately longer than the customer-email
+// window above, so a Pillar-C post has time to get indexed and rank before
+// the email nudge arrives (per research-content-strategy.md §4). This is a
+// SEPARATE, non-customer-facing side effect (fires the blog pipeline, not
+// an email/SMS send) — it never touches the LEAD_DAYS_MIN/MAX logic or the
+// runEvent() customer-messaging loop above.
+const BLOG_LEAD_DAYS_MIN = 21;
+const BLOG_LEAD_DAYS_MAX = 28;
+// One draft attempt per event per year — same dedup shape as the customer
+// email's cultural:sent:*, just its own namespace so a failed/skipped draft
+// doesn't block or get blocked by the email send.
+const BLOG_DEDUP_TTL_SEC = 60 * 24 * 60 * 60;
 
 // Returns a "YYYY-MM-DD" string directly (not a Date) — these are pure
 // calendar dates, and round-tripping through getNYDateString on a UTC
@@ -51,20 +65,26 @@ function buildEvents(year) {
   return [
     // Lunar-calendar events — update these dates each year.
     { id: "diwali", name: "Diwali", date: year === 2026 ? "2026-11-08" : null,
-      blurb: "Butter chicken, biryani, and fresh naan for the whole gathering." },
+      blurb: "Butter chicken, biryani, and fresh naan for the whole gathering.",
+      blogTopic: "diwali-catering-guide" },
     { id: "eid-al-fitr", name: "Eid al-Fitr", date: year === 2027 ? "2027-03-20" : null,
-      blurb: "A feast-worthy spread, ordered ahead so nothing's rushed." },
+      blurb: "A feast-worthy spread, ordered ahead so nothing's rushed.",
+      blogTopic: "eid-al-fitr-catering-guide" },
     { id: "eid-al-adha", name: "Eid al-Adha", date: year === 2027 ? "2027-05-27" : null,
-      blurb: "A feast-worthy spread, ordered ahead so nothing's rushed." },
+      blurb: "A feast-worthy spread, ordered ahead so nothing's rushed.",
+      blogTopic: "eid-al-adha-catering-guide" },
     // Computed US calendar dates — correct every year automatically.
     { id: "thanksgiving", name: "Thanksgiving",
       date: nthWeekdayOfMonth(year, 10, 4, 4), // 4th Thursday of November
-      blurb: "Skip the extra cooking — order the sides and mains ahead." },
+      blurb: "Skip the extra cooking — order the sides and mains ahead.",
+      blogTopic: "thanksgiving-order-indian-instead" },
     { id: "mothers-day", name: "Mother's Day",
       date: nthWeekdayOfMonth(year, 4, 0, 2), // 2nd Sunday of May
-      blurb: "Let someone else cook this year." },
+      blurb: "Let someone else cook this year.",
+      blogTopic: "mothers-day-dinner-ideas" },
     { id: "christmas", name: "Christmas", date: `${year}-12-25`,
-      blurb: "A warm, spiced feast for the table." },
+      blurb: "A warm, spiced feast for the table.",
+      blogTopic: "christmas-indian-feast" },
   ].filter(e => e.date);
 }
 
@@ -126,6 +146,45 @@ async function runEvent(event, todayMs) {
   return { event: event.id, fired: true, daysAway, sent, skipped, candidates: candidates.length };
 }
 
+// Longer-lead-time companion to runEvent() above — fires the blog
+// generation pipeline (calendar-driven, no photos yet) instead of a
+// customer email/SMS. Independent dedup namespace and window, so this can
+// never suppress or be suppressed by the customer-facing send in runEvent().
+// Falls back to no hero image (assembleMdx handles a null heroImageUrl) per
+// lib/blogGeneration.js's own note — the architecture doc's "fall back to
+// existing gallery photos" isn't wired up yet since this repo has no access
+// to ranimahal-marketing's gallery.ts; the PR body flags this for the
+// reviewer instead of silently guessing an image.
+async function runBlogDraftForEvent(event, todayMs) {
+  if (!event.blogTopic) return { event: event.id, blogFired: false, reason: "no blogTopic" };
+
+  const daysAway = Math.round((new Date(`${event.date}T00:00:00-05:00`).getTime() - todayMs) / DAY_MS);
+  if (daysAway < BLOG_LEAD_DAYS_MIN || daysAway > BLOG_LEAD_DAYS_MAX) {
+    return { event: event.id, blogFired: false, daysAway };
+  }
+
+  const year = event.date.slice(0, 4);
+  const dedupKey = `blog:cultural-draft:${event.id}:${year}`;
+  if (await kv.get(dedupKey)) return { event: event.id, blogFired: false, daysAway, reason: "already drafted" };
+
+  try {
+    const outcome = await runBlogGenerationPipeline({
+      photoUrls: [],
+      calendarHint: event.blogTopic,
+      calendarBlurb: event.blurb,
+      sourceLabel: `cultural-calendar:${event.id}`,
+    });
+    // Marked regardless of outcome, same reasoning as blog-draft-check.js —
+    // a failing generation call shouldn't retry every day for the rest of
+    // the lead window and burn free-tier Gemini quota.
+    await kv.set(dedupKey, JSON.stringify({ draftedAt: new Date().toISOString(), outcome }), { ex: BLOG_DEDUP_TTL_SEC });
+    return { event: event.id, blogFired: true, daysAway, outcome };
+  } catch (e) {
+    console.error(`Cultural calendar blog draft (${event.id}) failed:`, e);
+    return { event: event.id, blogFired: true, daysAway, failed: true };
+  }
+}
+
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -142,12 +201,21 @@ export default async function handler(req, res) {
     const events = [...buildEvents(year), ...buildEvents(year + 1)];
 
     const results = [];
+    const blogResults = [];
     for (const event of events) {
       results.push(await runEvent(event, todayMs));
+      // Kept as a separate loop pass (not merged into runEvent) so a blog
+      // pipeline failure can never affect the customer email/SMS results
+      // above — that logic is live and production-serving today.
+      try {
+        blogResults.push(await runBlogDraftForEvent(event, todayMs));
+      } catch (e) {
+        console.error(`runBlogDraftForEvent(${event.id}) threw unexpectedly:`, e);
+      }
     }
 
-    await recordCronRun("cultural-calendar", { results });
-    return res.status(200).json({ ok: true, results });
+    await recordCronRun("cultural-calendar", { results, blogResults });
+    return res.status(200).json({ ok: true, results, blogResults });
   } catch (e) {
     console.error("Cultural calendar cron failed:", e);
     return res.status(500).json({ error: "Cron failed" });
