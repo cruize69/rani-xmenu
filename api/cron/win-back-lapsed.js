@@ -42,6 +42,7 @@ import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, winBackEmailHtml, winBackSmsBody, winBackTouch2EmailHtml, winBackTouch2SmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { isCateringOrder } from "../../lib/menu.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -71,11 +72,20 @@ function deriveListKey(customerKey) {
   return { isMember, listKey };
 }
 
+// Catering orders are deliberately excluded here — a single catering line
+// (qty: 50+ guests, a one-off package name) would dominate both the
+// cadence math (catering doesn't happen on a normal weekly/monthly rhythm)
+// and the favorite-dish tally (a 50-qty package outweighs any 1-2x a-la-
+// carte dish), producing copy like "Your Deluxe Party Package is waiting —
+// 10% off" sent to someone who catered one event eight months ago. This
+// cron is about a-la-carte ordering rhythm specifically; catering
+// customers still get win-back messaging, just based on their actual
+// regular-menu history (or the generic fallback copy if they have none).
 async function fetchRecentOrders(listKey) {
   const orderIds = await kv.lrange(listKey, 0, HISTORY_LOOKBACK - 1);
   if (!orderIds.length) return [];
   const orders = await Promise.all(orderIds.map(getOrder));
-  return orders.filter(Boolean);
+  return orders.filter(Boolean).filter(o => !isCateringOrder(o));
 }
 
 /**

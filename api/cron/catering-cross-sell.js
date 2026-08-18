@@ -20,9 +20,15 @@ import { getOrder } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, cateringCrossSellEmailHtml, cateringCrossSellSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { isCateringOrder } from "../../lib/menu.js";
 
 const ORDER_COUNT_THRESHOLD = 5;
 const MAX_PER_RUN = 200;
+// How far back to check for an existing catering order before pitching
+// "we cater too" — bounded, not full history, same reasoning as
+// win-back-lapsed.js's HISTORY_LOOKBACK (this only needs to answer "have
+// they already used this," not build a complete catering history).
+const CATERING_HISTORY_CHECK = 20;
 // One-shot, forever — no reset path (unlike win-back, there's no "lapsed
 // again" episode concept for a catering pitch).
 const DEDUP_TTL_SEC = 2 * 365 * 24 * 60 * 60;
@@ -49,10 +55,20 @@ export default async function handler(req, res) {
           const count = Number(await kv.get(key)) || 0;
           if (count < ORDER_COUNT_THRESHOLD) { skipped++; continue; }
 
-          const [mostRecentId] = await kv.lrange(`account-orders:${clerkUserId}`, 0, 0);
+          const listKey = `account-orders:${clerkUserId}`;
+          const [mostRecentId] = await kv.lrange(listKey, 0, 0);
           if (!mostRecentId) { skipped++; continue; }
           const order = await getOrder(mostRecentId);
           if (!order?.customerEmail) { skipped++; continue; }
+
+          // Don't pitch "we cater too" to someone who's already a catering
+          // customer — pointless at best, and reads as not knowing your own
+          // customer at worst. Checks recent history, not just the most
+          // recent order, since their latest order could easily be a
+          // regular one placed after catering with us once already.
+          const recentIds = await kv.lrange(listKey, 0, CATERING_HISTORY_CHECK - 1);
+          const recentOrders = await Promise.all(recentIds.map(getOrder));
+          if (recentOrders.some(o => o && isCateringOrder(o))) { skipped++; continue; }
 
           const jobs = [
             sendEmail({

@@ -25,6 +25,7 @@ import {
 } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { isCateringOrder } from "../../lib/menu.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows are deliberately a full day wide (not a single instant) so a
@@ -68,6 +69,12 @@ async function resolveCandidate(customerKey) {
     phone: order.customerPhone || null,
     smsConsent: !!order.smsConsent,
     customerName: order.customerName || "Guest",
+    // A customer whose ONE lifetime order was catering never had a normal
+    // a-la-carte "first order" — "How was your first order?" reads wrong
+    // for someone who just fed 40 people at a wedding. Real cross-sell
+    // opportunity instead of a bad fit: point them at trying the regular
+    // menu for themselves, which the generic copy doesn't do explicitly.
+    isCatering: isCateringOrder(order),
   };
 }
 
@@ -104,12 +111,14 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
       const jobs = [
         sendEmail({
           to: contact.email,
-          subject: touchName === "touch1" ? "How was your first order?" : "Come back for round two?",
-          html: buildEmail({ customerName: contact.customerName, isMember: contact.isMember, link }),
+          subject: contact.isCatering
+            ? (touchName === "touch1" ? "How did your event go?" : "Try us for a regular night in?")
+            : (touchName === "touch1" ? "How was your first order?" : "Come back for round two?"),
+          html: buildEmail({ customerName: contact.customerName, isMember: contact.isMember, link, isCatering: contact.isCatering }),
         }),
       ];
       if (contact.phone && contact.smsConsent) {
-        jobs.push(sendSMS(contact.phone, buildSms({ isMember: contact.isMember, link })));
+        jobs.push(sendSMS(contact.phone, buildSms({ isMember: contact.isMember, link, isCatering: contact.isCatering })));
       }
       await Promise.all(jobs);
       await recordCampaignSent(`second-order-${touchName}`);

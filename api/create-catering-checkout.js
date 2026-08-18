@@ -26,6 +26,9 @@ import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
+import { recordCampaignClaimed } from "../lib/notifications.js";
+import { getNYDateString } from "../lib/orders.js";
+import { kv } from "@vercel/kv";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -82,6 +85,7 @@ export default async function handler(req, res) {
       tip: rawTip,
       utm,
       returnPath: rawReturnPath,
+      reorderToken,
     } = req.body || {};
 
     // Only ever redirect back to a real /catering page — a client-supplied
@@ -128,11 +132,54 @@ export default async function handler(req, res) {
     const notes = typeof rawNotes === "string" ? rawNotes.slice(0, 300) : "";
     const clerkUserId = await resolveVerifiedClerkUserId(req);
 
+    // A reorderToken NEVER discounts catering pricing (see the price
+    // comment below) — but validating and claiming it here still matters:
+    // without this, a referral link that happened to convert into a
+    // catering order silently never got redeemed and the referrer was
+    // never credited (lib/syncStripe.js's creditReferrer only fires off a
+    // token this endpoint marks "checkout_created" and forwards in
+    // metadata). Same validation this file's sibling create-checkout.js
+    // runs — self-referral block, atomic single-claim — just with no
+    // discountPct ever applied to price.
+    let voucherClaimed = false;
+    if (reorderToken) {
+      const rawToken = await kv.get(`reorder-token:${reorderToken}`);
+      if (!rawToken) {
+        return res.status(400).json({ error: "Invalid reorder voucher token." });
+      }
+      const tokenData = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
+      const isUnused = tokenData.status === "unused";
+      const isPendingCheckout = tokenData.status === "checkout_created" &&
+        ((new Date() - new Date(tokenData.updatedAt || tokenData.createdAt)) / 3600000 >= 2);
+      if (!((isUnused || isPendingCheckout) && new Date() <= new Date(tokenData.expiresAt))) {
+        return res.status(400).json({ error: "Reorder voucher is invalid or has already been redeemed." });
+      }
+      if (tokenData.meta?.source === "referral" && tokenData.meta?.referrerOrderId) {
+        if (!clerkUserId) {
+          return res.status(400).json({ error: "Please sign in to use an invite link — it only takes a tap." });
+        }
+        const rawReferrer = await kv.get(`order:${tokenData.meta.referrerOrderId}`);
+        const referrer = typeof rawReferrer === "string" ? JSON.parse(rawReferrer) : rawReferrer;
+        const claimedEmail = guestEmail.toLowerCase().trim();
+        const isSelf =
+          (referrer?.customerEmail && referrer.customerEmail.toLowerCase().trim() === claimedEmail) ||
+          (referrer?.clerkUserId && referrer.clerkUserId === clerkUserId);
+        if (isSelf) {
+          return res.status(400).json({ error: "This invite link can't be used on your own account." });
+        }
+      }
+      const claimed = await kv.set(`reorder-claim:${reorderToken}`, "1", { nx: true, ex: 7200 });
+      if (!claimed) {
+        return res.status(400).json({ error: "A checkout is already in progress for this voucher. Please finish or wait a moment and try again." });
+      }
+      voucherClaimed = true;
+      if (tokenData.meta?.source) await recordCampaignClaimed(tokenData.meta.source);
+    }
+
     // Catering line items are always full price — see lib/menu.js's
     // CATERING_ITEM_IDS discount-exclusion comment in create-checkout.js.
-    // There's no voucher/welcome/member discount path in this endpoint at
-    // all (not just "skipped" — it doesn't exist here), which is the whole
-    // reason this is its own file rather than a branch in the retail one.
+    // A voucher can be validated/claimed above (so referral credit still
+    // completes), but it never discounts the price itself.
     const price = canonical.price;
     const subtotal = parseFloat((price * guests).toFixed(2));
     const serverDeliveryFee = isDelivery && subtotal < 99 ? 6.99 : 0; // structurally mirrors create-checkout.js; never actually fires given catering's own minimums
@@ -233,6 +280,7 @@ export default async function handler(req, res) {
         deliveryAddress: isDelivery && deliveryAddress ? JSON.stringify(deliveryAddress) : "",
         source: "catering_direct",
         eventDate,
+        reorderToken: reorderToken || "",
         utmSource: typeof utm?.utm_source === "string" ? utm.utm_source.slice(0, 100) : "",
         utmMedium: typeof utm?.utm_medium === "string" ? utm.utm_medium.slice(0, 100) : "",
         utmCampaign: typeof utm?.utm_campaign === "string" ? utm.utm_campaign.slice(0, 100) : "",
@@ -242,6 +290,54 @@ export default async function handler(req, res) {
       success_url: `${baseUrl}${returnPath}?catering_order=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}${returnPath}?catering_order=cancelled`,
     }, { idempotencyKey });
+
+    // Lock the token status so lib/syncStripe.js's webhook handler (which
+    // reads session.metadata.reorderToken) can complete the referral credit
+    // once payment succeeds — mirrors create-checkout.js's equivalent block.
+    if (reorderToken && voucherClaimed) {
+      const tokenKey = `reorder-token:${reorderToken}`;
+      const rawToken = await kv.get(tokenKey);
+      if (rawToken) {
+        const tData = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
+        tData.status = "checkout_created";
+        tData.stripeSessionId = session.id;
+        tData.updatedAt = new Date().toISOString();
+        await kv.set(tokenKey, JSON.stringify(tData), { ex: 1296000 });
+      }
+    }
+
+    // Abandoned-checkout recovery — writes into the SAME draft:{session.id}
+    // keyspace api/create-checkout.js uses, tagged isCatering: true, so the
+    // existing sweepAbandonedCarts() cron (lib/abandonedCart.js) picks this
+    // up with zero changes to its loop, and api/analytics.js's funnel
+    // reporting sees catering abandonment too. Before this, a catering
+    // checkout that never reached payment left no trace anywhere.
+    try {
+      const cartJsonForDraft = JSON.stringify([{ baseId: itemId, name: canonical.name, price, qty: guests }]);
+      const draftCart = {
+        items: JSON.parse(cartJsonForDraft),
+        subtotal,
+        orderMode: isDelivery ? "delivery" : "pickup",
+        deliveryAddress: isDelivery ? (deliveryAddress ?? null) : null,
+        guestEmail: guestEmail.slice(0, 500),
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        phone: typeof guestPhone === "string" ? guestPhone.slice(0, 40) : null,
+        smsConsent: false, // the catering modal doesn't collect SMS consent — email-only recovery
+        touch1SentAt: null,
+        touch2SentAt: null,
+        isCatering: true,
+        returnPath,
+      };
+      await kv.set(`draft:${session.id}`, JSON.stringify(draftCart), { ex: 2592000 });
+
+      const draftDate = getNYDateString();
+      const dateIndexKey = `drafts:date:${draftDate}`;
+      await kv.zadd(dateIndexKey, { score: Date.now(), member: session.id });
+      await kv.expire(dateIndexKey, 2592000);
+    } catch (e) {
+      console.error("Failed to save catering draft:", e);
+    }
 
     return res.status(200).json({ url: session.url });
   } catch (err) {
