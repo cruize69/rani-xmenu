@@ -22,19 +22,36 @@ function timerColor(mins) {
   return "#EF4444";                  // red
 }
 
+// "17:00" -> "5:00 PM"
+export function formatScheduledTime(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export default function OrderCard({ order, statusConfig, selected, onSelectCard }) {
   const s = statusConfig[order.status] ?? statusConfig.new;
   const isDelivery = order.orderMode === "delivery";
+  const isScheduled = order.status === "scheduled";
+  const scheduledTime = order.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
 
   const shortId = useMemo(() => {
     return order.id ? "#" + order.id.slice(-6).toUpperCase() : "#------";
   }, [order.id]);
 
+  // A scheduled order's kitchen clock starts when the cron promotes it
+  // (order.updatedAt), not when the customer originally placed it hours
+  // earlier (order.createdAt) — otherwise a 1pm order for a 5pm pickup
+  // flips live at 5pm and instantly reads "240m" in alarm red.
+  const elapsedBasis = order.scheduledFor ? order.updatedAt : order.createdAt;
   const elapsed = useMemo(() => {
-    if (!order.createdAt) return { text: "0m", mins: 0 };
-    const mins = Math.max(0, Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000));
+    if (!elapsedBasis) return { text: "0m", mins: 0 };
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(elapsedBasis).getTime()) / 60000));
     return { text: `${mins}m`, mins };
-  }, [order.createdAt]);
+  }, [elapsedBasis]);
 
   const itemCount = order.items?.length || 0;
 
@@ -54,7 +71,13 @@ export default function OrderCard({ order, statusConfig, selected, onSelectCard 
         <div className="rm-card-status-group">
           <span className="rm-status-pip" style={{ backgroundColor: s.color, boxShadow: `0 0 7px ${s.color}` }} />
           <span className="rm-card-status-label" style={{ color: s.color }}>{s.label}</span>
-          <span className="rm-card-timer" style={{ color: timerColor(elapsed.mins) }}>({elapsed.text})</span>
+          {isScheduled && scheduledTime ? (
+            <span className="rm-card-timer" style={{ color: "#E8A82E", fontWeight: 700 }}>
+              For {scheduledTime}
+            </span>
+          ) : (
+            <span className="rm-card-timer" style={{ color: timerColor(elapsed.mins) }}>({elapsed.text})</span>
+          )}
           <span className="rm-card-id">{shortId}</span>
         </div>
         <span className={`rm-badge ${isDelivery ? "delivery" : "pickup"}`}>

@@ -3,7 +3,7 @@
 // Used as persistent right pane (isPersistentPane=true) or slide-over drawer (false)
 
 import { useState, useEffect, useMemo } from "react";
-import { formatPhoneNumber } from "./OrderCard.jsx";
+import { formatPhoneNumber, formatScheduledTime } from "./OrderCard.jsx";
 
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
@@ -38,8 +38,15 @@ export default function OrderDetailPanel({
 
   const shortId    = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
   const isDelivery = order.orderMode === "delivery";
+  const isScheduled = order.status === "scheduled";
+  const scheduledTime = order.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
   const phone      = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
-  const sla        = useMemo(() => slaInfo(order.createdAt), [order.createdAt]);
+  // Same basis fix as OrderCard.jsx: a scheduled order's kitchen clock
+  // starts at promotion (updatedAt), not at original placement (createdAt)
+  // hours earlier — otherwise this reads a false, alarming elapsed time
+  // the instant the cron flips it live.
+  const slaBasis   = order.scheduledFor ? order.updatedAt : order.createdAt;
+  const sla        = useMemo(() => slaInfo(slaBasis), [slaBasis]);
   const hasAllergy = useMemo(() => detectAllergy(order.specialInstructions), [order.specialInstructions]);
   const canRefund  = order.stripePaymentId && order.status !== "refunded";
 
@@ -84,6 +91,27 @@ export default function OrderDetailPanel({
           <button className="rm-detail-close" onClick={onClose} aria-label="Close modal">✕</button>
         )}
       </div>
+
+      {/* Requested time banner — the whole reason this order shouldn't be
+          judged by "time since placed": it was deliberately scheduled
+          ahead, possibly while the kitchen was closed. */}
+      {scheduledTime && (
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(232,168,46,0.12)", border: "1px solid rgba(232,168,46,0.35)",
+            borderRadius: 10, padding: "8px 12px", marginBottom: 12, fontWeight: 700,
+          }}
+        >
+          <span>🕐</span>
+          <span style={{ color: "#E8A82E" }}>
+            Requested {isDelivery ? "delivery" : "pickup"} time: {scheduledTime}
+          </span>
+          {isScheduled && (
+            <span style={{ fontWeight: 400, opacity: 0.75 }}>— enters kitchen queue automatically at that time</span>
+          )}
+        </div>
+      )}
 
       {/* Customer name — 26pt bold anchor */}
       <h2 className="rm-detail-customer">{order.customerName || "Walk-in Guest"}</h2>
