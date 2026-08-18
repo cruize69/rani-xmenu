@@ -381,6 +381,7 @@ export default async function handler(req, res) {
         createdAt: new Date().toISOString(),
         phone: typeof guestPhone === "string" ? guestPhone.slice(0, 40) : null,
         smsConsent: false, // the catering modal doesn't collect SMS consent — email-only recovery
+        smsMarketingConsent: false,
         touch1SentAt: null,
         touch2SentAt: null,
         isCatering: true,

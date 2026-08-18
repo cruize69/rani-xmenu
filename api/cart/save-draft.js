@@ -1,5 +1,5 @@
 // api/cart/save-draft.js
-// POST { draftId, phone?, email?, smsConsent?, items, orderMode, deliveryAddress? }
+// POST { draftId, phone?, email?, smsConsent?, smsMarketingConsent?, items, orderMode, deliveryAddress? }
 // Best-effort capture for abandoned-cart recovery — called from the
 // fulfillment sheet (phone) and the guest-checkout email step (email),
 // progressively enriching the same draft record. Never blocks or affects
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { draftId, phone, email, smsConsent, items, orderMode, deliveryAddress } = req.body || {};
+    const { draftId, phone, email, smsConsent, smsMarketingConsent, items, orderMode, deliveryAddress } = req.body || {};
     if (!draftId || typeof draftId !== "string" || draftId.length > 100) {
       return res.status(400).json({ error: "Invalid draftId" });
     }
@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       phone: cleanPhone,
       email: cleanEmail,
       smsConsent: !!smsConsent,
+      smsMarketingConsent: !!smsMarketingConsent,
       items,
       orderMode,
       deliveryAddress,

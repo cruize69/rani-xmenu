@@ -74,6 +74,8 @@ export function FulfillmentSheet({
   setPhone,
   smsConsent = false,
   setSmsConsent,
+  smsMarketingConsent = false,
+  setSmsMarketingConsent,
   hasCartItems = false,
   onSaveLead,
   openStatus = { isOpen: true, label: "" },
@@ -86,6 +88,7 @@ export function FulfillmentSheet({
   const [error, setError] = useState(null);
   const [localPhone, setLocalPhone] = useState(displayPhone(phone));
   const [localConsent, setLocalConsent] = useState(smsConsent);
+  const [localMarketingConsent, setLocalMarketingConsent] = useState(smsMarketingConsent);
   // "Order for later" is forced open once the restaurant is closed (there's
   // no ASAP option then); while open it's an optional toggle a customer can
   // use to pre-order for a later window.
@@ -101,6 +104,7 @@ export function FulfillmentSheet({
       setSelectedMode(orderMode || "pickup");
       setLocalPhone(displayPhone(phone));
       setLocalConsent(!!smsConsent);
+      setLocalMarketingConsent(!!smsMarketingConsent);
       setError(null);
       setShowSchedulePicker(!openStatus.isOpen);
       // Restore which window+time was already chosen, if any, so reopening
@@ -152,13 +156,14 @@ export function FulfillmentSheet({
     const cleanPhone = phoneDigits.length === 10 ? `+1${phoneDigits}` : "";
     setPhone?.(cleanPhone);
     setSmsConsent?.(cleanPhone ? localConsent : false);
+    setSmsMarketingConsent?.(cleanPhone ? localMarketingConsent : false);
     // Save the lead whenever a phone is given, even without SMS consent —
     // consent only gates whether SMS is allowed, not whether the lead
     // record exists. Without this, someone who types a phone but leaves the
     // box unchecked produces no lead at all, so email-fallback recovery
     // (lib/abandonedCart.js sendDraftTouch1/2) never has anything to use.
     if (cleanPhone && hasCartItems) {
-      onSaveLead?.({ phone: cleanPhone, smsConsent: localConsent });
+      onSaveLead?.({ phone: cleanPhone, smsConsent: localConsent, smsMarketingConsent: localMarketingConsent });
     }
     onClose();
   };
@@ -327,22 +332,48 @@ export function FulfillmentSheet({
             }}
           />
           {localPhone && (
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={localConsent}
-                onChange={e => setLocalConsent(e.target.checked)}
-                style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
-              />
-              <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
-                By checking this box, you agree to receive SMS text messages from Rani Mahal — order
-                confirmations, prep/delivery status updates, and occasional cart reminders. Message frequency
-                varies. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. Optional —
-                you can place your order without checking this box.{" "}
+            <>
+              {/* Two SEPARATE consents, each its own checkbox/sentence/opt-in
+                  action — required by carrier/TCR review (10DLC campaigns
+                  are rejected if marketing consent is bundled with any other
+                  consent, including a second message type or a ToS
+                  acceptance). Neither checkbox doubles as agreeing to the
+                  Privacy Policy/Terms — those are plain informational links
+                  below, not tied to checking a box. */}
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={localConsent}
+                  onChange={e => setLocalConsent(e.target.checked)}
+                  style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
+                />
+                <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
+                  Text me updates about <strong style={{ color: "#FAF6EF" }}>this order</strong> — confirmation
+                  and prep/delivery status. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.
+                  Optional — you can place your order without checking this box.
+                </span>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={localMarketingConsent}
+                  onChange={e => setLocalMarketingConsent(e.target.checked)}
+                  style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
+                />
+                <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
+                  Also send me <strong style={{ color: "#FAF6EF" }}>occasional offers and reminders</strong> by
+                  text — saved-cart nudges, win-back offers, and event promos. Message frequency varies.
+                  Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. Completely optional and
+                  separate from the order-updates option above.
+                </span>
+              </label>
+
+              <p style={{ fontSize: 11, color: "#8A7560", lineHeight: 1.5, marginTop: 8 }}>
                 See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
-              </span>
-            </label>
+              </p>
+            </>
           )}
         </div>
 

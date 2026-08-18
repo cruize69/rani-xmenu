@@ -100,7 +100,7 @@ async function resolveContact(customerKey) {
   return {
     email: order.customerEmail || null,
     phone: order.customerPhone || null,
-    smsConsent: !!order.smsConsent,
+    smsMarketingConsent: !!order.smsMarketingConsent,
     customerName: order.customerName || "Guest",
   };
 }
@@ -130,7 +130,7 @@ async function runEvent(event, todayMs) {
           html: culturalEventEmailHtml({ customerName: contact.customerName, eventName: event.name, blurb: event.blurb, daysAway }),
         }),
       ];
-      if (contact.phone && contact.smsConsent) {
+      if (contact.phone && contact.smsMarketingConsent) {
         jobs.push(sendSMS(contact.phone, culturalEventSmsBody({ eventName: event.name, daysAway })));
       }
       await Promise.all(jobs);

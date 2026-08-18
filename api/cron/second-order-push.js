@@ -67,7 +67,7 @@ async function resolveCandidate(customerKey) {
     isMember,
     email: order.customerEmail,
     phone: order.customerPhone || null,
-    smsConsent: !!order.smsConsent,
+    smsMarketingConsent: !!order.smsMarketingConsent,
     customerName: order.customerName || "Guest",
     // A customer whose ONE lifetime order was catering never had a normal
     // a-la-carte "first order" — "How was your first order?" reads wrong
@@ -117,7 +117,7 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
           html: buildEmail({ customerName: contact.customerName, isMember: contact.isMember, link, isCatering: contact.isCatering }),
         }),
       ];
-      if (contact.phone && contact.smsConsent) {
+      if (contact.phone && contact.smsMarketingConsent) {
         jobs.push(sendSMS(contact.phone, buildSms({ isMember: contact.isMember, link, isCatering: contact.isCatering })));
       }
       await Promise.all(jobs);

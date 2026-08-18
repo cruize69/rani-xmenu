@@ -122,6 +122,14 @@ const SMS_CONSENT_KEY = "rani_sms_consent";
 const loadSmsConsent = () => { try { return localStorage.getItem(SMS_CONSENT_KEY) === "1"; } catch { return false; } };
 const saveSmsConsent = v => { try { localStorage.setItem(SMS_CONSENT_KEY, v ? "1" : "0"); } catch {} };
 
+// Kept as a fully separate key/state from SMS_CONSENT_KEY — marketing
+// consent (saved-cart nudges, win-back, event promos) must never be
+// inferred from or bundled with order-status consent; see FulfillmentSheet
+// for the two distinct checkboxes that set these.
+const SMS_MARKETING_CONSENT_KEY = "rani_sms_marketing_consent";
+const loadSmsMarketingConsent = () => { try { return localStorage.getItem(SMS_MARKETING_CONSENT_KEY) === "1"; } catch { return false; } };
+const saveSmsMarketingConsent = v => { try { localStorage.setItem(SMS_MARKETING_CONSENT_KEY, v ? "1" : "0"); } catch {} };
+
 // Stable per-browser id used to progressively capture cart/contact info
 // pre-checkout for abandoned-cart recovery (see lib/abandonedCart.js).
 const DRAFT_ID_KEY = "rani_draft_id";
@@ -241,6 +249,7 @@ export default function RaniMahal() {
   const [guestEmail, setGuestEmail] = useState(loadGuestEmail);
   const [guestPhone, setGuestPhone] = useState(loadPhone);
   const [smsConsent, setSmsConsent] = useState(loadSmsConsent);
+  const [smsMarketingConsent, setSmsMarketingConsent] = useState(loadSmsMarketingConsent);
   const [reorderDiscount, setReorderDiscount] = useState(0);
   const [reorderToken, setReorderToken]       = useState(() => localStorage.getItem("reorder_discount_token") || "");
   const draftIdRef = useRef(null);
@@ -583,7 +592,7 @@ export default function RaniMahal() {
   // Best-effort abandoned-cart capture — fire-and-forget, never blocks the
   // UI or surfaces an error. Progressively enriches the same draftId as the
   // customer gives phone (fulfillment step) and/or email (checkout step).
-  const saveDraftLead = useCallback(({ phone, email, smsConsent: consent } = {}) => {
+  const saveDraftLead = useCallback(({ phone, email, smsConsent: consent, smsMarketingConsent: marketingConsent } = {}) => {
     const cartItems = Object.values(cart).map(i => ({ baseId: i.baseId, qty: i.qty }));
     if (cartItems.length === 0) return;
     fetch("/api/cart/save-draft", {
@@ -594,6 +603,7 @@ export default function RaniMahal() {
         phone: phone ?? undefined,
         email: email ?? undefined,
         smsConsent: consent ?? undefined,
+        smsMarketingConsent: marketingConsent ?? undefined,
         items: cartItems,
         orderMode,
         deliveryAddress: orderMode === "delivery" ? deliveryAddress : undefined,
@@ -1188,6 +1198,11 @@ export default function RaniMahal() {
                   Save Cart
                 </button>
               </form>
+            )}
+            {!exitSaved && (
+              <p style={{ fontSize: 10.5, color: "#8A7560", lineHeight: 1.4, margin: "6px 0 0" }}>
+                One-time text with your cart link. Msg &amp; data rates may apply.
+              </p>
             )}
             {exitError && <p style={{ fontSize: 12, color: "#EF4444", margin: "6px 0 0" }}>{exitError}</p>}
           </div>

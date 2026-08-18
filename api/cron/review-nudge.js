@@ -43,7 +43,7 @@ export default async function handler(req, res) {
           }
           // SMS only with real opt-in captured at checkout — never inferred
           // from Stripe having collected a phone number for delivery.
-          if (order.customerPhone && order.smsConsent) {
+          if (order.customerPhone && order.smsMarketingConsent) {
             jobs.push(sendSMS(order.customerPhone, reviewNudgeSmsBody()));
           }
           if (jobs.length) {

@@ -540,6 +540,7 @@ export default async function handler(req, res) {
         // Abandoned-cart recovery fields
         phone:        lead?.phone ?? null,
         smsConsent:   !!lead?.smsConsent,
+        smsMarketingConsent: !!lead?.smsMarketingConsent,
         touch1SentAt: null,
         touch2SentAt: null,
       };

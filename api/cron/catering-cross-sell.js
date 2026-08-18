@@ -77,7 +77,7 @@ export default async function handler(req, res) {
               html: cateringCrossSellEmailHtml({ customerName: order.customerName }),
             }),
           ];
-          if (order.customerPhone && order.smsConsent) {
+          if (order.customerPhone && order.smsMarketingConsent) {
             jobs.push(sendSMS(order.customerPhone, cateringCrossSellSmsBody()));
           }
           await Promise.all(jobs);

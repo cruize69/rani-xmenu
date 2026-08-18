@@ -92,7 +92,7 @@ async function fetchRecentOrders(listKey) {
  * Resolve contact info + display name for a customer from their most
  * recent order — avoids a separate Clerk API round-trip in a cron that may
  * process hundreds of candidates, and every field we need (email, phone,
- * smsConsent, name) already lives on that order.
+ * smsMarketingConsent, name) already lives on that order.
  */
 async function resolveContact(listKey) {
   const [mostRecentId] = await kv.lrange(listKey, 0, 0);
@@ -102,7 +102,7 @@ async function resolveContact(listKey) {
   return {
     email: order.customerEmail || null,
     phone: order.customerPhone || null,
-    smsConsent: !!order.smsConsent,
+    smsMarketingConsent: !!order.smsMarketingConsent,
     customerName: order.customerName || "Guest",
   };
 }
@@ -196,7 +196,7 @@ export default async function handler(req, res) {
               html: winBackEmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember, favoriteDish }),
             }),
           ];
-          if (contact.phone && contact.smsConsent) {
+          if (contact.phone && contact.smsMarketingConsent) {
             jobs.push(sendSMS(contact.phone, winBackSmsBody({ link: voucher.resumeUrl, isMember, favoriteDish })));
           }
           await Promise.all(jobs);
@@ -228,7 +228,7 @@ export default async function handler(req, res) {
               html: winBackTouch2EmailHtml({ customerName: contact.customerName, link: voucher.resumeUrl, isMember, favoriteDish }),
             }),
           ];
-          if (contact.phone && contact.smsConsent) {
+          if (contact.phone && contact.smsMarketingConsent) {
             jobs.push(sendSMS(contact.phone, winBackTouch2SmsBody({ link: voucher.resumeUrl, isMember, favoriteDish })));
           }
           await Promise.all(jobs);

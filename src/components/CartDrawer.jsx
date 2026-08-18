@@ -764,6 +764,9 @@ export function CartDrawer({
                       Unlock 10%
                     </button>
                   </form>
+                  <p style={{ fontSize: 10, color: "#8A7560", lineHeight: 1.4, margin: "6px 0 0" }}>
+                    We'll text order updates to this number. Msg &amp; data rates may apply. Reply STOP to cancel.
+                  </p>
                   {unlockMsg && (
                     <p style={{ fontSize: 11.5, color: unlockStatus === "error" ? "#EF4444" : "#10B981", margin: "6px 0 0" }}>
                       {unlockMsg}
@@ -964,6 +967,11 @@ export function CartDrawer({
                           {textCartSending ? "Sending…" : "Send Link"}
                         </button>
                       </form>
+                    )}
+                    {showTextCart && !textCartSuccess && (
+                      <p style={{ fontSize: 10, color: "#8A7560", lineHeight: 1.4, margin: "4px 0 0" }}>
+                        One-time text with your cart link. Msg &amp; data rates may apply.
+                      </p>
                     )}
                     {textCartError && (
                       <p style={{ fontSize: 11.5, color: "#EF4444", margin: "4px 0 0" }}>{textCartError}</p>
