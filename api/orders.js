@@ -176,9 +176,14 @@ async function handleUpdate(req, res) {
 
     // Awaited (not fire-and-forget) — Vercel can freeze/kill the function
     // before an un-awaited async call finishes once the response is sent.
+    // Real order-status SMS to the customer — the actual thing the
+    // "text me updates about this order" checkout checkbox promises. Must
+    // gate on smsConsent: this used to fire for every order with a phone
+    // number, checkbox or not — a live consent violation independent of
+    // (and worse than) the TCR paperwork issue.
     if (status && STATUS_SMS[status]) {
       const phone = updated.customerPhone;
-      if (phone) {
+      if (phone && updated.smsConsent) {
         await sendCustomerSMS(phone, STATUS_SMS[status](updated))
           .catch(err => console.error("Customer SMS failed:", err));
       }
