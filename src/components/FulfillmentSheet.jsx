@@ -4,6 +4,12 @@ import { isZipInDeliveryZone, getDeliveryZoneForZip, PICKUP_ETA, DEFAULT_DELIVER
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 import { formatTime, getTimeSlots } from "../../lib/hours.js";
 
+// TWILIO A2P 10DLC CAMPAIGN STATUS — flip this to false the day the
+// campaign is approved and actually sending, then redeploy. Only affects
+// the small heads-up note below the SMS checkboxes; the checkboxes and
+// checkout flow themselves work regardless of this flag.
+const SMS_PENDING_CARRIER_APPROVAL = true;
+
 // Phone is persisted (and passed back in via the `phone` prop) as the
 // normalized "+1XXXXXXXXXX" form handleSave() below writes out — showing
 // that raw string back in a plain-digits input made phoneDigits 11 long,
@@ -373,6 +379,12 @@ export function FulfillmentSheet({
                 See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
               </p>
+              {SMS_PENDING_CARRIER_APPROVAL && (
+                <p style={{ fontSize: 11, color: "#B8A995", lineHeight: 1.5, marginTop: 8, fontStyle: "italic" }}>
+                  Text updates are pending carrier approval — should be live very soon. Thanks for your
+                  patience, and for supporting a local, family-run kitchen!
+                </p>
+              )}
             </>
           )}
         </div>
