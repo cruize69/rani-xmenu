@@ -120,66 +120,6 @@ function AnimatedCheck({ size = 72, color = "#1A6B3A" }) {
   );
 }
 
-// ── SMS opt-in ───────────────────────────────────────────────────
-function SmsOptIn({ orderId }) {
-  const [phone,     setPhone]     = useState("");
-  const [status,    setStatus]    = useState("idle"); // idle | loading | success | error
-  const [error,     setError]     = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus("loading"); setError(null);
-    try {
-      const res = await fetch("/api/notify-subscribe", {
-        method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify({ orderId, phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to subscribe");
-      setStatus("success");
-    } catch (err) {
-      setError(err.message);
-      setStatus("error");
-    }
-  };
-
-  if (status === "success") return (
-    <div style={{ background:"#EAF3DE", border:"0.5px solid rgba(59,109,17,0.25)", borderRadius:12, padding:"14px 18px", marginBottom:20, display:"flex", gap:10, alignItems:"center" }}>
-      <span style={{ fontSize:20 }}>✓</span>
-      <div>
-        <p style={{ fontSize:14, fontWeight:500, color:"#27500A", margin:"0 0 2px" }}>You're signed up for text updates</p>
-        <p style={{ fontSize:13, color:"#3B6D11", margin:0 }}>We'll text you when your order is being prepared and when it's ready.</p>
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ background:"#FFFFFF", borderRadius:12, border:"0.5px solid rgba(0,0,0,0.08)", padding:"16px 20px", marginBottom:20, boxShadow:"0 2px 20px rgba(0,0,0,0.06)" }}>
-      <p style={{ fontSize:11, fontWeight:600, letterSpacing:"0.15em", textTransform:"uppercase", color:"#C8853A", marginBottom:6 }}>Get text updates</p>
-      <p style={{ fontSize:13, color:"#8A7560", lineHeight:1.55, marginBottom:14 }}>
-        We'll send you a text when your order is being prepared and again when it's ready for pickup.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display:"flex", gap:8 }}>
-        <input
-          type="tel"
-          placeholder="(914) 555-0100"
-          value={phone}
-          onChange={e => setPhone(e.target.value)}
-          required
-          style={{ flex:1, padding:"10px 14px", border:"1px solid rgba(0,0,0,0.12)", borderRadius:10, fontSize:16, color:"#0F0800", background:"#FAFAF5", outline:"none", fontFamily:"'Inter',sans-serif" }}
-        />
-        <button type="submit" disabled={status === "loading"}
-          style={{ padding:"10px 18px", background:"#C8853A", color:"#FFFFFF", border:"none", borderRadius:10, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif", whiteSpace:"nowrap", opacity: status === "loading" ? 0.7 : 1 }}>
-          {status === "loading" ? "..." : "Notify me"}
-        </button>
-      </form>
-      {error && <p style={{ fontSize:12, color:"#9B2626", marginTop:8 }}>{error}</p>}
-      <p style={{ fontSize:11, color:"#8A7560", marginTop:8 }}>US numbers only. Reply STOP at any time to unsubscribe.</p>
-    </div>
-  );
-}
-
 // ── Live tracker ─────────────────────────────────────────────────
 function LiveTracker({ orderId, initialStatus }) {
   const [stage, setStage]         = useState(STATUS_TO_STAGE[initialStatus] ?? 0);
@@ -478,9 +418,6 @@ export default function OrderSuccess() {
 
         {/* ── Live tracker ── */}
         <LiveTracker orderId={order.id} initialStatus="new" />
-
-        {/* ── SMS opt-in ── */}
-        <SmsOptIn orderId={order.id} />
 
         {/* ── Order summary ── */}
         <div style={{ background:"#FFFFFF", borderRadius:16, border:"0.5px solid rgba(0,0,0,0.08)", boxShadow:"0 2px 20px rgba(0,0,0,0.06)", overflow:"hidden", marginBottom:20 }}>

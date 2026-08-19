@@ -117,8 +117,11 @@ async function runEvent(event, todayMs) {
   let sent = 0, skipped = 0;
   for (const customerKey of candidates.slice(0, MAX_PER_RUN)) {
     try {
+      // Claim atomically before sending, not after — see win-back-
+      // lapsed.js for the same fix and reasoning.
       const dedupKey = `cultural:sent:${event.id}:${year}:${customerKey}`;
-      if (await kv.get(dedupKey)) { skipped++; continue; }
+      const claimed = await kv.set(dedupKey, "1", { nx: true, ex: DEDUP_TTL_SEC });
+      if (!claimed) { skipped++; continue; }
 
       const contact = await resolveContact(customerKey);
       if (!contact?.email) { skipped++; continue; }
@@ -135,8 +138,6 @@ async function runEvent(event, todayMs) {
       }
       await Promise.all(jobs);
       await recordCampaignSent(`cultural-${event.id}`);
-
-      await kv.set(dedupKey, "1", { ex: DEDUP_TTL_SEC });
       sent++;
     } catch (e) {
       console.error(`Cultural calendar (${event.id}) failed for ${customerKey}:`, e);

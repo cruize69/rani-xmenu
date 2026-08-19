@@ -13,7 +13,7 @@ import { overLimit, clientIp } from "../../lib/rateLimit.js";
 // later messaged by the recovery sweep. Without a cap that makes it a free
 // "send an SMS/email to any address" primitive billed to the restaurant's
 // Twilio/Resend accounts — and an unbounded KV-write amplifier. Cap both
-// the caller and the destination, mirroring api/notify-subscribe.js.
+// the caller and the destination, mirroring the same per-IP/per-destination cap pattern used elsewhere in this codebase.
 const MAX_PER_IP_PER_HOUR = 20;
 const MAX_PER_DEST_PER_DAY = 5;
 

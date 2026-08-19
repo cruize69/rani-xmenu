@@ -70,6 +70,15 @@ export default async function handler(req, res) {
           const recentOrders = await Promise.all(recentIds.map(getOrder));
           if (recentOrders.some(o => o && isCateringOrder(o))) { skipped++; continue; }
 
+          // Atomic claim right before the actual send — the plain kv.get
+          // above is just a cheap early-exit (this candidate needs to be
+          // re-checked every run until they cross ORDER_COUNT_THRESHOLD,
+          // so the claim can't happen any earlier than this without wrongly
+          // excluding someone who simply isn't eligible yet). This is what
+          // actually closes the crash/concurrent-run double-send race.
+          const claimed = await kv.set(dedupKey, "1", { nx: true, ex: DEDUP_TTL_SEC });
+          if (!claimed) { skipped++; continue; }
+
           const jobs = [
             sendEmail({
               to: order.customerEmail,
@@ -82,8 +91,6 @@ export default async function handler(req, res) {
           }
           await Promise.all(jobs);
           await recordCampaignSent("catering-cross-sell");
-
-          await kv.set(dedupKey, "1", { ex: DEDUP_TTL_SEC });
           sent++;
         } catch (e) {
           console.error(`Catering cross-sell failed for ${key}:`, e);

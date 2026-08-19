@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const clean = email.trim().toLowerCase();
 
   // No account/order to key a limit on — same tradeoff as the catering and
-  // notify-subscribe endpoints, which face the identical problem of being
+  // catering endpoints, which face the identical problem of being
   // reachable by a stranger with no prior relationship to the site.
   if (await overLimit(`newsletter-rl:ip:${clientIp(req)}`, 10, 60 * 60)) {
     return res.status(429).json({ error: "Too many requests. Please try again later." });

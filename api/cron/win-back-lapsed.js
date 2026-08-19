@@ -179,6 +179,16 @@ export default async function handler(req, res) {
         if (!touch1SentAt) {
           if (daysSinceLastOrder < threshold) { touch1Skipped++; continue; }
 
+          // Claim BEFORE sending, atomically (nx) — not after. If this
+          // function gets killed (timeout) between send and the old
+          // after-the-fact kv.set, or two overlapping runs both reach this
+          // point, the previous order let both/either send twice. Claiming
+          // first means a failed send just means this customer waits for
+          // the next cycle rather than getting the same offer twice — the
+          // safer direction for a marketing message.
+          const claimed = await kv.set(touch1Key, String(now), { nx: true, ex: DEDUP_TTL_SEC });
+          if (!claimed) { touch1Skipped++; continue; }
+
           const contact = await resolveContact(listKey);
           if (!contact?.email) { touch1Skipped++; continue; }
           const favoriteDish = favoriteDishFromOrders(orders);
@@ -201,15 +211,15 @@ export default async function handler(req, res) {
           }
           await Promise.all(jobs);
           await recordCampaignSent("winback");
-
-          await kv.set(touch1Key, String(now), { ex: DEDUP_TTL_SEC });
           touch1Sent++;
         } else {
           const touch2Key = `winback:touch2:sent:${customerKey}`;
-          if (await kv.get(touch2Key)) { touch2Skipped++; continue; }
 
           const daysSinceTouch1 = (now - Number(touch1SentAt)) / DAY_MS;
           if (daysSinceTouch1 < TOUCH2_DELAY_DAYS) { touch2Skipped++; continue; }
+
+          const claimed = await kv.set(touch2Key, String(now), { nx: true, ex: DEDUP_TTL_SEC });
+          if (!claimed) { touch2Skipped++; continue; }
 
           const contact = await resolveContact(listKey);
           if (!contact?.email) { touch2Skipped++; continue; }
@@ -233,8 +243,6 @@ export default async function handler(req, res) {
           }
           await Promise.all(jobs);
           await recordCampaignSent("winback-touch2");
-
-          await kv.set(touch2Key, String(now), { ex: DEDUP_TTL_SEC });
           touch2Sent++;
         }
       } catch (e) {

@@ -87,8 +87,13 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
   let sent = 0, skipped = 0;
   for (const customerKey of candidates.slice(0, MAX_PER_RUN)) {
     try {
+      // Claim atomically before sending, not after — closes both the
+      // crash-mid-send-loses-the-flag gap and a concurrent-run race, at
+      // the cost of "a genuinely failed send just waits for next cycle"
+      // instead of risking a duplicate marketing message.
       const dedupKey = `second-order:${touchName}:sent:${customerKey}`;
-      if (await kv.get(dedupKey)) { skipped++; continue; }
+      const claimed = await kv.set(dedupKey, "1", { nx: true, ex: DEDUP_TTL_SEC });
+      if (!claimed) { skipped++; continue; }
 
       const contact = await resolveCandidate(customerKey);
       if (!contact) { skipped++; continue; }
@@ -122,8 +127,6 @@ async function runTouch({ touchName, minDays, maxDays, buildEmail, buildSms, min
       }
       await Promise.all(jobs);
       await recordCampaignSent(`second-order-${touchName}`);
-
-      await kv.set(dedupKey, "1", { ex: DEDUP_TTL_SEC });
       sent++;
     } catch (e) {
       console.error(`Second-order ${touchName} failed for ${customerKey}:`, e);

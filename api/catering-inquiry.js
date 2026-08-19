@@ -61,7 +61,7 @@ export default async function handler(req, res) {
 
   // No account/order to key a rate limit on (this is often someone's FIRST
   // contact with us), so the caller's IP is the only signal available —
-  // same tradeoff api/notify-subscribe.js already accepts for the same
+  // same tradeoff accepted elsewhere in this codebase for the same
   // reason. This exists purely to bound cost (staff email/SMS spam), not
   // to gate legitimate inquiries.
   if (await overLimit(`catering-rl:ip:${clientIp(req)}`, 5, 60 * 60)) {
