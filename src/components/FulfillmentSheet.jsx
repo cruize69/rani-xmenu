@@ -442,7 +442,7 @@ export function FulfillmentSheet({
                     type="button"
                     onClick={() => {
                       setSelectedWindowIdx(i);
-                      const slots = getTimeSlots(w.date, w);
+                      const slots = getTimeSlots(w.date, w, new Date(), selectedMode);
                       if (slots.length) setScheduledFor?.({ date: w.date, time: slots[0] });
                     }}
                     style={{
@@ -474,7 +474,7 @@ export function FulfillmentSheet({
 
               {selectedWindowIdx !== null && upcomingWindows[selectedWindowIdx] && (() => {
                 const w = upcomingWindows[selectedWindowIdx];
-                const slots = getTimeSlots(w.date, w);
+                const slots = getTimeSlots(w.date, w, new Date(), selectedMode);
                 if (slots.length === 0) return null;
                 return (
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: "0.5px solid rgba(250,246,239,0.08)" }}>

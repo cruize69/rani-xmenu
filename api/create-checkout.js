@@ -119,8 +119,10 @@ export default async function handler(req, res) {
       if (Number.isFinite(targetMs) && targetMs < Date.now() - 60 * 1000) {
         return res.status(400).json({ error: "That time has passed while you were ordering — please pick a new time." });
       }
-      if (!isWithinServiceWindow(scheduledFor.date, scheduledFor.time)) {
-        return res.status(400).json({ error: "That time isn't during our open hours. Please pick another." });
+      if (!isWithinServiceWindow(scheduledFor.date, scheduledFor.time, new Date(), orderMode)) {
+        return res.status(400).json({ error: orderMode === "delivery"
+          ? "That time doesn't leave enough time for delivery — please pick a later time."
+          : "That time isn't during our open hours. Please pick another." });
       }
       validScheduledFor = { date: scheduledFor.date, time: scheduledFor.time };
     } else if (!getOpenStatus().isOpen) {
