@@ -23,23 +23,40 @@ export default async function handler(req, res) {
     let promoted = 0;
     for (const id of dueIds) {
       try {
-        const order = await getOrder(id);
-        // Only promote if it's still actually in the scheduled state — a
-        // manager could have already touched it (refunded, etc.) in the
-        // meantime, and re-promoting a refunded order would be wrong.
-        if (order && order.status === ORDER_STATUS.SCHEDULED) {
-          await updateOrder(id, { status: ORDER_STATUS.NEW });
-          await kv.lpush("print_queue", JSON.stringify({ id, mode: "new" }));
-          await kv.expire("print_queue", 3600);
-          sendNewOrderPush({
-            orderId: id,
-            customerName: order.customerName,
-            total: order.total,
-            itemCount: (order.items || []).reduce((s, i) => s + (i.qty || 1), 0),
-          }).catch(() => {});
-          promoted++;
+        // zrem itself is the atomic claim, not an afterthought — if two
+        // overlapping invocations (a real scheduled tick racing a manual
+        // "Run Now" from the dashboard) both zrange the same due id
+        // before either acts on it, only one of them gets `1` back here;
+        // the other gets `0` and skips, instead of both promoting/
+        // double-printing the same order.
+        const removed = await kv.zrem("scheduled-orders", id);
+        if (!removed) continue;
+
+        try {
+          const order = await getOrder(id);
+          // Only promote if it's still actually in the scheduled state — a
+          // manager could have already touched it (refunded, etc.) in the
+          // meantime, and re-promoting a refunded order would be wrong.
+          if (order && order.status === ORDER_STATUS.SCHEDULED) {
+            await updateOrder(id, { status: ORDER_STATUS.NEW });
+            await kv.lpush("print_queue", JSON.stringify({ id, mode: "new" }));
+            await kv.expire("print_queue", 3600);
+            sendNewOrderPush({
+              orderId: id,
+              customerName: order.customerName,
+              total: order.total,
+              itemCount: (order.items || []).reduce((s, i) => s + (i.qty || 1), 0),
+            }).catch(() => {});
+            promoted++;
+          }
+        } catch (inner) {
+          // We already claimed (zrem'd) this id — a failure here (KV
+          // blip, transient error) must not silently strand the order in
+          // "scheduled" forever with nothing left to promote it. Put it
+          // back so the next tick retries instead of losing it.
+          await kv.zadd("scheduled-orders", { score: now, member: id }).catch(() => {});
+          throw inner;
         }
-        await kv.zrem("scheduled-orders", id);
       } catch (e) {
         console.error(`Failed to promote scheduled order ${id}:`, e);
       }

@@ -186,7 +186,17 @@ export default function KitchenDisplay() {
   const [flash, setFlash]       = useState(null);
   const [filter, setFilter]     = useState("active");
   const [lastPoll, setLastPoll] = useState(new Date());
+  // See TvKitchenDisplay.jsx for the same fix — this dot used to be a
+  // hardcoded "always synced" green, disconnected from actual fetch
+  // success. Runs unattended, so a silent outage previously looked fine.
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const prevIds = useRef(new Set());
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
 
 
   const versionRef = useRef(null);
@@ -205,8 +215,10 @@ export default function KitchenDisplay() {
       prevIds.current = new Set(fetchedOrders.map(o => o.id));
       setOrders(fetchedOrders);
       setLastPoll(new Date());
+      setSyncFailed(false);
     } catch (e) {
       console.error("Load orders error:", e);
+      setSyncFailed(true);
     }
   }, []);
 
@@ -221,8 +233,12 @@ export default function KitchenDisplay() {
         if (version !== versionRef.current) {
           versionRef.current = version;
           loadOrders();
+        } else {
+          setSyncFailed(false);
         }
-      } catch {}
+      } catch {
+        setSyncFailed(true);
+      }
     }, 4000);
     return () => clearInterval(timer);
   }, [loadOrders]);
@@ -259,6 +275,10 @@ export default function KitchenDisplay() {
     const dc   = orders.filter(o => o.status === "done").length;
     return { active: act, done: dn, shown: sh, newCount: nc, doneCount: dc };
   }, [orders, filter]);
+
+  const isStale = nowTick - lastPoll.getTime() > 20000;
+  const syncDotColor = (syncFailed || isStale) ? "#EF4444" : "#1A6B3A";
+  const syncDotGlow = (syncFailed || isStale) ? "rgba(239,68,68,0.3)" : "rgba(26,107,58,0.3)";
 
   return (
     <div style={{ background:"#1A1008", minHeight:"100vh", fontFamily:"'Inter',sans-serif", userSelect:"none" }}>
@@ -304,10 +324,10 @@ export default function KitchenDisplay() {
               </button>
             ))}
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:6 }}>
-            <div style={{ width:7, height:7, borderRadius:"50%", background:"#1A6B3A", boxShadow:"0 0 0 3px rgba(26,107,58,0.3)" }} />
-            <span style={{ fontSize:11, color:"#8A7560", fontVariantNumeric:"tabular-nums" }}>
-              {lastPoll.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginLeft:6 }} title={syncFailed ? "Sync failed — check connection" : isStale ? "Not syncing — data may be stale" : "Synced"}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background: syncDotColor, boxShadow:`0 0 0 3px ${syncDotGlow}` }} />
+            <span style={{ fontSize:11, color: isStale ? "#EF4444" : "#8A7560", fontVariantNumeric:"tabular-nums", fontWeight: isStale ? 700 : 400 }}>
+              {isStale ? "⚠ " : ""}{lastPoll.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
             </span>
           </div>
         </div>

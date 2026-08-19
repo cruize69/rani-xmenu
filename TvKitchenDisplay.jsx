@@ -356,8 +356,23 @@ export default function TvKitchenDisplay() {
 
   const [orders, setOrders] = useState([]);
   const [lastSync, setLastSync] = useState(new Date());
+  // The sync-status dot used to be a hardcoded green "System Active &
+  // Synced" light with no connection to whether fetches were actually
+  // succeeding — a network/API outage on this unattended, wall-mounted
+  // screen would silently keep showing "all good" while orders stopped
+  // updating, with only a small, easy-to-miss timestamp as the real tell.
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [flashOrder, setFlashOrder] = useState(null);
   const [pageIndex, setPageIndex] = useState(0);
+
+  // Forces a re-render every few seconds purely so staleness (time since
+  // lastSync) updates even when no new data has arrived — otherwise a
+  // silently-stalled poll would never re-derive isStale below.
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
 
   const prevOrderIdsRef = useRef(new Set());
   const flashTimerRef = useRef(null);
@@ -377,6 +392,7 @@ export default function TvKitchenDisplay() {
       prevOrderIdsRef.current = new Set(newOrders.map(o => o.id));
       setOrders(newOrders);
       setLastSync(new Date());
+      setSyncFailed(false);
     };
 
     const triggerNewOrderAlert = (order) => {
@@ -399,6 +415,7 @@ export default function TvKitchenDisplay() {
         processOrders(res.orders || []);
       } catch (err) {
         console.error("Load orders error:", err);
+        if (!cancelled) setSyncFailed(true);
       }
     };
 
@@ -413,8 +430,12 @@ export default function TvKitchenDisplay() {
         if (version !== knownVersion) {
           knownVersion = version;
           loadOrders();
+        } else if (!cancelled) {
+          setSyncFailed(false);
         }
-      } catch {}
+      } catch {
+        if (!cancelled) setSyncFailed(true);
+      }
     }, 4000);
 
     return () => {
@@ -481,6 +502,14 @@ export default function TvKitchenDisplay() {
 
   // Compute fluid column layout based on current page order count
   const gridColumns = currentCount <= 1 ? "1fr" : `repeat(${Math.min(6, currentCount)}, minmax(0, 1fr))`;
+
+  // Stale = no successful sync in over 20s (5x the normal 4s poll interval)
+  // — well past what a normal network blip explains.
+  const isStale = nowTick - lastSync.getTime() > 20000;
+  const syncStatusLabel = syncFailed ? "Sync failed — check connection" : isStale ? "Not syncing — data may be stale" : "System Active & Synced";
+  const syncStatusColor = (syncFailed || isStale)
+    ? { bg: "rgba(239,68,68,0.18)", border: "rgba(239,68,68,0.5)", dot: "#EF4444" }
+    : { bg: "rgba(34,197,94,0.18)", border: "rgba(34,197,94,0.4)", dot: "#4ADE80" };
 
   return (
     <div
@@ -718,13 +747,17 @@ export default function TvKitchenDisplay() {
                 🔔
               </button>
               
-              {/* Glowing Live Sync Status Light Only */}
-              <div title="System Active & Synced" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: "rgba(34,197,94,0.18)", border: "1.5px solid rgba(34,197,94,0.4)" }}>
-                <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 12px #4ADE80" }} />
+              {/* Live sync status — actually reflects fetch success/failure
+                  and staleness, not a hardcoded "always fine" light. This
+                  screen runs unattended in the kitchen; an outage that
+                  silently kept showing green would mean staff trust a
+                  frozen order list during real service. */}
+              <div title={syncStatusLabel} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", background: syncStatusColor.bg, border: `1.5px solid ${syncStatusColor.border}` }}>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: syncStatusColor.dot, boxShadow: `0 0 12px ${syncStatusColor.dot}` }} />
               </div>
             </div>
-            <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: "#B8A995", margin: 0, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-              Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            <p style={{ fontSize: "clamp(11px, 0.75vw, 14px)", color: isStale ? "#EF4444" : "#B8A995", margin: 0, fontWeight: isStale ? 700 : 600, fontVariantNumeric: "tabular-nums" }}>
+              {isStale ? "⚠ Not updating — " : ""}Last updated {lastSync.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
             </p>
           </div>
         </div>

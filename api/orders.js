@@ -258,6 +258,17 @@ async function handleReprint(req, res) {
   if (!id) return res.status(400).json({ error: "Order ID required" });
   if (!REPRINT_TICKETS.has(ticket)) return res.status(400).json({ error: "Invalid ticket type" });
 
+  // The UI has its own 5s cooldown, but that's client-local React state —
+  // it doesn't survive a refresh and doesn't cover a second staff member
+  // or a second tab hitting reprint on the same order within the same
+  // window. This is the actual guard: two clicks within 5s for the same
+  // order+ticket only queue one physical print.
+  const reprintLockKey = `reprint-lock:${id}:${ticket}`;
+  const reprintAcquired = await kv.set(reprintLockKey, "1", { nx: true, ex: 5 });
+  if (!reprintAcquired) {
+    return res.status(429).json({ error: "This ticket was just printed. Please wait a moment before reprinting." });
+  }
+
   const order = await getOrder(id);
   if (!order) return res.status(404).json({ error: "Order not found" });
 
@@ -276,6 +287,17 @@ async function handleRefund(req, res) {
   const { orderId, type, amount, reason, itemName, staffName } = req.body;
   if (!orderId || !type) {
     return res.status(400).json({ error: "orderId and type required" });
+  }
+
+  // Same atomic-claim pattern used for checkout vouchers/sessions elsewhere
+  // in this codebase — without it, two concurrent refund requests for the
+  // same order (a slow UI double-click, two staff tabs) both read the same
+  // refundedTotal, both pass the remaining-balance check below, and both
+  // succeed at Stripe, cumulatively refunding more than the order's total.
+  const lockKey = `refund-lock:${orderId}`;
+  const acquired = await kv.set(lockKey, "1", { nx: true, ex: 15 });
+  if (!acquired) {
+    return res.status(429).json({ error: "A refund is already being processed for this order. Please wait a moment." });
   }
 
   const order = await getOrder(orderId);
