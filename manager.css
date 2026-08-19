@@ -169,13 +169,6 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 }
 .rm-theme-toggle:active { transform: scale(0.95); }
 
-.rm-date-picker {
-  height: 38px; padding: 0 10px; border-radius: 10px;
-  border: 1px solid var(--rm-header-border);
-  background: var(--rm-pill-bg); color: var(--rm-text-title);
-  font-size: 13px; font-family: inherit; cursor: pointer; outline: none;
-}
-
 .rm-icon-btn {
   height: 38px; width: 38px; border-radius: 10px;
   border: 1px solid var(--rm-header-border);

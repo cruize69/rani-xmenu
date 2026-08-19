@@ -81,9 +81,6 @@ export default function OrderManager() {
   useWakeLock();
 
   const [orders, setOrders]               = useState([]);
-  const [date, setDate]                   = useState(() =>
-    new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" })
-  );
   const [filter, setFilter]               = useState("active");
   const [theme, setTheme]                 = useState(getInitialTheme);
   const [loading, setLoading]             = useState(true);
@@ -241,7 +238,14 @@ export default function OrderManager() {
   const load = useCallback(async (spin = true) => {
     if (spin) setLoading(true);
     try {
-      const data = await apiFetch(`/api/orders?date=${date}`);
+      // No ?date= param — the server defaults to "today" (NY-local) on its
+      // own when omitted, and orders are indexed by when they were PAID,
+      // not any scheduled pickup/delivery time, so "today" is always the
+      // right and only view here. The manual date picker this used to
+      // drive was removed: an easy way to accidentally load a stale day's
+      // orders was a real risk for staff, not a useful feature — full
+      // order history now lives in Sales instead.
+      const data = await apiFetch(`/api/orders`);
       const nextOrders = data.orders || [];
 
       // Sound + full-screen alert for a genuinely NEW order (playChime and
@@ -268,7 +272,7 @@ export default function OrderManager() {
     } finally {
       if (spin) setLoading(false);
     }
-  }, [date]);
+  }, []);
 
   // Poll a cheap version key every few seconds (1 kv.get) and only pay for
   // the full order fetch when it actually changed — avoids hammering KV with
@@ -279,7 +283,7 @@ export default function OrderManager() {
     versionRef.current = null;
     const timer = setInterval(async () => {
       try {
-        const { version } = await apiFetch(`/api/orders?date=${date}&versionOnly=1`);
+        const { version } = await apiFetch(`/api/orders?versionOnly=1`);
         if (version !== versionRef.current) {
           versionRef.current = version;
           load(false);
@@ -287,7 +291,7 @@ export default function OrderManager() {
       } catch {}
     }, 4000);
     return () => clearInterval(timer);
-  }, [load, date]);
+  }, [load]);
 
   const handleStatus = async (id, status) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
@@ -411,13 +415,6 @@ export default function OrderManager() {
           <button className="rm-theme-toggle" onClick={toggleTheme}>
             {theme === "dark" ? "🌙 Night" : "☀️ Day"}
           </button>
-
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="rm-date-picker"
-          />
 
           <button className="rm-icon-btn" onClick={() => load(true)} title="Refresh">↺</button>
         </div>
