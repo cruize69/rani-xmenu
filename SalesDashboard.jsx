@@ -1272,6 +1272,16 @@ export default function SalesDashboard() {
   const [error,   setError]   = useState(null);
   const [range,   setRange]   = useState("30d");
   const [tab,     setTab]     = useState("analytics");
+  const tabBarRef = useRef(null);
+  const activeTabRef = useRef(null);
+  // Auto-scroll the active tab into view — the row overflows on tablet-
+  // width screens (7 tabs is genuinely too many to fit without scrolling),
+  // so without this, switching to a tab near the edge (or the newest one,
+  // Order Lookup, on first visit) could leave it looking selected but
+  // scrolled out of sight with no indication anything happened.
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, [tab]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -1328,8 +1338,8 @@ export default function SalesDashboard() {
       </header>
 
       {/* Tab Navigation */}
-      <div style={{ background: "rgba(20, 21, 25, 0.5)", borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 24px" }}>
-        <div style={{ display: "flex", gap: 20, maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
+      <div style={{ position: "relative", background: "rgba(20, 21, 25, 0.5)", borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: "0 24px" }}>
+        <div ref={tabBarRef} style={{ display: "flex", gap: 16, maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
           {[
             ["analytics", "📊 Sales Ledger"],
             ["crm", "👥 Guest CRM"],
@@ -1339,17 +1349,25 @@ export default function SalesDashboard() {
             ["campaigns", "📣 Campaigns"],
             ["lookup", "🔍 Order Lookup"],
           ].map(([k, lbl]) => (
-            <button key={k} onClick={() => setTab(k)}
+            <button key={k} ref={tab === k ? activeTabRef : null} onClick={() => setTab(k)}
               style={{
                 padding: "14px 4px", background: "none", border: "none",
                 borderBottom: tab === k ? `3px solid ${ACCENT}` : "3px solid transparent",
                 color: tab === k ? ACCENT : TEXT_MUTED, fontSize: 14, fontWeight: 800, cursor: "pointer",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap", flexShrink: 0
               }}>
               {lbl}
             </button>
           ))}
         </div>
+        {/* Right-edge fade — the only visual hint on a narrow/tablet screen
+            that the tab row scrolls and there's more beyond what's shown;
+            previously nothing indicated this at all. */}
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: 32,
+          background: "linear-gradient(to right, transparent, rgba(20,21,25,0.85))",
+          pointerEvents: "none",
+        }} />
       </div>
 
       {/* Body Content */}
