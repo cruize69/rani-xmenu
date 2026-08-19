@@ -10,6 +10,7 @@ import { kv } from "@vercel/kv";
 import { getOrder, updateOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { sendNewOrderPush } from "../../lib/push.js";
+import { recordCronRun } from "../../lib/cronStatus.js";
 
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
@@ -62,9 +63,12 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ ok: true, promoted, checked: dueIds.length });
+    const result = { ok: true, promoted, checked: dueIds.length };
+    await recordCronRun("promote-scheduled-orders", result);
+    return res.status(200).json(result);
   } catch (err) {
     console.error("Cron promote-scheduled-orders error:", err);
+    await recordCronRun("promote-scheduled-orders", { ok: false, error: err.message || String(err) });
     return res.status(500).json({ error: "Promotion sweep failed" });
   }
 }
