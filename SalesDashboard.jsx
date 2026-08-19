@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getManagerSecret } from "./lib/managerAuth.js";
+import { formatPhoneNumber } from "./OrderCard.jsx";
 
 const API_BASE = "";
 
@@ -961,6 +962,148 @@ function CronStatusBoard() {
   );
 }
 
+// ── Order Lookup ──────────────────────────────────────────────────
+// For verifying a specific past order — a dispute call, "did I actually
+// order X" — not for browsing a day the way Order Manager is. Search box
+// accepts an order id, email, phone number, the short #A1B2C3 id shown on
+// receipts/texts, or a customer name; api/order-lookup.js figures out
+// which and picks the cheapest matching strategy. Deliberately read-only:
+// no status/print/refund actions here, this is a lookup tool.
+function OrderLookupTab() {
+  const [q, setQ] = useState("");
+  const [state, setState] = useState({ status: "idle" }); // idle | loading | error | done
+  const [expandedId, setExpandedId] = useState(null);
+
+  const search = async (e) => {
+    e?.preventDefault();
+    const query = q.trim();
+    if (query.length < 3) {
+      setState({ status: "error", message: "Enter at least 3 characters to search." });
+      return;
+    }
+    setState({ status: "loading" });
+    try {
+      const res = await fetch(`${API_BASE}/api/order-lookup?q=${encodeURIComponent(query)}`, {
+        headers: { "x-manager-secret": getManagerSecret() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Search failed (HTTP ${res.status})`);
+      setState({ status: "done", orders: data.orders || [], strategy: data.strategy, scannedDays: data.scannedDays, truncated: !!data.truncated });
+      setExpandedId(null);
+    } catch (err) {
+      setState({ status: "error", message: err.message });
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>🔍 Order Lookup</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+          Search by order ID (e.g. A1B2C3), email, phone number, or customer name. Order Manager only shows today —
+          use this to verify a past order (a dispute call, "did I actually order X"). Phone/name/short-ID search
+          covers the last 90 days.
+        </p>
+        <form onSubmit={search} style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Order ID, email, phone, or name…"
+            style={{ flex: 1, height: 40, padding: "0 14px", borderRadius: 10, border: `1px solid ${CARD_BORDER}`, background: "rgba(255,255,255,0.04)", color: TEXT_MAIN, fontSize: 14, outline: "none" }}
+          />
+          <button type="submit" disabled={state.status === "loading"}
+            style={{ height: 40, padding: "0 18px", borderRadius: 10, background: ACCENT, border: "none", color: "#080706", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: state.status === "loading" ? 0.7 : 1 }}>
+            {state.status === "loading" ? "Searching…" : "Search"}
+          </button>
+        </form>
+      </div>
+
+      {state.status === "error" && (
+        <div style={{ background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: 14, padding: 16, color: "#FCA5A5", fontSize: 13 }}>
+          ⚠️ {state.message}
+        </div>
+      )}
+
+      {state.status === "done" && (
+        state.orders.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0", color: TEXT_MUTED, fontSize: 13 }}>
+            No orders found{state.scannedDays ? ` (searched the last ${state.scannedDays} days)` : ""}.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <p style={{ fontSize: 12, color: TEXT_MUTED }}>
+              {state.orders.length} result{state.orders.length === 1 ? "" : "s"}
+              {state.truncated ? " (showing the first 25 — narrow your search for more precise results)" : ""}
+            </p>
+            {state.orders.map(order => {
+              const isOpen = expandedId === order.id;
+              const shortId = order.id ? "#" + order.id.slice(-6).toUpperCase() : "—";
+              const dt = order.createdAt ? new Date(order.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—";
+              return (
+                <div key={order.id} style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 14, overflow: "hidden" }}>
+                  <button
+                    onClick={() => setExpandedId(isOpen ? null : order.id)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: TEXT_MAIN }}>
+                        {shortId} · {order.customerName || "Guest"}
+                        <span style={{ fontWeight: 600, color: TEXT_MUTED, marginLeft: 8, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{order.status}</span>
+                      </span>
+                      <span style={{ fontSize: 12, color: TEXT_MUTED }}>{dt} · {order.orderMode === "delivery" ? "Delivery" : "Pickup"} · {fmt(order.total)}</span>
+                    </div>
+                    <span style={{ color: ACCENT, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{isOpen ? "Hide ▲" : "Details ▼"}</span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${CARD_BORDER}` }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, margin: "14px 0", fontSize: 12 }}>
+                        <div><span style={{ color: TEXT_MUTED }}>Phone: </span><span style={{ color: TEXT_MAIN }}>{order.customerPhone ? formatPhoneNumber(order.customerPhone) : "—"}</span></div>
+                        <div><span style={{ color: TEXT_MUTED }}>Email: </span><span style={{ color: TEXT_MAIN }}>{order.customerEmail || "—"}</span></div>
+                        {order.orderMode === "delivery" && order.deliveryAddress && (
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <span style={{ color: TEXT_MUTED }}>Address: </span>
+                            <span style={{ color: TEXT_MAIN }}>
+                              {order.deliveryAddress.street}{order.deliveryAddress.apt ? `, Apt ${order.deliveryAddress.apt}` : ""}, {order.deliveryAddress.city} {order.deliveryAddress.zip}
+                            </span>
+                          </div>
+                        )}
+                        {order.scheduledFor && (
+                          <div><span style={{ color: TEXT_MUTED }}>Scheduled: </span><span style={{ color: TEXT_MAIN }}>{order.scheduledFor.date} {order.scheduledFor.time}</span></div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Items</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {(order.items || []).map((item, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: TEXT_MAIN }}>
+                            <span>{item.qty}x {item.name}{item.spice ? ` (${item.spice})` : ""}</span>
+                            <span>{fmt(item.price * item.qty)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {order.specialInstructions && (
+                        <div style={{ marginTop: 10, fontSize: 12, color: TEXT_MUTED }}>
+                          <span style={{ fontWeight: 700 }}>Notes: </span>{order.specialInstructions}
+                        </div>
+                      )}
+                      {order.refundHistory?.length > 0 && (
+                        <div style={{ marginTop: 10, fontSize: 12, color: "#FCA5A5" }}>
+                          <span style={{ fontWeight: 700 }}>Refunds: </span>
+                          {order.refundHistory.map((r, i) => `${fmt(r.amount)} (${r.type})`).join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function CampaignsTab() {
   const [campaigns, setCampaigns] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1194,6 +1337,7 @@ export default function SalesDashboard() {
             ["geo", "📍 Geo Spatial"],
             ["recovery", "🛒 Cart Recovery"],
             ["campaigns", "📣 Campaigns"],
+            ["lookup", "🔍 Order Lookup"],
           ].map(([k, lbl]) => (
             <button key={k} onClick={() => setTab(k)}
               style={{
@@ -1214,6 +1358,10 @@ export default function SalesDashboard() {
           // Own independent fetch (/api/campaign-stats, no date-range param)
           // — not gated behind the /api/analytics load/error state above.
           <CampaignsTab />
+        ) : tab === "lookup" ? (
+          // Also independent — search-triggered, not tied to the date-range
+          // picker or the main /api/analytics load at all.
+          <OrderLookupTab />
         ) : loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>
             <div style={{ fontSize: 24, marginBottom: 12 }}>⚡ Compiling Sales Intelligence...</div>
