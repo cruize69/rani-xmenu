@@ -6,6 +6,7 @@
 
 import { checkManagerAuth } from "../../lib/auth.js";
 import { previewRestore } from "../../lib/backupRestore.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
     return res.status(200).json(preview);
   } catch (err) {
     console.error("restore-preview failed:", err);
+    captureServerError(err, { route: "admin/restore-preview" });
     return res.status(500).json({ error: err.message || "Could not read backup file." });
   }
 }

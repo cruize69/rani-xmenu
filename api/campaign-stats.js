@@ -13,6 +13,7 @@
 
 import { kv } from "@vercel/kv";
 import { checkManagerAuth } from "../lib/auth.js";
+import { captureServerError } from "../lib/sentry.js";
 
 // Fixed list rather than a KV scan — every source string a voucher/email
 // can be tagged with lives in exactly the call sites below, so there's no
@@ -70,6 +71,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, campaigns: rows });
   } catch (e) {
     console.error("Campaign stats fetch failed:", e);
+    captureServerError(e, { route: "campaign-stats" });
     return res.status(500).json({ error: "Failed to load campaign stats" });
   }
 }

@@ -9,6 +9,7 @@
 
 import { kv } from "@vercel/kv";
 import { MENU_ITEMS } from "../../lib/menu.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 // Derived from the canonical menu — never hand-maintained, can't drift.
 const ALL_ITEM_IDS = MENU_ITEMS.map(item => item.id);
@@ -48,6 +49,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("Image list error:", err);
+    captureServerError(err, { route: "images/list" });
     return res.status(500).json({ error: err.message });
   }
 }

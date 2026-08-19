@@ -818,7 +818,7 @@ const CRON_LABELS = {
   "cultural-calendar":     { label: "Cultural calendar reminders",  schedule: "Daily · 3:00 PM ET" },
   "blog-draft-check":      { label: "Blog draft generation",        schedule: "Daily · 9:00 AM ET" },
   "promote-scheduled-orders": { label: "Scheduled-order promotion", schedule: "Every 5 min" },
-  "backup-orders":         { label: "Weekly encrypted order backup", schedule: "Weekly · Sun 3:00 AM ET" },
+  "backup-orders":         { label: "Daily encrypted order backup", schedule: "Daily · 3:00 AM ET" },
 };
 
 function timeAgo(iso) {

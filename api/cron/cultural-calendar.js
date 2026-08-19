@@ -23,6 +23,7 @@ import { sendEmail, sendSMS, recordCampaignSent, culturalEventEmailHtml, cultura
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { runBlogGenerationPipeline } from "../../lib/blogGeneration.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_PER_RUN = 200;
@@ -182,6 +183,7 @@ async function runBlogDraftForEvent(event, todayMs) {
     return { event: event.id, blogFired: true, daysAway, outcome };
   } catch (e) {
     console.error(`Cultural calendar blog draft (${event.id}) failed:`, e);
+    captureServerError(e, { route: "cron/cultural-calendar", event: event.id, phase: "blog-draft" });
     return { event: event.id, blogFired: true, daysAway, failed: true };
   }
 }
@@ -219,6 +221,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, results, blogResults });
   } catch (e) {
     console.error("Cultural calendar cron failed:", e);
+    captureServerError(e, { route: "cron/cultural-calendar" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

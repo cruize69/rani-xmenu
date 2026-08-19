@@ -14,6 +14,7 @@
 
 import { CRON_JOBS } from "../lib/cronStatus.js";
 import { checkManagerAuth } from "../lib/auth.js";
+import { captureServerError } from "../lib/sentry.js";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://ranimahal.cc/order").replace(/\/$/, "");
 
@@ -42,6 +43,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, job, result: body });
   } catch (e) {
     console.error(`Manual run of ${job} failed:`, e);
+    captureServerError(e, { route: "campaign-run", job });
     return res.status(500).json({ error: "Failed to trigger job." });
   }
 }

@@ -14,6 +14,7 @@ import { kv } from "@vercel/kv";
 import crypto from "crypto";
 import { sendEmail, sendStaffSMS, escapeHtml } from "../lib/notifications.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
+import { captureServerError } from "../lib/sentry.js";
 
 function normalizePhone(raw) {
   const digits = String(raw || "").replace(/\D/g, "");
@@ -95,10 +96,16 @@ export default async function handler(req, res) {
     to: ["ranimahal327@gmail.com", "riyadhjuwel@gmail.com"],
     subject: `Catering inquiry — ${inquiry.name}${inquiry.eventDate ? ` (${inquiry.eventDate})` : ""}`,
     html: cateringInquiryEmailHtml(inquiry),
-  }).catch(e => console.error("Catering inquiry staff email failed:", e));
+  }).catch(e => {
+    console.error("Catering inquiry staff email failed:", e);
+    captureServerError(e, { route: "catering-inquiry", stage: "staff_email" });
+  });
 
   const smsLine = `Rani Mahal: Catering inquiry from ${inquiry.name} — ${looksLikeEmail ? inquiry.contact : normalizePhone(inquiry.contact) || inquiry.contact}${inquiry.eventDate ? `, event ${inquiry.eventDate}` : ""}. Check email for full details.`;
-  const staffSms = sendStaffSMS(smsLine).catch(e => console.error("Catering inquiry staff SMS failed:", e));
+  const staffSms = sendStaffSMS(smsLine).catch(e => {
+    console.error("Catering inquiry staff SMS failed:", e);
+    captureServerError(e, { route: "catering-inquiry", stage: "staff_sms" });
+  });
 
   await Promise.all([staffEmail, staffSms]);
 

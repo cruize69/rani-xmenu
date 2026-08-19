@@ -11,6 +11,7 @@
 import { kv } from "@vercel/kv";
 import { checkManagerAuth } from "../lib/auth.js";
 import { CRON_JOBS } from "../lib/cronStatus.js";
+import { captureServerError } from "../lib/sentry.js";
 
 export default async function handler(req, res) {
   const auth = await checkManagerAuth(req);
@@ -29,6 +30,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, jobs });
   } catch (e) {
     console.error("Cron status fetch failed:", e);
+    captureServerError(e, { route: "cron-status" });
     return res.status(500).json({ error: "Failed to load cron status" });
   }
 }

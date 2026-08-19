@@ -16,6 +16,7 @@
 import { kv } from "@vercel/kv";
 import { mintVoucherToken } from "../lib/orders.js";
 import { recordCampaignSent } from "../lib/notifications.js";
+import { captureServerError } from "../lib/sentry.js";
 
 // Deliberately tight. Each claim mints an independently-redeemable 10%
 // voucher off a single order's token, so a high cap is a discount farm, not
@@ -83,6 +84,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ token: voucher.token, discountPct: 0.10, expiresAt: voucher.expiresAt });
   } catch (err) {
     console.error("Referral claim error:", err);
+    captureServerError(err, { route: "referral-claim" });
     return res.status(500).json({ error: "Server error processing invite link." });
   }
 }

@@ -16,7 +16,7 @@
     { "path": "/api/cron/newsletter-digest", "schedule": "0 14 1 * *" },
     { "path": "/api/cron/cultural-calendar", "schedule": "0 15 * * *" },
     { "path": "/api/cron/blog-draft-check", "schedule": "0 13 * * *" },
-    { "path": "/api/cron/backup-orders", "schedule": "0 8 * * 0" }
+    { "path": "/api/cron/backup-orders", "schedule": "0 8 * * *" }
   ],
   "redirects": [
     { "source": "/sitemap.xml", "destination": "https://ranimahal.cc/sitemap.xml", "permanent": false }

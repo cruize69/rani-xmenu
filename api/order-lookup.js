@@ -22,6 +22,7 @@ import { kv } from "@vercel/kv";
 import { getOrder, getNYDateString } from "../lib/orders.js";
 import { checkManagerAuth } from "../lib/auth.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
+import { captureServerError } from "../lib/sentry.js";
 
 const LOOKBACK_DAYS = 90;
 const MAX_MATCHES = 25;
@@ -118,6 +119,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Order lookup error:", err);
+    captureServerError(err, { route: "order-lookup" });
     return res.status(500).json({ error: "Search failed. Please try again." });
   }
 }

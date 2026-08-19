@@ -26,6 +26,7 @@ import {
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { isCateringOrder } from "../../lib/menu.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows are deliberately a full day wide (not a single instant) so a
@@ -156,6 +157,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, touch1, touch2 });
   } catch (e) {
     console.error("Second-order push cron failed:", e);
+    captureServerError(e, { route: "cron/second-order-push" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

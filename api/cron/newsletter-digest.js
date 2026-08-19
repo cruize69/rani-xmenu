@@ -22,6 +22,7 @@ import { MENU_ITEMS } from "../../lib/menu.js";
 import { sendEmail, newsletterDigestEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const BESTSELLERS = MENU_ITEMS.filter(i => i.badge === "bestseller");
 
@@ -64,6 +65,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Newsletter digest cron failed:", e);
+    captureServerError(e, { route: "cron/newsletter-digest" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

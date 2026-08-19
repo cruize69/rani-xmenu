@@ -7,6 +7,7 @@ import { saveLead } from "../../lib/abandonedCart.js";
 import { sendSMS } from "../../lib/notifications.js";
 import { overLimit, clientIp } from "../../lib/rateLimit.js";
 import { VALID_ITEMS } from "../../lib/menu.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const MAX_PER_IP_PER_HOUR = 15;
 const MAX_PER_PHONE_PER_DAY = 3;
@@ -79,6 +80,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error("send-cart-link error:", err);
+    captureServerError(err, { route: "cart/send-cart-link" });
     return res.status(500).json({ error: "Could not send cart link. Please try again." });
   }
 }

@@ -4,6 +4,7 @@
 
 import { kv } from "@vercel/kv";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
+import { captureServerError } from "../lib/sentry.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -62,6 +63,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("Reorder claim error:", err);
+    captureServerError(err, { route: "reorder-claim" });
     return res.status(500).json({ error: "Server error checking voucher." });
   }
 }

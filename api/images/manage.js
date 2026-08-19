@@ -12,6 +12,7 @@ import { IncomingForm } from "formidable";
 import { buffer }    from "micro";
 import fs from "fs";
 import { checkManagerAuth } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 // bodyParser must stay off for multipart upload; DELETE's JSON body is
 // parsed manually below since this config applies to the whole handler.
@@ -96,6 +97,7 @@ async function handleUpload(req, res) {
 
   } catch (err) {
     console.error("Upload error:", err);
+    captureServerError(err, { route: "images/manage", op: "upload" });
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
@@ -127,6 +129,7 @@ async function handleDelete(req, res) {
 
   } catch (err) {
     console.error("Delete error:", err);
+    captureServerError(err, { route: "images/manage", op: "delete" });
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

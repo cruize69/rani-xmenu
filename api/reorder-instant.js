@@ -14,6 +14,7 @@ import { getStripe } from "../lib/syncStripe.js";
 import { overLimit } from "../lib/rateLimit.js";
 import { getOpenStatus } from "../lib/hours.js";
 import { sendNewOrderPush } from "../lib/push.js";
+import { captureServerError } from "../lib/sentry.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -155,6 +156,7 @@ export default async function handler(req, res) {
       }, { idempotencyKey });
     } catch (stripeErr) {
       console.error("1-tap reorder payment failed:", stripeErr);
+      captureServerError(stripeErr, { route: "reorder-instant", stage: "stripe_charge" });
       return res.status(402).json({ error: stripeErr.message || "Payment authentication required. Please check out using Stripe." });
     }
 
@@ -214,6 +216,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("1-tap reorder error:", err);
+    captureServerError(err, { route: "reorder-instant" });
     return res.status(500).json({ error: err.message });
   }
 }

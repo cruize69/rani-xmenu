@@ -7,6 +7,7 @@
 
 import { saveLead } from "../../lib/abandonedCart.js";
 import { overLimit, clientIp } from "../../lib/rateLimit.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 // This endpoint is unauthenticated by necessity (it runs before checkout,
 // where no customer identity exists yet) and the phone/email it stores are
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error("save-draft error:", err);
+    captureServerError(err, { route: "cart/save-draft" });
     // Best-effort — never surface this as a hard failure to the customer.
     return res.status(200).json({ success: false });
   }

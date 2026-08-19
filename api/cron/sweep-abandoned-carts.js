@@ -6,6 +6,7 @@
 import { sweepAbandonedCarts } from "../../lib/abandonedCart.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
@@ -18,6 +19,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, result });
   } catch (err) {
     console.error("Cron sweepAbandonedCarts error:", err);
+    captureServerError(err, { route: "cron/sweep-abandoned-carts" });
     return res.status(500).json({ error: "Sweep failed" });
   }
 }

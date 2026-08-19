@@ -15,6 +15,7 @@ import { getOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { sendEmail, sendSMS, reviewNudgeEmailHtml, reviewNudgeSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
@@ -71,6 +72,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Review nudge cron failed:", e);
+    captureServerError(e, { route: "cron/review-nudge" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

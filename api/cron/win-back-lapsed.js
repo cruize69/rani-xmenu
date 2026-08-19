@@ -43,6 +43,7 @@ import { sendEmail, sendSMS, recordCampaignSent, winBackEmailHtml, winBackSmsBod
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { isCateringOrder } from "../../lib/menu.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -259,6 +260,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Win-back cron failed:", e);
+    captureServerError(e, { route: "cron/win-back-lapsed" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

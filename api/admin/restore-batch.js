@@ -11,6 +11,7 @@
 
 import { checkManagerAuth } from "../../lib/auth.js";
 import { restoreBatch } from "../../lib/backupRestore.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
   } catch (err) {
     console.error("restore-batch failed:", err);
+    captureServerError(err, { route: "admin/restore-batch" });
     return res.status(500).json({ error: err.message || "Restore batch failed." });
   }
 }

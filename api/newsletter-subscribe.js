@@ -13,6 +13,7 @@ import { kv } from "@vercel/kv";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { mintVoucherToken } from "../lib/orders.js";
 import { sendEmail, newsletterWelcomeEmailHtml, recordCampaignSent } from "../lib/notifications.js";
+import { captureServerError } from "../lib/sentry.js";
 
 function isValidEmail(v) {
   return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("Newsletter subscribe failed:", e);
+    captureServerError(e, { route: "newsletter-subscribe" });
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }

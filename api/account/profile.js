@@ -14,6 +14,7 @@
 import { createClerkClient } from "@clerk/backend";
 import { kv }                from "@vercel/kv";
 import { getOrdersByDate, getNYDateString } from "../../lib/orders.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -85,7 +86,10 @@ export default async function handler(req, res) {
     try {
       const u = await clerk.users.getUser(userId);
       userEmail = u.emailAddresses?.find(e => e.id === u.primaryEmailAddressId)?.emailAddress ?? u.emailAddresses?.[0]?.emailAddress ?? null;
-    } catch {}
+    } catch (err) {
+      console.error("account/profile: clerk.users.getUser failed:", err);
+      captureServerError(err, { route: "account/profile", stage: "getUser" });
+    }
 
     const primaryIdsKey = orderIdsKey(userId);
     const [rawProfile, primaryIds, guestOrderIds, rawSavedCard] = await Promise.all([

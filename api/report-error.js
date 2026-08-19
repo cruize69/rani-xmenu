@@ -8,6 +8,7 @@
 
 import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
+import { captureServerError } from "../lib/sentry.js";
 
 // The per-customer cooldown inside reportCheckoutError bounds alerts for one
 // *victim*, but not the number of distinct victims one caller can invent —
@@ -44,6 +45,7 @@ export default async function handler(req, res) {
   } catch (err) {
     // Never let error reporting itself become a customer-visible failure.
     console.error("report-error endpoint failed:", err);
+    captureServerError(err, { route: "report-error" });
     return res.status(200).json({ success: false });
   }
 }

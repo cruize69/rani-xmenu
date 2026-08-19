@@ -7,6 +7,7 @@ import { kv } from "@vercel/kv";
 import { getOrdersByDate, getNYDateString } from "../lib/orders.js";
 import { syncStripeSessions } from "../lib/syncStripe.js";
 import { checkManagerAuth } from "../lib/auth.js";
+import { captureServerError } from "../lib/sentry.js";
 
 // Food cost weights for COGS estimation
 const FOOD_COST_WEIGHTS = {
@@ -74,13 +75,17 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Analytics error:", err);
+    captureServerError(err, { route: "analytics" });
     return res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 }
 
 // ── Data fetchers ─────────────────────────────────────────────────
 async function fetchOrderRange(days) {
-  syncStripeSessions().catch(err => console.error("Stripe sync error in analytics:", err));
+  syncStripeSessions().catch(err => {
+    console.error("Stripe sync error in analytics:", err);
+    captureServerError(err, { route: "analytics", stage: "stripe_sync" });
+  });
 
   const today = new Date();
   const datePromises = [];
@@ -129,6 +134,7 @@ async function fetchDrafts(days) {
       .map(d => (typeof d === "string" ? JSON.parse(d) : d));
   } catch (e) {
     console.error("Failed to fetch draft carts:", e);
+    captureServerError(e, { route: "analytics", stage: "fetch_drafts" });
     return [];
   }
 }

@@ -21,6 +21,7 @@ import { mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, neverOrderedNudgeEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const MIN_AGE_DAYS = 5;
 const MAX_PER_RUN = 200;
@@ -77,6 +78,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("Never-ordered nudge cron failed:", e);
+    captureServerError(e, { route: "cron/never-ordered-nudge" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

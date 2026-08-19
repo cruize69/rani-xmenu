@@ -14,6 +14,7 @@ import { kv } from "@vercel/kv";
 import { runBlogGenerationPipeline } from "../../lib/blogGeneration.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";
+import { captureServerError } from "../../lib/sentry.js";
 
 const INBOX_PREFIX = "blog-inbox/";
 // Safety-net TTL on the dedup flag — long enough that a folder is never
@@ -84,6 +85,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("blog-draft-check cron failed:", e);
+    captureServerError(e, { route: "cron/blog-draft-check" });
     return res.status(500).json({ error: "Cron failed" });
   }
 }

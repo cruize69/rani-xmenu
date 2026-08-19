@@ -1,5 +1,5 @@
 // api/cron/backup-orders.js
-// Vercel Cron target — runs weekly. Vercel KV (Upstash Redis) is the ONLY
+// Vercel Cron target — runs daily. Vercel KV (Upstash Redis) is the ONLY
 // datastore for every order this restaurant has ever taken — there is no
 // relational database, no export, no secondary write path anywhere else
 // in this codebase. If that one Redis instance were ever lost or the
@@ -7,7 +7,11 @@
 // would still have the payment records, but the restaurant's own
 // operational history would not exist anywhere. This closes that gap.
 //
-// This is the automated ROLLING safety net (last 8 days, weekly) — a
+// This is the automated ROLLING safety net (last 8 days, daily — bumped
+// from weekly after an infra audit flagged that a week of exposure between
+// automatic snapshots was too wide a gap; the 8-day lookback window was
+// already comfortably larger than needed for a weekly cadence, so it's
+// left as-is rather than shrunk, keeping a built-in overlap margin) — a
 // separate, deliberate thing from the complete on-demand backup a manager
 // can trigger anytime from Sales Dashboard's "Back Up Now" button
 // (api/admin/backup-now.js -> lib/backupRestore.js's runFullOrderBackup).
@@ -37,10 +41,10 @@ async function alertStaffBackupFailed(message) {
   await Promise.allSettled([
     sendEmail({
       to: STAFF_EMAILS,
-      subject: "⚠️ Weekly order backup failed",
-      html: `<p>The weekly encrypted order-data backup (api/cron/backup-orders.js) failed to run.</p><p><strong>Error:</strong> ${message}</p><p>This does not affect live ordering — it only means this week's backup snapshot wasn't taken. Worth a look if it happens more than once in a row, or trigger a manual one from Sales Dashboard &gt; Backup &amp; Restore in the meantime.</p>`,
+      subject: "⚠️ Daily order backup failed",
+      html: `<p>The daily encrypted order-data backup (api/cron/backup-orders.js) failed to run.</p><p><strong>Error:</strong> ${message}</p><p>This does not affect live ordering — it only means today's backup snapshot wasn't taken. Worth a look if it happens more than once in a row, or trigger a manual one from Sales Dashboard &gt; Backup &amp; Restore in the meantime.</p>`,
     }),
-    sendStaffSMS(`Rani Mahal: Weekly order backup failed — ${message.slice(0, 100)}. Live ordering is unaffected.`),
+    sendStaffSMS(`Rani Mahal: Daily order backup failed — ${message.slice(0, 100)}. Live ordering is unaffected.`),
   ]);
 }
 
