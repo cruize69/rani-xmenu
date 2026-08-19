@@ -91,7 +91,10 @@ export default function OrderManager() {
   const [lastRefresh, setLastRefresh]     = useState(new Date());
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [refundOrder, setRefundOrder]     = useState(null);
-  const [isWide, setIsWide]               = useState(() => window.innerWidth >= 1024);
+  // 768px, not 1024 — see manager.css's matching media query comment for
+  // why: most tablets in landscape are well under 1024px wide, so the old
+  // threshold effectively made the 2-panel layout desktop-only.
+  const [isWide, setIsWide]               = useState(() => window.innerWidth >= 768);
   const [newAlert, setNewAlert]           = useState(null);
   const prevIds                           = useRef(new Set());
   const [pushStatus, setPushStatus]       = useState("checking"); // checking | unsupported | default | denied | subscribed
@@ -99,7 +102,7 @@ export default function OrderManager() {
 
   // Viewport tracking
   useEffect(() => {
-    const fn = () => setIsWide(window.innerWidth >= 1024);
+    const fn = () => setIsWide(window.innerWidth >= 768);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);

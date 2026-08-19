@@ -35,6 +35,16 @@ export function useWakeLock(enabled = true) {
           return;
         }
         sentinelRef.current = sentinel;
+        // Some browsers (seen on older Android/Chromium builds) release the
+        // lock for reasons other than a visibility change — battery saver
+        // kicking in, an OS-level power event — without ever firing
+        // visibilitychange. That release event is the one thing every
+        // implementation fires regardless of cause, so re-acquire from it
+        // directly instead of only trusting visibilitychange to catch it.
+        sentinel.addEventListener("release", () => {
+          if (sentinelRef.current === sentinel) sentinelRef.current = null;
+          if (!cancelled && document.visibilityState === "visible") acquire();
+        });
       } catch {
         // Request can legitimately fail (tab not visible yet, battery
         // saver, etc.) — the visibilitychange listener below retries once
@@ -49,8 +59,19 @@ export function useWakeLock(enabled = true) {
     acquire();
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    // Belt-and-braces heartbeat: on top of the release-event and
+    // visibilitychange re-acquisition above, periodically check whether the
+    // lock has silently gone missing (sentinelRef null while the page is
+    // visible) and re-request it. Catches anything neither of those two
+    // signals fired for — cheap, and the request itself is a no-op if a
+    // lock is already held.
+    const heartbeat = setInterval(() => {
+      if (!sentinelRef.current && document.visibilityState === "visible") acquire();
+    }, 30000);
+
     return () => {
       cancelled = true;
+      clearInterval(heartbeat);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       sentinelRef.current?.release().catch(() => {});
       sentinelRef.current = null;

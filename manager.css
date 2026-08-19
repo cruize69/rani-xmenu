@@ -14,8 +14,8 @@
   --rm-subheader-bg:     rgba(10, 8, 14, 0.88);
   --rm-subheader-border: rgba(255, 255, 255, 0.06);
 
-  --rm-card-bg:          rgba(255, 255, 255, 0.04);
-  --rm-card-bg-hover:    rgba(255, 255, 255, 0.065);
+  --rm-card-bg:          rgba(255, 255, 255, 0.07);
+  --rm-card-bg-hover:    rgba(255, 255, 255, 0.1);
   --rm-card-border:      rgba(255, 255, 255, 0.09);
   --rm-card-shadow:      0 2px 12px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --rm-card-shadow-sel:  0 0 0 2px var(--rm-gold-primary), 0 8px 32px rgba(200, 133, 58, 0.2);
@@ -128,7 +128,6 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   flex-shrink: 0;
   height: var(--rm-header-h);
   background: var(--rm-header-bg);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--rm-header-border);
   padding: 0 20px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -192,7 +191,6 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   flex-shrink: 0;
   height: var(--rm-subheader-h);
   background: var(--rm-subheader-bg);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--rm-subheader-border);
   display: flex; align-items: center;
   padding: 0 20px; gap: 8px;
@@ -257,14 +255,19 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   scrollbar-color: var(--rm-scroll-thumb) transparent;
   border-left: 1px solid var(--rm-panel-border);
   background: var(--rm-panel-bg);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
 }
 .rm-right-pane::-webkit-scrollbar { width: 5px; }
 .rm-right-pane::-webkit-scrollbar-thumb { background: var(--rm-scroll-thumb); border-radius: 3px; }
 
-@media (min-width: 1024px) {
-  .rm-left-rail { width: 36%; border-right: 1px solid var(--rm-divider); padding: 16px 12px 16px 16px; }
-  .rm-right-pane { display: flex; flex-direction: column; width: 64%; }
+/* 768px (not 1024px) — most tablets, including a lot of common 8-10"
+   Android units in landscape, report a CSS width well under 1024. At
+   1024px this whole 2-panel layout was effectively desktop-only, and
+   every tablet fell back to the single-column mobile view regardless of
+   actual usable screen space. Matches OrderManager.jsx's isWide check —
+   keep both in sync if either changes. */
+@media (min-width: 768px) {
+  .rm-left-rail { width: 38%; border-right: 1px solid var(--rm-divider); padding: 16px 10px 16px 14px; }
+  .rm-right-pane { display: flex; flex-direction: column; width: 62%; }
 }
 
 /* ── Queue Cards (Compact) ────────────────────────────────────── */
@@ -273,7 +276,6 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 .rm-queue-card {
   position: relative;
   background: var(--rm-card-bg);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--rm-card-border);
   border-radius: 14px;
   padding: 13px 14px 12px 20px;
@@ -475,7 +477,6 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   padding: 12px 16px max(14px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--rm-divider);
   background: var(--rm-panel-bg);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   display: flex; align-items: center; gap: 8px;
   flex-wrap: wrap;       /* allow wrapping into 2 rows on mobile screens */
 }
@@ -560,8 +561,7 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 /* ── Slide-Over Drawer (<1024px) ──────────────────────────────── */
 .rm-drawer-backdrop {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px);
-  animation: rm-fade-in 0.2s ease;
+  background: rgba(0, 0, 0, 0.65);animation: rm-fade-in 0.2s ease;
 }
 .rm-drawer {
   position: absolute; right: 0; top: 0; bottom: 0;
@@ -597,8 +597,7 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 /* ── New Order Alert Overlay ──────────────────────────────────── */
 .rm-alert-overlay {
   position: fixed; inset: 0; z-index: 500;
-  background: rgba(160, 70, 8, 0.92); backdrop-filter: blur(10px);
-  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(160, 70, 8, 0.92);display: flex; align-items: center; justify-content: center; padding: 24px;
   animation: rm-alert-flash 0.5s ease;
 }
 @keyframes rm-alert-flash {
@@ -614,8 +613,7 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
 /* ── Refund Modal ─────────────────────────────────────────────── */
 .rm-modal-backdrop {
   position: fixed; inset: 0; z-index: 300;
-  background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px);
-  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(0, 0, 0, 0.78);display: flex; align-items: center; justify-content: center; padding: 16px;
 }
 .rm-modal-card {
   background: #FFFFFF; color: #1F1710; border-radius: 22px;
