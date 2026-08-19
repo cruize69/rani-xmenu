@@ -7,16 +7,21 @@
 // would still have the payment records, but the restaurant's own
 // operational history would not exist anywhere. This closes that gap.
 //
-// Backs up the last 8 days of orders (one day of overlap past the 7-day
-// cadence, so a single missed/failed run can't leave a silent gap between
-// backups) as one encrypted JSON blob per run. Encrypted before upload —
-// see lib/backupCrypto.js for why: Vercel Blob has no private-access tier,
-// so an unencrypted dump of customer names/phones/emails/addresses would
-// be reachable by anyone who ever obtained or guessed the URL.
+// This is the automated ROLLING safety net (last 8 days, weekly) — a
+// separate, deliberate thing from the complete on-demand backup a manager
+// can trigger anytime from Sales Dashboard's "Back Up Now" button
+// (api/admin/backup-now.js -> lib/backupRestore.js's runFullOrderBackup).
+// Keeping these two paths distinct means a manual "before I do something
+// risky" backup can never be confused with this automatic incremental
+// one, or vice versa.
+//
+// Encrypted before upload — see lib/backupCrypto.js for why: Vercel Blob
+// has no private-access tier, so an unencrypted dump of customer names/
+// phones/emails/addresses would be reachable by anyone who ever obtained
+// or guessed the URL.
 
-import { put } from "@vercel/blob";
 import { getOrdersByDate, getNYDateString } from "../../lib/orders.js";
-import { encryptJSON } from "../../lib/backupCrypto.js";
+import { runIncrementalOrderBackup } from "../../lib/backupRestore.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { captureServerError } from "../../lib/sentry.js";
@@ -33,7 +38,7 @@ async function alertStaffBackupFailed(message) {
     sendEmail({
       to: STAFF_EMAILS,
       subject: "⚠️ Weekly order backup failed",
-      html: `<p>The weekly encrypted order-data backup (api/cron/backup-orders.js) failed to run.</p><p><strong>Error:</strong> ${message}</p><p>This does not affect live ordering — it only means this week's backup snapshot wasn't taken. Worth a look if it happens more than once in a row.</p>`,
+      html: `<p>The weekly encrypted order-data backup (api/cron/backup-orders.js) failed to run.</p><p><strong>Error:</strong> ${message}</p><p>This does not affect live ordering — it only means this week's backup snapshot wasn't taken. Worth a look if it happens more than once in a row, or trigger a manual one from Sales Dashboard &gt; Backup &amp; Restore in the meantime.</p>`,
     }),
     sendStaffSMS(`Rani Mahal: Weekly order backup failed — ${message.slice(0, 100)}. Live ordering is unaffected.`),
   ]);
@@ -67,25 +72,14 @@ export default async function handler(req, res) {
 
     const today = getNYDateString();
     const dateStrs = Array.from({ length: BACKUP_WINDOW_DAYS }, (_, i) => addDaysToDateStr(today, -i));
+    const dateRange = { from: dateStrs[dateStrs.length - 1], to: dateStrs[0] };
 
     const dayResults = await Promise.all(dateStrs.map((d) => getOrdersByDate(d)));
     const orders = dayResults.flat();
 
-    const payload = {
-      backedUpAt: new Date().toISOString(),
-      dateRange: { from: dateStrs[dateStrs.length - 1], to: dateStrs[0] },
-      orderCount: orders.length,
-      orders,
-    };
+    const blob = await runIncrementalOrderBackup(orders, dateRange);
 
-    const encrypted = encryptJSON(payload);
-    const pathname = `backups/orders/${today}_${orders.length}orders.json.enc`;
-    const blob = await put(pathname, encrypted, {
-      access: "public", // Vercel Blob has no other tier — content is encrypted, see header comment
-      contentType: "text/plain",
-    });
-
-    const result = { ok: true, orderCount: orders.length, dateRange: payload.dateRange, blobUrl: blob.url };
+    const result = { ok: true, orderCount: orders.length, dateRange, blobUrl: blob.url };
     await recordCronRun("backup-orders", result);
     return res.status(200).json(result);
   } catch (err) {

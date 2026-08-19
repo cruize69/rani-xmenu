@@ -971,6 +971,219 @@ function CronStatusBoard() {
 // receipts/texts, or a customer name; api/order-lookup.js figures out
 // which and picks the cheapest matching strategy. Deliberately read-only:
 // no status/print/refund actions here, this is a lookup tool.
+// ── Backup & Restore ──────────────────────────────────────────────
+// Backup is genuinely one click, no confirmation — it's read-only and can
+// never hurt anything. Restore deliberately is NOT one click: it always
+// shows a preview (what's in the file vs. what's live right now) before
+// anything happens, and requires an explicit confirm. The restore itself
+// is a MERGE (add-missing / update-if-newer), never a wipe-and-replace —
+// see lib/backupRestore.js's header comment for the full reasoning. That
+// safety guarantee is stated in plain language right in this UI, not just
+// buried in code, so whoever's about to click it actually knows what it
+// will and won't do.
+const RESTORE_COLOR = "#EF4444";
+const RESTORE_SOFT = "rgba(239, 68, 68, 0.1)";
+
+function formatBytes(n) {
+  if (!n) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function BackupRestoreTab() {
+  const [backups, setBackups] = useState(null);
+  const [backupsError, setBackupsError] = useState(null);
+  const [backupNow, setBackupNow] = useState({ status: "idle" }); // idle | running | done | error
+
+  // Restore is its own small state machine: idle -> previewing -> preview
+  // (shown, waiting for confirm) -> confirming -> running -> done | error
+  const [restore, setRestore] = useState({ step: "idle" });
+
+  const loadBackups = useCallback(async () => {
+    setBackupsError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/backup-list`, { headers: { "x-manager-secret": getManagerSecret() } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setBackups(data.backups || []);
+    } catch (err) {
+      setBackupsError(err.message);
+    }
+  }, []);
+
+  useEffect(() => { loadBackups(); }, [loadBackups]);
+
+  const runBackupNow = async () => {
+    setBackupNow({ status: "running" });
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/backup-now`, { method: "POST", headers: { "x-manager-secret": getManagerSecret() } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setBackupNow({ status: "done", orderCount: data.orderCount });
+      loadBackups();
+    } catch (err) {
+      setBackupNow({ status: "error", message: err.message });
+    }
+  };
+
+  const startPreview = async (backup) => {
+    setRestore({ step: "loading-preview", backup });
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/restore-preview?pathname=${encodeURIComponent(backup.pathname)}`, {
+        headers: { "x-manager-secret": getManagerSecret() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setRestore({ step: "preview", backup, preview: data });
+    } catch (err) {
+      setRestore({ step: "error", message: err.message });
+    }
+  };
+
+  const runRestore = async () => {
+    const { backup } = restore;
+    setRestore((prev) => ({ ...prev, step: "running", added: 0, updated: 0, skipped: 0, processed: 0, total: 0 }));
+    let cursor = 0;
+    let totals = { added: 0, updated: 0, skipped: 0, processed: 0 };
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await fetch(`${API_BASE}/api/admin/restore-batch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-manager-secret": getManagerSecret() },
+          body: JSON.stringify({ pathname: backup.pathname, cursor, confirm: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        totals = {
+          added: totals.added + data.added,
+          updated: totals.updated + data.updated,
+          skipped: totals.skipped + data.skipped,
+          processed: totals.processed + data.processed,
+        };
+        setRestore((prev) => ({ ...prev, ...totals, total: data.total }));
+        if (data.done) break;
+        cursor = data.nextCursor;
+      }
+      setRestore((prev) => ({ ...prev, step: "done" }));
+    } catch (err) {
+      setRestore((prev) => ({ ...prev, step: "error", message: err.message }));
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+
+      {/* ── Backup zone — calm, one click ── */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>💾 Backup</h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+          Encrypted snapshot of every order. Safe to run anytime, as often as you like — read-only, never touches live data.
+          A weekly automatic backup also runs on its own; this is for whenever you want one on demand.
+        </p>
+        <button
+          onClick={runBackupNow}
+          disabled={backupNow.status === "running"}
+          style={{ height: 40, padding: "0 20px", borderRadius: 10, background: ACCENT, border: "none", color: "#080706", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: backupNow.status === "running" ? 0.7 : 1 }}
+        >
+          {backupNow.status === "running" ? "Backing up…" : "💾 Back Up Now"}
+        </button>
+        {backupNow.status === "done" && (
+          <p style={{ fontSize: 12.5, color: "#6EE7B7", marginTop: 10 }}>✓ Backed up {backupNow.orderCount.toLocaleString()} orders.</p>
+        )}
+        {backupNow.status === "error" && (
+          <p style={{ fontSize: 12.5, color: RESTORE_COLOR, marginTop: 10 }}>⚠️ {backupNow.message}</p>
+        )}
+
+        <div style={{ marginTop: 18, borderTop: `1px solid ${CARD_BORDER}`, paddingTop: 14 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Available backups</p>
+          {backupsError && <p style={{ fontSize: 12.5, color: RESTORE_COLOR }}>⚠️ {backupsError}</p>}
+          {backups === null && !backupsError && <p style={{ fontSize: 12.5, color: TEXT_MUTED }}>Loading…</p>}
+          {backups?.length === 0 && <p style={{ fontSize: 12.5, color: TEXT_MUTED }}>No backups yet — click "Back Up Now" above.</p>}
+          {backups && backups.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {backups.map((b) => (
+                <div key={b.pathname} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.02)", border: `1px solid ${CARD_BORDER}`, borderRadius: 10, fontSize: 12.5 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: TEXT_MAIN, fontWeight: 600 }}>{new Date(b.uploadedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</div>
+                    <div style={{ color: TEXT_MUTED, fontSize: 11 }}>{b.pathname.replace("backups/orders/", "")} · {formatBytes(b.size)}</div>
+                  </div>
+                  <button
+                    onClick={() => startPreview(b)}
+                    style={{ flexShrink: 0, height: 32, padding: "0 14px", borderRadius: 8, background: RESTORE_SOFT, border: `1px solid ${RESTORE_COLOR}`, color: RESTORE_COLOR, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Restore from this
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Restore zone — only appears once a backup is selected; staged, not instant ── */}
+      {restore.step !== "idle" && (
+        <div style={{ background: RESTORE_SOFT, border: `1px solid ${RESTORE_COLOR}`, borderRadius: 16, padding: 20 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: RESTORE_COLOR, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>⚠️ Restore</h3>
+
+          {restore.step === "loading-preview" && <p style={{ fontSize: 13, color: TEXT_MUTED }}>Reading backup file…</p>}
+
+          {restore.step === "preview" && (
+            <>
+              <p style={{ fontSize: 13, color: TEXT_MAIN, lineHeight: 1.6, marginBottom: 14 }}>
+                This backup has <strong>{restore.preview.backup.orderCount.toLocaleString()} orders</strong>
+                {restore.preview.backup.dateRange ? ` from ${restore.preview.backup.dateRange.from} to ${restore.preview.backup.dateRange.to}` : ""}.
+                Your live database currently has <strong>{restore.preview.live.orderCount.toLocaleString()} orders</strong>
+                {restore.preview.live.dateRange ? ` from ${restore.preview.live.dateRange.from} to ${restore.preview.live.dateRange.to}` : ""}.
+                <br /><br />
+                Restoring will <strong>add</strong> any order in the backup that's missing live, and <strong>update</strong> any order
+                where the backup's copy is newer. It will <strong>not delete or overwrite</strong> anything currently in your live
+                database that isn't in this backup file.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={runRestore} style={{ height: 40, padding: "0 20px", borderRadius: 10, background: RESTORE_COLOR, border: "none", color: "#FFF", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                  Confirm Restore
+                </button>
+                <button onClick={() => setRestore({ step: "idle" })} style={{ height: 40, padding: "0 20px", borderRadius: 10, background: "none", border: `1px solid ${CARD_BORDER}`, color: TEXT_MUTED, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+
+          {restore.step === "running" && (
+            <>
+              <p style={{ fontSize: 13, color: TEXT_MAIN, marginBottom: 10 }}>
+                Restoring… {restore.processed?.toLocaleString() ?? 0} / {restore.total?.toLocaleString() ?? "?"} processed
+              </p>
+              <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 10 }}>
+                <div style={{ height: "100%", width: `${restore.total ? (restore.processed / restore.total) * 100 : 5}%`, background: RESTORE_COLOR, transition: "width 0.3s ease" }} />
+              </div>
+              <p style={{ fontSize: 12, color: TEXT_MUTED }}>{restore.added ?? 0} added · {restore.updated ?? 0} updated · {restore.skipped ?? 0} already current</p>
+            </>
+          )}
+
+          {restore.step === "done" && (
+            <>
+              <p style={{ fontSize: 13, color: "#6EE7B7", fontWeight: 700, marginBottom: 6 }}>✓ Restore complete</p>
+              <p style={{ fontSize: 12.5, color: TEXT_MUTED, marginBottom: 14 }}>{restore.added} added · {restore.updated} updated · {restore.skipped} already up to date</p>
+              <button onClick={() => setRestore({ step: "idle" })} style={{ height: 36, padding: "0 16px", borderRadius: 8, background: "none", border: `1px solid ${CARD_BORDER}`, color: TEXT_MUTED, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Done</button>
+            </>
+          )}
+
+          {restore.step === "error" && (
+            <>
+              <p style={{ fontSize: 13, color: RESTORE_COLOR, marginBottom: 14 }}>⚠️ {restore.message}</p>
+              <button onClick={() => setRestore({ step: "idle" })} style={{ height: 36, padding: "0 16px", borderRadius: 8, background: "none", border: `1px solid ${CARD_BORDER}`, color: TEXT_MUTED, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Close</button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OrderLookupTab() {
   const [q, setQ] = useState("");
   const [state, setState] = useState({ status: "idle" }); // idle | loading | error | done
@@ -1350,6 +1563,7 @@ export default function SalesDashboard() {
             ["recovery", "🛒 Cart Recovery"],
             ["campaigns", "📣 Campaigns"],
             ["lookup", "🔍 Order Lookup"],
+            ["backup", "💾 Backup & Restore"],
           ].map(([k, lbl]) => (
             <button key={k} ref={tab === k ? activeTabRef : null} onClick={() => setTab(k)}
               style={{
@@ -1382,6 +1596,8 @@ export default function SalesDashboard() {
           // Also independent — search-triggered, not tied to the date-range
           // picker or the main /api/analytics load at all.
           <OrderLookupTab />
+        ) : tab === "backup" ? (
+          <BackupRestoreTab />
         ) : loading ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: TEXT_MUTED }}>
             <div style={{ fontSize: 24, marginBottom: 12 }}>⚡ Compiling Sales Intelligence...</div>
