@@ -201,9 +201,42 @@ function AccountPortalPage({
   getToken,
   signOut,
   openSignIn,
+  draftId,
 }) {
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState(() => (isSignedIn ? "loading" : "signed-out"));
+  // Set only when openSignIn() itself fails — a real customer hit this
+  // (order #INIHF, Aug 19 2026: signed-in attempt errored, order completed
+  // as a guest instead) with nothing visible to them or to us. openSignIn
+  // can fail for reasons entirely outside our control (an ad blocker or
+  // Safari ITP blocking Clerk's script/cookie, a transient Clerk outage),
+  // but the customer still deserves to know they can keep ordering as a
+  // guest instead of silently wondering if the button is just broken.
+  const [signInError, setSignInError] = useState(false);
+
+  async function handleSignInClick() {
+    setSignInError(false);
+    try {
+      await openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href });
+    } catch (err) {
+      setSignInError(true);
+      // Public, unauthenticated, rate-limited endpoint — same one checkout
+      // errors already funnel through (api/report-error.js). Not
+      // identifiable at this point (no cart draft with contact info yet
+      // necessarily), so this won't trigger a staff SMS, but it does land
+      // in Sentry now via reportCheckoutError — this whole fix exists
+      // because that visibility didn't exist before.
+      fetch("/api/report-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftId: draftId || "no-draft-account-portal",
+          source: "clerk-sign-in",
+          message: err?.message || String(err),
+        }),
+      }).catch(() => {});
+    }
+  }
 
   // Order history is only ever shown for a verified signed-in account — a
   // bare guest email is not proof of identity, so there's no server-side
@@ -289,7 +322,7 @@ function AccountPortalPage({
           {openSignIn && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 6 }}>
               <button
-                onClick={() => openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href })}
+                onClick={handleSignInClick}
                 style={{
                   padding: "12px 28px",
                   background: "#E8A82E",
@@ -311,6 +344,11 @@ function AccountPortalPage({
               >
                 <span>🔑 Sign In / Create Account</span>
               </button>
+              {signInError && (
+                <p style={{ fontSize: 12, color: "#E8A82E", marginTop: 10, textAlign: "center", maxWidth: 260, lineHeight: 1.5 }}>
+                  Couldn't open sign-in right now — no worries, you can still order as a guest below. (If this keeps happening, an ad blocker or browser privacy setting may be blocking it.)
+                </p>
+              )}
             </div>
           )}
 
@@ -577,7 +615,8 @@ export default function AccountPortal({
   onStartOrder = () => {},
   onReorder = () => {},
   cloudImages = {},
+  draftId = null,
 }) {
-  const props = { onStartOrder, onReorder, cloudImages };
+  const props = { onStartOrder, onReorder, cloudImages, draftId };
   return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }

@@ -789,6 +789,7 @@ export default function RaniMahal() {
         onReorder={reorderFromOrder}
         onQuickAdd={quickAddFavorite}
         cloudImages={cloudImages}
+        draftId={draftIdRef.current}
       />
     );
   }
