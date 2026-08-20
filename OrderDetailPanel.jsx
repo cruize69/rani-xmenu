@@ -201,6 +201,9 @@ export default function OrderDetailPanel({
           </div>
         )}
         <div className="rm-fin-row"><span>Tax (8.375%)</span><span>{fmt(order.tax)}</span></div>
+        {order.tip > 0 && (
+          <div className="rm-fin-row"><span>Tip</span><span>{fmt(order.tip)}</span></div>
+        )}
         <div className="rm-fin-total"><span>Total</span><span>{fmt(order.total)}</span></div>
         {order.refundedTotal > 0 && (
           <div className="rm-fin-row" style={{ color: "#FCA5A5", marginTop: 6 }}>
