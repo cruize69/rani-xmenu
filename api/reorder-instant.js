@@ -4,7 +4,12 @@
 // PCI-DSS COMPLIANT: Uses Stripe PaymentIntents API with off_session=true and
 // vaulted payment_method tokens. No cardholder data ever touches server storage.
 
-import { createClerkClient } from "@clerk/backend";
+// @clerk/backend v3 removed clerkClient.verifyToken() (Core 3 breaking
+// change) — verifyToken is now only a standalone export, taking secretKey
+// as an explicit option instead of reading it off a pre-built client. This
+// file never used createClerkClient for anything else, so it's dropped
+// entirely rather than kept around just to hold a secret key.
+import { verifyToken } from "@clerk/backend";
 import crypto from "crypto";
 import { kv } from "../lib/kv.js";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
@@ -15,8 +20,6 @@ import { overLimit } from "../lib/rateLimit.js";
 import { getOpenStatus } from "../lib/hours.js";
 import { sendNewOrderPush } from "../lib/push.js";
 import { captureServerError } from "../lib/sentry.js";
-
-const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 const STRIPE_PCT = 0.029;
 const STRIPE_FLAT = 0.30;
@@ -31,7 +34,7 @@ async function resolveIdentity(req) {
   if (authHeader.startsWith("Bearer ")) {
     try {
       const token = authHeader.slice(7);
-      const payload = await clerk.verifyToken(token);
+      const payload = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
       return { type: "user", userId: payload.sub };
     } catch {
       return null;

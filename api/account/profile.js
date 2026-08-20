@@ -11,7 +11,7 @@
 // Setup: npm install @clerk/backend
 //        Add CLERK_SECRET_KEY to Vercel env vars
 
-import { createClerkClient } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import { kv }                from "../../lib/kv.js";
 import { getOrdersByDate, getNYDateString } from "../../lib/orders.js";
 import { captureServerError } from "../../lib/sentry.js";
@@ -22,7 +22,7 @@ async function resolveUserId(req) {
   const authHeader = req.headers["authorization"] ?? "";
   if (!authHeader.startsWith("Bearer ")) return null;
   try {
-    const payload = await clerk.verifyToken(authHeader.slice(7));
+    const payload = await verifyToken(authHeader.slice(7), { secretKey: process.env.CLERK_SECRET_KEY });
     return payload.sub;
   } catch {
     return null; // invalid token

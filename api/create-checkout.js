@@ -9,7 +9,7 @@
 
 import Stripe from "stripe";
 import crypto from "crypto";
-import { createClerkClient } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE, CATERING_ITEM_IDS } from "../lib/menu.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
@@ -32,7 +32,7 @@ async function resolveVerifiedClerkUserId(req) {
   const authHeader = req.headers["authorization"] ?? "";
   if (!authHeader.startsWith("Bearer ")) return null;
   try {
-    const payload = await clerk.verifyToken(authHeader.slice(7));
+    const payload = await verifyToken(authHeader.slice(7), { secretKey: process.env.CLERK_SECRET_KEY });
     return payload.sub;
   } catch {
     return null;
