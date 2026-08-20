@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser, useAuth, useClerk } from "@clerk/clerk-react";
 import { PickupIcon, DeliveryIcon } from "./src/components/FulfillmentSheet.jsx";
+import { reportError } from "./src/utils/errorReport.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,400..500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap";
@@ -201,7 +202,6 @@ function AccountPortalPage({
   getToken,
   signOut,
   openSignIn,
-  draftId,
 }) {
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState(() => (isSignedIn ? "loading" : "signed-out"));
@@ -220,21 +220,12 @@ function AccountPortalPage({
       await openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href });
     } catch (err) {
       setSignInError(true);
-      // Public, unauthenticated, rate-limited endpoint — same one checkout
-      // errors already funnel through (api/report-error.js). Not
-      // identifiable at this point (no cart draft with contact info yet
-      // necessarily), so this won't trigger a staff SMS, but it does land
-      // in Sentry now via reportCheckoutError — this whole fix exists
-      // because that visibility didn't exist before.
-      fetch("/api/report-error", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          draftId: draftId || "no-draft-account-portal",
-          source: "clerk-sign-in",
-          message: err?.message || String(err),
-        }),
-      }).catch(() => {});
+      // reportError already does everything this needs — reads the cart
+      // draft id from localStorage itself (same key RaniMahal.jsx writes),
+      // reports to client-side Sentry via captureClientError, AND funnels
+      // through api/report-error.js for the staff-alert path, all in one
+      // call. No draftId prop needed here at all.
+      reportError("clerk-sign-in", err?.message || String(err));
     }
   }
 
@@ -615,8 +606,7 @@ export default function AccountPortal({
   onStartOrder = () => {},
   onReorder = () => {},
   cloudImages = {},
-  draftId = null,
 }) {
-  const props = { onStartOrder, onReorder, cloudImages, draftId };
+  const props = { onStartOrder, onReorder, cloudImages };
   return CLERK_ENABLED ? <ClerkAwareAccountPortal {...props} /> : <GuestOnlyAccountPortal {...props} />;
 }
