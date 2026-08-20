@@ -833,19 +833,40 @@ function timeAgo(iso) {
   return `${days}d ago`;
 }
 
+// Compact one-line summary of a plain object's own fields — "sent=3
+// skipped=1" — used for array elements below rather than dumping the raw
+// object, which JSX would otherwise render as the object's default
+// toString() ("[object Object]").
+function compactObject(obj) {
+  return Object.entries(obj).map(([k, v]) => `${k}=${v}`).join(" ");
+}
+
 // Flattens whatever shape a given cron's lastRun result happens to have
-// (they differ — win-back-lapsed nests touch1/touch2, others are flat)
-// into short "key: value" chips instead of hardcoding a renderer per job.
+// (they differ — win-back-lapsed nests touch1/touch2, others are flat,
+// cultural-calendar's results/blogResults are arrays of one summary
+// object per calendar event) into short "key: value" chips instead of
+// hardcoding a renderer per job.
 function summarizeRun(lastRun) {
   if (!lastRun) return [];
   const chips = [];
   const walk = (obj, prefix = "") => {
     Object.entries(obj).forEach(([k, v]) => {
       if (k === "ranAt") return;
-      if (v && typeof v === "object" && !Array.isArray(v)) {
-        walk(v, prefix ? `${prefix}.${k}` : k);
+      const key = prefix ? `${prefix}.${k}` : k;
+      if (Array.isArray(v)) {
+        // One chip per element rather than one chip for the whole array —
+        // String(array) on an array of objects renders as a useless
+        // "[object Object],[object Object],..." otherwise.
+        v.forEach((item, i) => {
+          chips.push({
+            key: `${key}[${i}]`,
+            value: item && typeof item === "object" ? compactObject(item) : item,
+          });
+        });
+      } else if (v && typeof v === "object") {
+        walk(v, key);
       } else {
-        chips.push({ key: prefix ? `${prefix}.${k}` : k, value: v });
+        chips.push({ key, value: v });
       }
     });
   };
