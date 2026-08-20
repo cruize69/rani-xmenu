@@ -337,56 +337,67 @@ export function FulfillmentSheet({
               outline: "none", boxSizing: "border-box",
             }}
           />
-          {localPhone && (
-            <>
-              {/* Two SEPARATE consents, each its own checkbox/sentence/opt-in
-                  action — required by carrier/TCR review (10DLC campaigns
-                  are rejected if marketing consent is bundled with any other
-                  consent, including a second message type or a ToS
-                  acceptance). Neither checkbox doubles as agreeing to the
-                  Privacy Policy/Terms — those are plain informational links
-                  below, not tied to checking a box. */}
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={localConsent}
-                  onChange={e => setLocalConsent(e.target.checked)}
-                  style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
-                />
-                <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
-                  Text me updates about <strong style={{ color: "#FAF6EF" }}>this order</strong> — confirmation
-                  and prep/delivery status. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.
-                  Optional — you can place your order without checking this box.
-                </span>
-              </label>
+          {/* Always rendered, not gated on localPhone having a value — a
+              Twilio/carrier reviewer verifying this campaign's CTA visits
+              the live checkout and needs to SEE the opt-in language without
+              typing a fake phone number first (the previous rejection was
+              "issues verifying the CTA," and the message-flow answer on
+              file literally said the checkboxes "appear when a customer
+              enters a phone number" — i.e. self-documented as unverifiable
+              without simulating a full checkout). Checking a box with no
+              phone number entered is harmless UX-wise (there's nothing to
+              text yet, and the checkout flow already requires a valid
+              phone before these consents actually take effect on the
+              order), so the checkboxes stay fully interactive rather than
+              disabled — the fix is visibility, not added friction. */}
+          <>
+            {/* Two SEPARATE consents, each its own checkbox/sentence/opt-in
+                action — required by carrier/TCR review (10DLC campaigns
+                are rejected if marketing consent is bundled with any other
+                consent, including a second message type or a ToS
+                acceptance). Neither checkbox doubles as agreeing to the
+                Privacy Policy/Terms — those are plain informational links
+                below, not tied to checking a box. */}
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={localConsent}
+                onChange={e => setLocalConsent(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
+              />
+              <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
+                Text me updates about <strong style={{ color: "#FAF6EF" }}>this order</strong> — confirmation
+                and prep/delivery status. Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.
+                Optional — you can place your order without checking this box.
+              </span>
+            </label>
 
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={localMarketingConsent}
-                  onChange={e => setLocalMarketingConsent(e.target.checked)}
-                  style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
-                />
-                <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
-                  Also send me <strong style={{ color: "#FAF6EF" }}>occasional offers and reminders</strong> by
-                  text — saved-cart nudges, win-back offers, and event promos. Message frequency varies.
-                  Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. Completely optional and
-                  separate from the order-updates option above.
-                </span>
-              </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={localMarketingConsent}
+                onChange={e => setLocalMarketingConsent(e.target.checked)}
+                style={{ marginTop: 2, flexShrink: 0, accentColor: "#E8A82E" }}
+              />
+              <span style={{ fontSize: 11.5, color: "#B8A995", lineHeight: 1.5 }}>
+                Also send me <strong style={{ color: "#FAF6EF" }}>occasional offers and reminders</strong> by
+                text — saved-cart nudges, win-back offers, and event promos. Message frequency varies.
+                Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help. Completely optional and
+                separate from the order-updates option above.
+              </span>
+            </label>
 
-              <p style={{ fontSize: 11, color: "#8A7560", lineHeight: 1.5, marginTop: 8 }}>
-                See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
-                <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
+            <p style={{ fontSize: 11, color: "#8A7560", lineHeight: 1.5, marginTop: 8 }}>
+              See our <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Privacy Policy</a> and{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#E8A82E" }}>Terms</a>.
+            </p>
+            {SMS_PENDING_CARRIER_APPROVAL && (
+              <p style={{ fontSize: 11, color: "#B8A995", lineHeight: 1.5, marginTop: 8, fontStyle: "italic" }}>
+                Text updates are pending carrier approval — should be live very soon. Thanks for your
+                patience, and for supporting a local, family-run kitchen!
               </p>
-              {SMS_PENDING_CARRIER_APPROVAL && (
-                <p style={{ fontSize: 11, color: "#B8A995", lineHeight: 1.5, marginTop: 8, fontStyle: "italic" }}>
-                  Text updates are pending carrier approval — should be live very soon. Thanks for your
-                  patience, and for supporting a local, family-run kitchen!
-                </p>
-              )}
-            </>
-          )}
+            )}
+          </>
         </div>
 
         {/* Order-for-later */}
