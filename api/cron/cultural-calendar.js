@@ -17,7 +17,7 @@
 // with no score filter here since this targets everyone, not just lapsed
 // or first-time customers.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder, getNYDateString } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, culturalEventEmailHtml, culturalEventSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

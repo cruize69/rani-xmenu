@@ -37,7 +37,7 @@
 // later is eligible for a fresh pair of touches, but someone who ignores
 // both won't be re-messaged every day the cron runs.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, winBackEmailHtml, winBackSmsBody, winBackTouch2EmailHtml, winBackTouch2SmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

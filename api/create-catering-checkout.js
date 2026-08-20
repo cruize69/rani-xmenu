@@ -29,7 +29,7 @@ import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
 import { getNYDateString } from "../lib/orders.js";
 import { formatTime } from "../lib/hours.js";
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 

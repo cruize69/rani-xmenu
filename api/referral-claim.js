@@ -13,7 +13,7 @@
 // friend's order actually pays (lib/syncStripe.js's creditReferrer) — not
 // just on link click, so this can't be farmed by repeatedly loading the link.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { mintVoucherToken } from "../lib/orders.js";
 import { recordCampaignSent } from "../lib/notifications.js";
 import { captureServerError } from "../lib/sentry.js";

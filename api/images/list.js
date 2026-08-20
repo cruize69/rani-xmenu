@@ -7,7 +7,7 @@
 // data (menu-item image URLs + upload coverage counts) isn't sensitive, so
 // there's no manager-only variant to gate.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { MENU_ITEMS } from "../../lib/menu.js";
 import { captureServerError } from "../../lib/sentry.js";
 

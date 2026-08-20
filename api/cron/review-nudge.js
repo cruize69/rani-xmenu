@@ -10,7 +10,7 @@
 // Part 465); this earns reviews the compliant way instead: better timing,
 // nothing else.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { sendEmail, sendSMS, reviewNudgeEmailHtml, reviewNudgeSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

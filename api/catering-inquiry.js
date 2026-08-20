@@ -10,7 +10,7 @@
 // stores the inquiry and alerts staff immediately, the same way a new
 // order does, so a human calls back — nothing here touches Stripe.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import crypto from "crypto";
 import { sendEmail, sendStaffSMS, escapeHtml } from "../lib/notifications.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";

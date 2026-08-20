@@ -9,7 +9,7 @@
 // (Vercel KV) rather than just returning 200 unconditionally — a "health"
 // endpoint that can't fail isn't telling you anything.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 
 export default async function handler(req, res) {
   const checks = {};

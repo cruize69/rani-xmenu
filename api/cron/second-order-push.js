@@ -16,7 +16,7 @@
 // who actually places a second order between being enqueued and the cron
 // running is simply excluded, with no separate cancellation logic needed.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder, mintVoucherToken } from "../../lib/orders.js";
 import {
   sendEmail, sendSMS, recordCampaignSent,

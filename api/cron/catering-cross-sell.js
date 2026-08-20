@@ -15,7 +15,7 @@
 // a maintained list, since this only needs to run once daily over a
 // bounded key space.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder } from "../../lib/orders.js";
 import { sendEmail, sendSMS, recordCampaignSent, cateringCrossSellEmailHtml, cateringCrossSellSmsBody } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

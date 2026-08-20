@@ -2,7 +2,7 @@
 // GET /api/reorder-claim?token=TOKEN
 // Validates a one-time 10% reorder token and returns items to preload.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { captureServerError } from "../lib/sentry.js";
 

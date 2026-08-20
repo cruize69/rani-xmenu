@@ -7,7 +7,7 @@
 // a cart-preload link (?add=catering-item-id:headcount) always resolves to
 // a real item at the real price.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { CATERING_PACKAGES, CATERING_ITEMS, CATERING_MINIMUMS, CATERING_ORDER_MINIMUM, CATERING_TIER_LABELS } from "../lib/menu.js";
 
 const ITEM_BY_ID = Object.fromEntries(CATERING_ITEMS.map(i => [i.id, i]));

@@ -3,7 +3,7 @@
 // Vercel config: { api: { bodyParser: false } } required for signature verification
 
 import { buffer } from "micro";
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { getOrCreateOrderForSession, getStripe } from "../lib/syncStripe.js";
 import { reportPaidOrderBuildFailed } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";

@@ -3,7 +3,7 @@
 // Returns aggregated sales data + customer list for SalesDashboard
 // Protected by MANAGER_SECRET
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { getOrdersByDate, getNYDateString } from "../lib/orders.js";
 import { syncStripeSessions } from "../lib/syncStripe.js";
 import { checkManagerAuth } from "../lib/auth.js";

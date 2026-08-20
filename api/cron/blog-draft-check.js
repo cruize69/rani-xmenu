@@ -10,7 +10,7 @@
 // run once daily over what's realistically a handful of folders a month.
 
 import { list } from "@vercel/blob";
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { runBlogGenerationPipeline } from "../../lib/blogGeneration.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { isCronSecretValid } from "../../lib/auth.js";

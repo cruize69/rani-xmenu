@@ -11,7 +11,7 @@
 // good enough to compare touches against each other, not a substitute for
 // real revenue attribution against paid orders.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { checkManagerAuth } from "../lib/auth.js";
 import { captureServerError } from "../lib/sentry.js";
 

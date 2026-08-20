@@ -7,7 +7,7 @@
 // (customer-facing) stays separate.
 
 import { put, del } from "@vercel/blob";
-import { kv }        from "@vercel/kv";
+import { kv }        from "../../lib/kv.js";
 import { IncomingForm } from "formidable";
 import { buffer }    from "micro";
 import fs from "fs";

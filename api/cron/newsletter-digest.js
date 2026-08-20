@@ -17,7 +17,7 @@
 // preventing is the whole batch firing twice if the cron somehow triggers
 // more than once in the same month.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { MENU_ITEMS } from "../../lib/menu.js";
 import { sendEmail, newsletterDigestEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

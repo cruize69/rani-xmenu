@@ -18,7 +18,7 @@
 //      turn into an unbounded scan; a real dispute call is realistically
 //      about something recent.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { getOrder, getNYDateString } from "../lib/orders.js";
 import { checkManagerAuth } from "../lib/auth.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";

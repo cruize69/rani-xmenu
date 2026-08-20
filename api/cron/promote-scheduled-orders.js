@@ -6,7 +6,7 @@
 // order (payment, items, pricing) changes here — it was already fully paid
 // and validated at checkout; this only decides *when the kitchen sees it*.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { getOrder, updateOrder, ORDER_STATUS } from "../../lib/orders.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { sendNewOrderPush } from "../../lib/push.js";

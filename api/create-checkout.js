@@ -18,7 +18,7 @@ import { getNYDateString } from "../lib/orders.js";
 import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
 import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
 

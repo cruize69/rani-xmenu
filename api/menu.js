@@ -9,7 +9,7 @@
 // KV store that ImageManager.jsx (see /images) writes to and RaniMahal.jsx
 // reads on the ordering site — one photo library shared by both properties.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { MENU_ITEMS, SECTIONS } from "../lib/menu.js";
 
 export default async function handler(req, res) {

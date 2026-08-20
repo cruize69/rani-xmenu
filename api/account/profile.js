@@ -12,7 +12,7 @@
 //        Add CLERK_SECRET_KEY to Vercel env vars
 
 import { createClerkClient } from "@clerk/backend";
-import { kv }                from "@vercel/kv";
+import { kv }                from "../../lib/kv.js";
 import { getOrdersByDate, getNYDateString } from "../../lib/orders.js";
 import { captureServerError } from "../../lib/sentry.js";
 
@@ -102,7 +102,7 @@ export default async function handler(req, res) {
     // Merge unique order IDs (primary + guest)
     const combinedIds = Array.from(new Set([...(primaryIds ?? []), ...(guestOrderIds ?? [])]));
 
-    // @vercel/kv auto-deserializes JSON values, so a hit is already an
+    // @upstash/redis auto-deserializes JSON values, so a hit is already an
     // object — only parse when it comes back as a raw string.
     const profile = typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile ?? null);
     const savedCard = typeof rawSavedCard === "string" ? JSON.parse(rawSavedCard) : (rawSavedCard ?? null);

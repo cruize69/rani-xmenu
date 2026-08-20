@@ -16,7 +16,7 @@
 // One-shot per email, forever — there's no "reset on new interest" signal
 // the way win-back has "reset on new order," so this only ever fires once.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../../lib/kv.js";
 import { mintVoucherToken } from "../../lib/orders.js";
 import { sendEmail, neverOrderedNudgeEmailHtml, recordCampaignSent } from "../../lib/notifications.js";
 import { recordCronRun } from "../../lib/cronStatus.js";

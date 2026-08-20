@@ -8,7 +8,7 @@
 // shape varies per job). A job that's never run comes back as null, not
 // omitted, so the dashboard can show "never run" explicitly.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { checkManagerAuth } from "../lib/auth.js";
 import { CRON_JOBS } from "../lib/cronStatus.js";
 import { captureServerError } from "../lib/sentry.js";

@@ -14,7 +14,7 @@
 
 import Stripe from "stripe";
 import crypto from "crypto";
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion, publicOrderView } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
@@ -233,7 +233,7 @@ async function handleDequeue(req, res) {
   const raw = await kv.rpop("print_queue");
   if (!raw) return res.status(200).json({ orderId: null });
   // Queue values are JSON: { id, mode: "new"|"reprint", ticket? } — see
-  // print-bridge.js. @vercel/kv auto-deserializes JSON on read, so `raw`
+  // print-bridge.js. @upstash/redis auto-deserializes JSON on read, so `raw`
   // is usually already an object, not a string — JSON.parse-ing it
   // directly throws and was corrupting orderId. A bare orderId string is
   // the pre-ticket-selection queue format; treat it as a full "new" print

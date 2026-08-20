@@ -6,7 +6,7 @@
 
 import { createClerkClient } from "@clerk/backend";
 import crypto from "crypto";
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { VALID_ITEMS, TAX_RATE } from "../lib/menu.js";
 import { buildOrder, saveOrder } from "../lib/orders.js";
 import { sendOrderEmail, sendOrderSMS, sendCustomerReceiptEmail } from "../lib/notifications.js";

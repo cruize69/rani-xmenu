@@ -9,7 +9,7 @@
 // separate, deliberately minimal namespace (newsletter:{email}) for that
 // audience — no order required, no PII beyond the email itself.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../lib/kv.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { mintVoucherToken } from "../lib/orders.js";
 import { sendEmail, newsletterWelcomeEmailHtml, recordCampaignSent } from "../lib/notifications.js";
