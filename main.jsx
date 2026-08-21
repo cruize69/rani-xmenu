@@ -79,13 +79,39 @@ if (typeof document !== "undefined") {
   }, { passive: false });
 }
 
+// Wraps lazy(() => import(...)) with one automatic self-heal: when a
+// customer has an old tab open across a deploy, the chunk hashes in their
+// already-loaded index.html point at files that no longer exist on the
+// server, and the dynamic import rejects. React surfaces that as
+// "undefined is not an object (evaluating 'e._result.default')" — a
+// message that means nothing to a customer and nothing recoverable about
+// it from their side. It's fully fixable with one reload (a fresh
+// index.html has the current hashes), so do that automatically instead of
+// showing an error screen mid-checkout. Guarded by sessionStorage so a
+// genuinely broken chunk (not just stale) still falls through to
+// ErrorBoundary's manual "Reload Menu" after one auto-attempt, rather than
+// reload-looping forever.
+function lazyWithReload(importFn) {
+  return lazy(() =>
+    importFn().catch((err) => {
+      const key = "rm_chunk_reload_once";
+      if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        window.location.reload();
+        return new Promise(() => {}); // reload is already in flight; never resolve/reject into React
+      }
+      throw err;
+    })
+  );
+}
+
 // Order confirmation is public — Stripe's success_url redirects here.
-const OrderSuccess = lazy(() => import("./OrderSuccess.jsx"));
+const OrderSuccess = lazyWithReload(() => import("./OrderSuccess.jsx"));
 
 // Rani Royal Club explainer — public and linkable so the program can be
 // pointed at from receipts, Google Business, and social. Previously its
 // mechanics were only visible after signing in, so nothing could link to it.
-const Rewards = lazy(() => import("./Rewards.jsx"));
+const Rewards = lazyWithReload(() => import("./Rewards.jsx"));
 
 // Privacy/Terms are NOT SPA routes — vercel.json rewrites /privacy and
 // /terms straight to static public/privacy.html and public/terms.html
@@ -100,11 +126,11 @@ const Rewards = lazy(() => import("./Rewards.jsx"));
 
 // Internal tools — code-split so their JS never ships to customer visits,
 // and gated behind StaffGate (see StaffGate.jsx for why).
-const OrderManager     = lazy(() => import("./OrderManager.jsx"));
-const KitchenDisplay   = lazy(() => import("./KitchenDisplay.jsx"));
-const TvKitchenDisplay = lazy(() => import("./TvKitchenDisplay.jsx"));
-const ImageManager     = lazy(() => import("./ImageManager.jsx"));
-const SalesDashboard   = lazy(() => import("./SalesDashboard.jsx"));
+const OrderManager     = lazyWithReload(() => import("./OrderManager.jsx"));
+const KitchenDisplay   = lazyWithReload(() => import("./KitchenDisplay.jsx"));
+const TvKitchenDisplay = lazyWithReload(() => import("./TvKitchenDisplay.jsx"));
+const ImageManager     = lazyWithReload(() => import("./ImageManager.jsx"));
+const SalesDashboard   = lazyWithReload(() => import("./SalesDashboard.jsx"));
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
