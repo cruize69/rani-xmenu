@@ -8,7 +8,8 @@ import { formatTime, getTimeSlots } from "../../lib/hours.js";
 // campaign is approved and actually sending, then redeploy. Only affects
 // the small heads-up note below the SMS checkboxes; the checkboxes and
 // checkout flow themselves work regardless of this flag.
-const SMS_PENDING_CARRIER_APPROVAL = true;
+// Twilio A2P 10DLC campaign approved 2026-08-20 — text updates are live.
+const SMS_PENDING_CARRIER_APPROVAL = false;
 
 // Phone is persisted (and passed back in via the `phone` prop) as the
 // normalized "+1XXXXXXXXXX" form handleSave() below writes out — showing

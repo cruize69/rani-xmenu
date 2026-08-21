@@ -151,8 +151,17 @@ async function handleGet(req, res) {
 const STATUS_SMS = {
   in_progress: (order) =>
     `Rani Mahal: Great news! Your order #${order.id.slice(-6).toUpperCase()} is now being prepared. We'll text you when it's ready. (914) 835-9066 Reply STOP to opt out.`,
-  done: (order) =>
-    `Rani Mahal: Your order #${order.id.slice(-6).toUpperCase()} is READY for pickup! Come on in — we look forward to seeing you. (914) 835-9066 Reply STOP to opt out.`,
+  // "Mark Ready" (the only real trigger for this — see OrderManager.jsx's
+  // STATUS.new.next) is the same button for both pickup and delivery
+  // orders, but this message unconditionally said "is READY for pickup!
+  // Come on in" regardless — actively wrong for a delivery order, since
+  // the customer isn't coming anywhere, a driver is coming to them. Caught
+  // by reviewing real orders after Twilio approval: two live delivery
+  // orders had already hit "done" today (no SMS sent only because those
+  // two happened to have consent off) before this was noticed.
+  done: (order) => order.orderMode === "delivery"
+    ? `Rani Mahal: Your order #${order.id.slice(-6).toUpperCase()} is ready and heading out for delivery! (914) 835-9066 Reply STOP to opt out.`
+    : `Rani Mahal: Your order #${order.id.slice(-6).toUpperCase()} is READY for pickup! Come on in — we look forward to seeing you. (914) 835-9066 Reply STOP to opt out.`,
 };
 
 async function handleUpdate(req, res) {
