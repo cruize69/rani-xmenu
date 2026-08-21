@@ -344,10 +344,9 @@ export default async function handler(req, res) {
         ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2))
         : canonical.price;
       validatedItems.push({
-        baseId:        raw.baseId,
-        name:          canonical.name,
-        price:         itemPrice,
-        originalPrice: canonical.price,
+        baseId: raw.baseId,
+        name:   canonical.name,
+        price:  itemPrice,
         qty,
         spice:  typeof raw.spice === "string" ? raw.spice.slice(0, 40)  : null,
         note:   typeof raw.note  === "string" ? raw.note.slice(0, 200)  : "",
@@ -356,7 +355,7 @@ export default async function handler(req, res) {
 
     const isDelivery        = orderMode === "delivery";
     const subtotal          = validatedItems.reduce((s, i) => s + i.price * i.qty, 0);
-    const canonicalSubtotal = validatedItems.reduce((s, i) => s + (i.originalPrice ?? i.price) * i.qty, 0);
+    const canonicalSubtotal = validatedItems.reduce((s, i) => s + (VALID_ITEMS[i.baseId]?.price ?? i.price) * i.qty, 0);
     const discountAmount    = hasDiscount ? parseFloat((canonicalSubtotal - subtotal).toFixed(2)) : 0;
     const discountType      = welcomeDiscount ? "welcome" : memberDiscount ? "member" : (reorderToken && hasDiscount) ? "voucher" : "";
 
@@ -452,12 +451,17 @@ export default async function handler(req, res) {
       });
     }
 
-    // Encode cart as metadata on the session (max 500 bytes per value)
+    // Encode cart as metadata on the session (max 500 bytes per value per Stripe API limit)
     const cartJson = JSON.stringify(validatedItems);
-    const cartByteLen = Buffer.byteLength(cartJson, "utf8");
-    const metaCart = cartByteLen <= 500
-      ? { cart: cartJson }
-      : { cart_0: cartJson.slice(0, 450), cart_1: cartJson.slice(450) };
+    const metaCart = {};
+    if (Buffer.byteLength(cartJson, "utf8") <= 500) {
+      metaCart.cart = cartJson;
+    } else {
+      const CHUNK_SIZE = 450;
+      for (let i = 0, offset = 0; offset < cartJson.length; i++, offset += CHUNK_SIZE) {
+        metaCart[`cart_${i}`] = cartJson.slice(offset, offset + CHUNK_SIZE);
+      }
+    }
 
     const idempotencyKey = crypto
       .createHash("sha256")
