@@ -529,10 +529,11 @@ function SalesLedgerTab({ overview, revenue, refunds }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* 5-Metrics Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+      {/* 6-Metrics Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
         <StatCard title="Gross Sales" value={fmtK(overview.revenue)} icon="💰" color={ACCENT} sub="Total charged volume" />
         <StatCard title="Net Sales" value={fmtK(overview.netSales)} icon="📈" color="#10B981" sub="Gross minus refunds" />
+        <StatCard title="Club Discounts" value={fmt(overview.totalDiscounts || 0)} icon="👑" color="#F59E0B" sub={`${overview.discountOrdersCount || 0} discounted orders`} />
         <StatCard title="Gross Profit" value={fmtK(overview.grossProfit)} icon="🏛️" color="#38BDF8" sub={`Est. Profit (${profitMarginRate}%)`} />
         <StatCard title="Labor Cost Rate" value={`${overview.laborCostRate}%`} icon="👥" color="#A855F7" sub={`SPLH: ${fmt(overview.splh)}`} />
         <StatCard title="Refund Rate" value={`${refunds.rate}%`} icon="⚠️" color="#F43F5E" sub={`Loss: ${fmt(refunds.amount)}`} />
@@ -543,6 +544,30 @@ function SalesLedgerTab({ overview, revenue, refunds }) {
         <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Sales Ledger & Voids Overview</h3>
         <RevenueLedgerChart series={revenue} />
       </div>
+
+      {/* Promotional & Loyalty Discounts Ledger */}
+      {(overview.totalDiscounts > 0 || overview.discountOrdersCount > 0) && (
+        <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>👑 Rani Royal Club & Promo Discounts</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
+              <span style={{ fontSize: 11, color: TEXT_MUTED }}>10% WELCOME DISCOUNTS</span>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#F59E0B", marginTop: 6 }}>{fmt(overview.welcomeDiscountsAmt || 0)}</div>
+              <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>First-time signed-in diner welcome rewards</p>
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
+              <span style={{ fontSize: 11, color: TEXT_MUTED }}>5% MEMBER DISCOUNTS</span>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#818CF8", marginTop: 6 }}>{fmt(overview.memberDiscountsAmt || 0)}</div>
+              <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Standing returning member order perks</p>
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 12, padding: 16 }}>
+              <span style={{ fontSize: 11, color: TEXT_MUTED }}>VOUCHERS & REFERRALS</span>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#EC4899", marginTop: 6 }}>{fmt(overview.voucherDiscountsAmt || 0)}</div>
+              <p style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 4 }}>Referral rewards & win-back voucher claims</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Savings Ledger breakdown */}
       <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>

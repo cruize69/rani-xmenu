@@ -344,9 +344,10 @@ export default async function handler(req, res) {
         ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2))
         : canonical.price;
       validatedItems.push({
-        baseId: raw.baseId,
-        name:   canonical.name,
-        price:  itemPrice,
+        baseId:        raw.baseId,
+        name:          canonical.name,
+        price:         itemPrice,
+        originalPrice: canonical.price,
         qty,
         spice:  typeof raw.spice === "string" ? raw.spice.slice(0, 40)  : null,
         note:   typeof raw.note  === "string" ? raw.note.slice(0, 200)  : "",
@@ -355,6 +356,9 @@ export default async function handler(req, res) {
 
     const isDelivery        = orderMode === "delivery";
     const subtotal          = validatedItems.reduce((s, i) => s + i.price * i.qty, 0);
+    const canonicalSubtotal = validatedItems.reduce((s, i) => s + (i.originalPrice ?? i.price) * i.qty, 0);
+    const discountAmount    = hasDiscount ? parseFloat((canonicalSubtotal - subtotal).toFixed(2)) : 0;
+    const discountType      = welcomeDiscount ? "welcome" : memberDiscount ? "member" : (reorderToken && hasDiscount) ? "voucher" : "";
 
     if (isDelivery) {
       const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
@@ -479,6 +483,10 @@ export default async function handler(req, res) {
         clerkUserId:         (clerkUserId  ?? "").slice(0, 500),
         welcomeDiscount:     welcomeDiscount ? "1" : "",
         memberDiscount:      memberDiscount ? "1" : "",
+        discountPct:         hasDiscount ? String(discountPct) : "0",
+        discountType:        discountType,
+        discountAmount:      discountAmount.toFixed(2),
+        originalSubtotal:    canonicalSubtotal.toFixed(2),
         guestEmail:          (guestEmail   ?? "").slice(0, 500),
         tip:                 tip.toFixed(2),
         orderMode:           isDelivery ? "delivery" : "pickup",

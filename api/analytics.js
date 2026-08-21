@@ -170,6 +170,13 @@ function buildOverview(orders, days) {
   const totalItems = active.reduce((s, o) => s + o.items.reduce((is, i) => is + i.qty, 0), 0);
   const avgItems   = count ? (totalItems / count).toFixed(1) : 0;
 
+  const totalDiscounts = active.reduce((s, o) => s + (o.discountAmount || 0), 0);
+  const discountOrdersCount = active.filter(o => (o.discountAmount || 0) > 0).length;
+  const welcomeDiscountsAmt = active.filter(o => o.discountType === "welcome").reduce((s, o) => s + (o.discountAmount || 0), 0);
+  const memberDiscountsAmt = active.filter(o => o.discountType === "member").reduce((s, o) => s + (o.discountAmount || 0), 0);
+  const voucherDiscountsAmt = active.filter(o => o.discountType === "voucher").reduce((s, o) => s + (o.discountAmount || 0), 0);
+  const grossMenuSales = netFood + totalDiscounts;
+
   const smsCount = active.filter(o => o.smsOptIn).length;
   const smsRate  = count ? Math.round((smsCount / count) * 100) : 0;
 
@@ -180,6 +187,12 @@ function buildOverview(orders, days) {
     revenue: grossSales, 
     netSales, 
     netFood, 
+    grossMenuSales,
+    totalDiscounts,
+    discountOrdersCount,
+    welcomeDiscountsAmt,
+    memberDiscountsAmt,
+    voucherDiscountsAmt,
     taxCollected, 
     tipCollected, 
     count, 

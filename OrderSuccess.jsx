@@ -456,12 +456,37 @@ export default function OrderSuccess() {
           )}
 
           <div style={{ padding:"12px 20px", borderTop:"0.5px solid rgba(0,0,0,0.08)", background:"#FAFAF5" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:4 }}>
-              <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
-            </div>
+            {order.discountAmount > 0 ? (
+              <>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:4 }}>
+                  <span>Menu Subtotal</span><span>{fmt(order.originalSubtotal ?? (order.subtotal + order.discountAmount))}</span>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#1A6B3A", fontWeight:600, marginBottom:4 }}>
+                  <span>👑 {order.discountLabel || "Royal Club Discount"}</span>
+                  <span>−{fmt(order.discountAmount)}</span>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:4 }}>
+                  <span>Discounted Subtotal</span><span>{fmt(order.subtotal)}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:4 }}>
+                <span>Subtotal</span><span>{fmt(order.subtotal)}</span>
+              </div>
+            )}
+            {order.deliveryFee > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:4 }}>
+                <span>Delivery Fee</span><span>{fmt(order.deliveryFee)}</span>
+              </div>
+            )}
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:8 }}>
               <span>Tax (8.375%)</span><span>{fmt(order.tax)}</span>
             </div>
+            {order.tip > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#8A7560", marginBottom:8 }}>
+                <span>Tip</span><span>{fmt(order.tip)}</span>
+              </div>
+            )}
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:17, fontWeight:700, color:"#0F0800", paddingTop:8, borderTop:"0.5px solid rgba(0,0,0,0.1)" }}>
               <span>Total paid</span>
               <span style={{ color:"#C8853A" }}>{fmt(order.total)}</span>

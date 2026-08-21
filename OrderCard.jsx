@@ -85,8 +85,25 @@ export default function OrderCard({ order, statusConfig, selected, onSelectCard 
         </span>
       </div>
 
-      {/* Row 2: customer name — large */}
-      <div className="rm-card-name">{order.customerName || "Walk-in Guest"}</div>
+      {/* Row 2: customer name — large + member/welcome chip */}
+      <div className="rm-card-name" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{order.customerName || "Walk-in Guest"}</span>
+        {(order.discountType === "welcome" || order.welcomeDiscount) && (
+          <span style={{ fontSize: 9.5, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(232,168,46,0.2)", color: "#E8A82E", flexShrink: 0 }}>
+            👑 10% WELCOME
+          </span>
+        )}
+        {(order.discountType === "member" || order.memberDiscount) && (
+          <span style={{ fontSize: 9.5, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(99,102,241,0.2)", color: "#818CF8", flexShrink: 0 }}>
+            👑 5% MEMBER
+          </span>
+        )}
+        {order.discountType === "voucher" && (
+          <span style={{ fontSize: 9.5, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(236,72,153,0.2)", color: "#F472B6", flexShrink: 0 }}>
+            🎟️ VOUCHER
+          </span>
+        )}
+      </div>
 
       {/* Row 3: meta + total */}
       <div className="rm-card-row3">

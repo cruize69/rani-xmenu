@@ -113,8 +113,25 @@ export default function OrderDetailPanel({
         </div>
       )}
 
-      {/* Customer name — 26pt bold anchor */}
-      <h2 className="rm-detail-customer">{order.customerName || "Walk-in Guest"}</h2>
+      {/* Customer name — 26pt bold anchor + discount badge */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+        <h2 className="rm-detail-customer" style={{ margin: 0 }}>{order.customerName || "Walk-in Guest"}</h2>
+        {(order.discountType === "welcome" || order.welcomeDiscount) && (
+          <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 8, background: "rgba(232,168,46,0.2)", color: "#E8A82E" }}>
+            👑 10% WELCOME DINER
+          </span>
+        )}
+        {(order.discountType === "member" || order.memberDiscount) && (
+          <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 8, background: "rgba(99,102,241,0.2)", color: "#818CF8" }}>
+            👑 ROYAL CLUB MEMBER (5%)
+          </span>
+        )}
+        {order.discountType === "voucher" && (
+          <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 8, background: "rgba(236,72,153,0.2)", color: "#F472B6" }}>
+            🎟️ SPECIAL VOUCHER CLAIM
+          </span>
+        )}
+      </div>
 
       {/* Contact details */}
       <div className="rm-detail-contact">
@@ -193,7 +210,24 @@ export default function OrderDetailPanel({
 
       {/* Financial summary */}
       <div className="rm-financials">
-        <div className="rm-fin-row"><span>Subtotal</span><span>{fmt(order.subtotal)}</span></div>
+        {order.discountAmount > 0 ? (
+          <>
+            <div className="rm-fin-row">
+              <span>Menu Subtotal</span>
+              <span>{fmt(order.originalSubtotal ?? (order.subtotal + order.discountAmount))}</span>
+            </div>
+            <div className="rm-fin-row" style={{ color: "#10B981", fontWeight: 700 }}>
+              <span>👑 {order.discountLabel || (order.discountType === "welcome" ? "Welcome Discount (10%)" : "Member Discount (5%)")}</span>
+              <span>−{fmt(order.discountAmount)}</span>
+            </div>
+            <div className="rm-fin-row">
+              <span>Discounted Subtotal</span>
+              <span>{fmt(order.subtotal)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="rm-fin-row"><span>Subtotal</span><span>{fmt(order.subtotal)}</span></div>
+        )}
         {isDelivery && (
           <div className="rm-fin-row">
             <span>Delivery Fee</span>
@@ -203,6 +237,9 @@ export default function OrderDetailPanel({
         <div className="rm-fin-row"><span>Tax (8.375%)</span><span>{fmt(order.tax)}</span></div>
         {order.tip > 0 && (
           <div className="rm-fin-row"><span>Tip</span><span>{fmt(order.tip)}</span></div>
+        )}
+        {order.ccFee > 0 && (
+          <div className="rm-fin-row"><span>Credit Card Fee</span><span>{fmt(order.ccFee)}</span></div>
         )}
         <div className="rm-fin-total"><span>Total</span><span>{fmt(order.total)}</span></div>
         {order.refundedTotal > 0 && (
