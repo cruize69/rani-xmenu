@@ -217,7 +217,8 @@ function AccountPortalPage({
   async function handleSignInClick() {
     setSignInError(false);
     try {
-      await openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href });
+      const openFn = openSignUp || openSignIn;
+      await openFn({ forceRedirectUrl: window.location.href, signInForceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href });
     } catch (err) {
       setSignInError(true);
       // reportError already does everything this needs — reads the cart
@@ -594,8 +595,8 @@ function AccountPortalPage({
 function ClerkAwareAccountPortal(props) {
   const { isSignedIn } = useUser();
   const { getToken }   = useAuth();
-  const { signOut, openSignIn } = useClerk();
-  return <AccountPortalPage {...props} isSignedIn={isSignedIn} getToken={getToken} signOut={signOut} openSignIn={openSignIn} />;
+  const { signOut, openSignIn, openSignUp } = useClerk();
+  return <AccountPortalPage {...props} isSignedIn={isSignedIn} getToken={getToken} signOut={signOut} openSignIn={openSignIn} openSignUp={openSignUp} />;
 }
 
 function GuestOnlyAccountPortal(props) {

@@ -838,45 +838,47 @@ export default function RaniMahal() {
           the CTA is a plain underlined link instead of a bordered pill —
           no badge background, no button chrome, nothing but the text that
           actually carries meaning. */}
+      {/* Affirmative Pre-Order & Scheduled Order Strip */}
       {!openStatus.isOpen && (
         <div style={{
-          background: "rgba(217,72,44,0.13)",
-          borderBottom: "1px solid rgba(217,72,44,0.34)",
+          background: "linear-gradient(90deg, rgba(232,168,46,0.14) 0%, rgba(26,20,15,0.92) 50%, rgba(232,168,46,0.14) 100%)",
+          borderBottom: "1px solid rgba(232,168,46,0.30)",
           padding: "7px 16px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          gap: 6,
+          gap: 7,
           flexWrap: "wrap",
-          rowGap: 2,
+          rowGap: 3,
         }}>
-          {/* The pulsing ring is the "don't miss this" cue — same compact
-              single-line strip, nothing added to its height, but a static
-              icon reads as pure decoration on a scroll-past glance while a
-              slow breathing glow catches peripheral vision even when
-              someone isn't reading the text yet. Kept slow (2.2s) and low-
-              contrast on purpose: fast/bright pulsing reads as an error or
-              alarm, which "we're closed but still taking orders" isn't. */}
-          <span className="rm-pulse-ring" style={{ display: "inline-flex", flexShrink: 0, borderRadius: "50%" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F0846A" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {/* Subtle gold clock indicator */}
+          <span style={{ display: "inline-flex", flexShrink: 0, alignItems: "center" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3.5 2" />
             </svg>
           </span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#F0846A", whiteSpace: "nowrap" }}>
-            Closed — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#E8A82E", whiteSpace: "nowrap", letterSpacing: "0.01em" }}>
+            {scheduledFor ? "Scheduled Order" : "Pre-Order Open"} — {openStatus.label.replace(/^Closed\s*—\s*/i, "")}
           </span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#D9B9A8" }}>
-            · {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "order now, we'll fire it when we open"}
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#FAF6EF" }}>
+            · {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "order ahead, fired fresh upon opening"}
           </span>
           <button
             type="button"
             onClick={() => setShowFulfillmentSheet(true)}
             style={{
-              padding: "1px 8px", borderRadius: 10, cursor: "pointer",
-              border: "1px solid rgba(232,168,46,0.45)", background: "rgba(232,168,46,0.12)",
-              fontSize: 11.5, fontWeight: 700, color: "#E8A82E",
+              padding: "2px 9px",
+              borderRadius: 12,
+              cursor: "pointer",
+              border: "1px solid rgba(232,168,46,0.5)",
+              background: "rgba(232,168,46,0.18)",
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: "#FAF6EF",
               whiteSpace: "nowrap",
+              fontFamily: "'Inter',sans-serif",
+              transition: "all 0.15s ease",
             }}
           >
             {scheduledFor ? "Change time" : "Choose a time"}

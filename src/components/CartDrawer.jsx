@@ -182,7 +182,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn, label, savings 
     }
   }, [isSignedIn, user]);
 
-  const buttonText = label || (savings > 0 ? `⚡ 1-Tap Claim $${savings.toFixed(2)} Off` : "⚡ 1-Tap Claim 10% Off");
+  const buttonText = label || (savings > 0 ? `⚡ Claim $${savings.toFixed(2)} Off` : "⚡ Claim 10% Off");
 
   return (
     <button
@@ -191,9 +191,6 @@ export function ClerkSignInButton({ style, disabled, onSignedIn, label, savings 
       onClick={() => clerk?.openSignUp({ forceRedirectUrl: window.location.href, signInForceRedirectUrl: window.location.href })}
     >
       <span style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-        <svg width="14" height="14" viewBox="0 0 384 512" fill="currentColor" aria-hidden="true">
-          <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
-        </svg>
         <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
           <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" />
           <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
@@ -377,52 +374,63 @@ export function CheckoutGate({
                 </p>
               </div>
             </div>
-            <button onClick={onCancel} style={{ background:"transparent", border:"none", fontSize:22, color:"#B8A995", cursor:"pointer" }}>×</button>
+            <button
+              onClick={onCancel}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "rgba(250,246,239,0.08)",
+                border: "none",
+                color: "#FAF6EF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              ✕
+            </button>
           </div>
         </div>
 
-        {/* Order Mode Selector Tabs */}
-        <div style={{ padding:"12px 20px 0", display:"flex", gap:8 }}>
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); setOrderMode?.("pickup"); setError(null); }}
-            style={{
-              flex:1, padding:"8px 12px", borderRadius:10, border:"1px solid " + (orderMode==="pickup" ? "#E8A82E" : "rgba(250,246,239,0.1)"),
-              background: orderMode==="pickup" ? "rgba(232,168,46,0.12)" : "rgba(28,24,20,0.5)",
-              color: orderMode==="pickup" ? "#E8A82E" : "#B8A995",
-              fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6
-            }}
-          >
-            <PickupIcon size={15} color={orderMode==="pickup" ? "#E8A82E" : "#B8A995"} /> Pickup ({PICKUP_ETA.replace(" min", "m")})
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); setOrderMode?.("delivery"); setError(null); }}
-            style={{
-              flex:1, padding:"8px 12px", borderRadius:10, border:"1px solid " + (orderMode==="delivery" ? "#E8A82E" : "rgba(250,246,239,0.1)"),
-              background: orderMode==="delivery" ? "rgba(232,168,46,0.12)" : "rgba(28,24,20,0.5)",
-              color: orderMode==="delivery" ? "#E8A82E" : "#B8A995",
-              fontSize:13, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6
-            }}
-          >
-            {/* Zone-aware once we know the ZIP; the flat "45–60" default
-                otherwise. This used to be hardcoded regardless of zone —
-                wrong for every zone except the one it happened to match. */}
-            <DeliveryIcon size={15} color={orderMode==="delivery" ? "#E8A82E" : "#B8A995"} /> Delivery ({(getDeliveryZoneForZip(deliveryAddress?.zip)?.eta || DEFAULT_DELIVERY_ETA).replace(" min", "m")})
-          </button>
+        {/* Order Mode Segmented Pill Control */}
+        <div style={{ padding:"14px 20px 0" }}>
+          <div style={{ display: "flex", background: "#1A1613", borderRadius: 12, padding: 3, border: "1px solid rgba(250,246,239,0.08)" }}>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setOrderMode?.("pickup"); setError(null); }}
+              style={{
+                flex:1, padding:"9px 12px", borderRadius:9, border:"none",
+                background: orderMode==="pickup" ? "#2D241C" : "transparent",
+                color: orderMode==="pickup" ? "#E8A82E" : "#8A7560",
+                boxShadow: orderMode==="pickup" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+                fontSize:13, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <PickupIcon size={14} color={orderMode==="pickup" ? "#E8A82E" : "#8A7560"} /> Pickup ({PICKUP_ETA.replace(" min", "m")})
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setOrderMode?.("delivery"); setError(null); }}
+              style={{
+                flex:1, padding:"9px 12px", borderRadius:9, border:"none",
+                background: orderMode==="delivery" ? "#2D241C" : "transparent",
+                color: orderMode==="delivery" ? "#E8A82E" : "#8A7560",
+                boxShadow: orderMode==="delivery" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+                fontSize:13, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <DeliveryIcon size={14} color={orderMode==="delivery" ? "#E8A82E" : "#8A7560"} /> Delivery ({(getDeliveryZoneForZip(deliveryAddress?.zip)?.eta || DEFAULT_DELIVERY_ETA).replace(" min", "m")})
+            </button>
+          </div>
         </div>
 
-        {/* Delivery minimum — always visible the moment Delivery is
-            selected here, not just inside the fulfillment sheet. Verified
-            live: a customer could reach this exact toggle, switch to
-            Delivery, and only discover the $50+ minimum after filling in a
-            full address at the final step.
-            A confirmed-out-of-zone ZIP is a DIFFERENT case from "no ZIP
-            yet" and must never fall through to the same default-minimum
-            branch — two customers (Yonkers, Mount Kisco) independently
-            built a full priced cart and reached a live "Continue to
-            payment" button because it did. This is a hard stop with an
-            immediate, one-tap way back to the order you CAN place. */}
+        {/* Delivery minimum */}
         {orderMode === "delivery" && (() => {
           const outOfZone = isZipConfirmedOutOfZone(deliveryAddress?.zip);
           if (outOfZone) {
@@ -460,65 +468,83 @@ export function CheckoutGate({
           );
         })()}
 
-        <div style={{ padding:"16px 20px 32px" }}>
+        <div style={{ padding:"16px 20px 28px" }}>
           {step === "guest-email" && (
             <>
-              <button onClick={onCancel} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back to cart</button>
-
-              {/* High-converting Royal Club 1-Tap Claim Card */}
+              {/* Optimized Royal Club VIP Card */}
               {CLERK_ENABLED && (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, textAlign:"center", background:"linear-gradient(145deg, rgba(232,168,46,0.12) 0%, rgba(28,24,20,0.85) 100%)", border:"1.5px solid rgba(232,168,46,0.45)", borderRadius:14, padding:"16px 14px", marginBottom:18, boxShadow:"0 4px 24px rgba(232,168,46,0.12)" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ fontSize:16 }}>👑</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:"#E8A82E", textTransform:"uppercase", letterSpacing:"0.08em" }}>Rani Royal Club</span>
-                  </div>
-                  <div style={{ fontSize:15, fontWeight:700, color:"#FAF6EF" }}>
-                    {subtotal > 0 ? (
-                      <>Save <strong style={{ color:"#E8A82E" }}>${(subtotal * 0.10).toFixed(2)}</strong> on this order</>
-                    ) : (
-                      <>Get <strong style={{ color:"#E8A82E" }}>10% off</strong> your first order</>
-                    )}
-                  </div>
-                  <p style={{ fontSize:12, color:"#D9CDBB", margin:"0 0 4px", lineHeight:1.4 }}>
-                    10% off tonight · 5% off every order after that · No passwords needed
-                  </p>
-                  <ClerkSignInButton
-                    style={{
-                      width:"100%",
-                      padding:"13px 16px",
-                      background:"#E8A82E",
-                      color:"#080706",
-                      border:"none",
-                      borderRadius:24,
-                      fontSize:14,
-                      fontWeight:700,
-                      cursor:"pointer",
-                      fontFamily:"'Inter',sans-serif",
-                      display:"inline-flex",
-                      alignItems:"center",
-                      justifyContent:"center",
-                      gap:8,
-                      whiteSpace:"nowrap",
-                      boxShadow:"0 4px 14px rgba(232,168,46,0.35)",
-                    }}
-                    savings={subtotal * 0.10}
-                    disabled={loading}
-                    onSignedIn={clerkUserId => {
-                      if (welcomeEligible) onWelcomeDiscount?.();
-                      goToStripe({ clerkUserId });
-                    }}
-                  />
-                  <div style={{ width:"100%", display:"flex", alignItems:"center", gap:10, margin:"10px 0 2px" }}>
-                    <div style={{ flex:1, height:1, background:"rgba(250,246,239,0.1)" }} />
-                    <span style={{ fontSize:11, color:"#8A7560", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>or continue as guest (pay full {fmt(total)})</span>
-                    <div style={{ flex:1, height:1, background:"rgba(250,246,239,0.1)" }} />
+                <div style={{
+                  background: "linear-gradient(145deg, rgba(232,168,46,0.16) 0%, rgba(24,19,15,0.95) 100%)",
+                  border: "1px solid rgba(232,168,46,0.38)",
+                  borderRadius: 14,
+                  padding: "14px 16px",
+                  marginBottom: 18,
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(232,168,46,0.2)",
+                  position: "relative",
+                  overflow: "hidden",
+                }}>
+                  {/* Ambient Glow Accent */}
+                  <div style={{
+                    position: "absolute",
+                    top: -20,
+                    right: -20,
+                    width: 80,
+                    height: 80,
+                    background: "radial-gradient(circle, rgba(232,168,46,0.25) 0%, transparent 70%)",
+                    pointerEvents: "none",
+                  }} />
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, position: "relative", zIndex: 1 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(232,168,46,0.15)", border: "0.5px solid rgba(232,168,46,0.3)", borderRadius: 20, padding: "2px 8px", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11 }}>👑</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: "#E8A82E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Royal Club</span>
+                      </div>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#FAF6EF", lineHeight: 1.25, marginBottom: 3, fontFamily: "'Inter',sans-serif" }}>
+                        {subtotal > 0 ? (
+                          <>Save <strong style={{ color: "#E8A82E", fontWeight: 800 }}>${(subtotal * 0.10).toFixed(2)}</strong> on this order</>
+                        ) : (
+                          <>Get <strong style={{ color: "#E8A82E", fontWeight: 800 }}>10% off</strong> your order</>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 11.5, color: "#B8A995", margin: 0, lineHeight: 1.3 }}>
+                        10% off tonight · 5% off future orders
+                      </p>
+                    </div>
+
+                    <ClerkSignInButton
+                      style={{
+                        padding: "10px 16px",
+                        background: "linear-gradient(180deg, #F5B93E 0%, #E8A82E 100%)",
+                        color: "#080706",
+                        border: "none",
+                        borderRadius: 22,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        fontFamily: "'Inter',sans-serif",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexShrink: 0,
+                        boxShadow: "0 3px 12px rgba(232,168,46,0.35)",
+                        WebkitTapHighlightColor: "transparent",
+                        letterSpacing: "-0.01em",
+                      }}
+                      label={subtotal > 0 ? `⚡ Claim $${(subtotal * 0.10).toFixed(2)}` : "⚡ Claim 10%"}
+                      disabled={loading}
+                      onSignedIn={clerkUserId => {
+                        if (welcomeEligible) onWelcomeDiscount?.();
+                        goToStripe({ clerkUserId });
+                      }}
+                    />
                   </div>
                 </div>
               )}
 
-              {/* Universal Delivery Address Form — 1 Universal Truth */}
+              {/* Universal Delivery Address Form (if in delivery mode) */}
               {orderMode === "delivery" && (
-                <div style={{ marginBottom: 18, background: "#161310", border: "0.5px solid rgba(232,168,46,0.25)", borderRadius: 14, padding: "16px" }}>
+                <div style={{ marginBottom: 16, background: "#161310", border: "0.5px solid rgba(232,168,46,0.25)", borderRadius: 12, padding: "14px" }}>
                   <UniversalDeliveryForm
                     deliveryAddress={deliveryAddress}
                     setDeliveryAddress={setDeliveryAddress}
@@ -527,18 +553,46 @@ export function CheckoutGate({
                 </div>
               )}
 
-              <p style={{ fontSize:15, fontWeight:500, color:"#FAF6EF", marginBottom:4, fontFamily:"'Fraunces',serif" }}>Where should we send your receipt?</p>
-              <p style={{ fontSize:13, color:"#B8A995", marginBottom:14, lineHeight:1.55 }}>We'll email your order confirmation and live delivery status link.</p>
-              <form onSubmit={handleGuestContinue}>
-                <label style={{ fontSize:11, fontWeight:600, letterSpacing:"0.15em", textTransform:"uppercase", color:"#B8A995", marginBottom:5, display:"block" }}>Your email *</label>
-                <input type="email" placeholder="you@email.com" value={guestEmail}
+              {/* Mobile-Optimized Email & Receipt Section */}
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="checkout-guest-email" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#B8A995", display: "block", marginBottom: 6 }}>
+                  Where should we send your receipt?
+                </label>
+                <input
+                  id="checkout-guest-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="name@email.com"
+                  value={guestEmail}
                   onChange={e => setGuestEmail(e.target.value)}
-                  style={iStyle} required autoFocus />
-                {/* Out-of-zone already has its own hard stop + Switch to
-                    Pickup action in the persistent banner right above the
-                    Pickup/Delivery tabs (visible the instant a full ZIP is
-                    typed, before this form is even in view) — showing the
-                    same message again here would just duplicate it. */}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "13px 14px",
+                    border: "1px solid rgba(250,246,239,0.15)",
+                    borderRadius: 12,
+                    fontSize: 15,
+                    color: "#FAF6EF",
+                    background: "#181410",
+                    outline: "none",
+                    fontFamily: "'Inter',sans-serif",
+                    boxSizing: "border-box",
+                    minHeight: 48,
+                    WebkitAppearance: "none",
+                    appearance: "none",
+                  }}
+                  required
+                  autoFocus
+                />
+                <p style={{ fontSize: 11.5, color: "#8A7560", margin: "5px 0 0", lineHeight: 1.3 }}>
+                  Order confirmation & live delivery tracker link will be emailed here.
+                </p>
+              </div>
+
+              <form onSubmit={handleGuestContinue}>
                 {!outOfZone && error && (
                   error.includes("minimum food subtotal") ? (
                     <div style={{ background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
@@ -552,21 +606,39 @@ export function CheckoutGate({
                       </button>
                     </div>
                   ) : (
-                    <p style={{ fontSize:13, color:"#F0846A", marginBottom:10, background:"rgba(240,132,106,0.1)", padding:"8px 12px", borderRadius:8, border:"0.5px solid rgba(240,132,106,0.3)" }}>{error}</p>
+                    <p style={{ fontSize:13, color:"#F0846A", margin:"10px 0", background:"rgba(240,132,106,0.1)", padding:"8px 12px", borderRadius:8, border:"0.5px solid rgba(240,132,106,0.3)" }}>{error}</p>
                   )
                 )}
-                {/* Out-of-zone gets its own hard stop above (no payment
-                    button at all, only the Pickup switch) — the same
-                    treatment as the below-minimum case, and for the same
-                    reason: never show a live "Continue to payment" total
-                    for an order that cannot actually be placed. */}
+
                 {!outOfZone && !(error && error.includes("minimum food subtotal")) && (
-                  <>
-                    <button type="submit" style={{ width:"100%", padding:"13px", background:"#E8A82E", color:"#080706", border:"none", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"'Inter',sans-serif" }} disabled={loading}>
-                      {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)}`}
+                  <div style={{ marginTop: 14 }}>
+                    <button
+                      type="submit"
+                      style={{
+                        width: "100%",
+                        minHeight: 50,
+                        padding: "14px 16px",
+                        background: "#E8A82E",
+                        color: "#080706",
+                        border: "none",
+                        borderRadius: 12,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        fontFamily: "'Inter',sans-serif",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        boxShadow: "0 4px 14px rgba(232,168,46,0.3)",
+                        WebkitTapHighlightColor: "transparent",
+                      }}
+                      disabled={loading}
+                    >
+                      {loading ? "Redirecting to payment…" : `Continue to payment · ${fmt(total)} →`}
                     </button>
                     <GoogleTrustBadge />
-                  </>
+                  </div>
                 )}
               </form>
             </>
