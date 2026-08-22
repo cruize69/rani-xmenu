@@ -15,7 +15,7 @@
 import Stripe from "stripe";
 import crypto from "crypto";
 import { kv } from "../lib/kv.js";
-import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion, publicOrderView } from "../lib/orders.js";
+import { buildOrder, saveOrder, getOrder, getOrdersByDate, updateOrder, buildDailySummary, ORDER_STATUS, getNYDateString, getOrdersVersion, publicOrderView, autoResolveReadyPickupOrders } from "../lib/orders.js";
 import { sendOrderEmail, sendCustomerReceiptEmail, sendOrderSMS, sendCustomerStatusEmail } from "../lib/notifications.js";
 import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../lib/syncStripe.js";
 import { checkManagerAuth } from "../lib/auth.js";
@@ -135,7 +135,16 @@ async function handleGet(req, res) {
       return res.status(200).json({ date, version });
     }
 
-    const orders  = await getOrdersByDate(date);
+    const rawOrders = await getOrdersByDate(date);
+    const orders = await autoResolveReadyPickupOrders(rawOrders, async (updatedOrder) => {
+      const phone = updatedOrder.customerPhone;
+      if (phone && updatedOrder.smsConsent) {
+        await sendCustomerSMS(phone, STATUS_SMS.done(updatedOrder))
+          .catch(err => console.error("Auto-ready Customer SMS failed:", err));
+      }
+      await sendCustomerStatusEmail(updatedOrder)
+        .catch(err => console.error("Auto-ready Customer status email failed:", err));
+    });
     const summary = buildDailySummary(orders);
     const version = await getOrdersVersion(date);
 

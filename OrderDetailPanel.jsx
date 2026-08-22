@@ -113,6 +113,25 @@ export default function OrderDetailPanel({
         </div>
       )}
 
+      {/* Ready / Customer Notified Banner */}
+      {order.status === "done" && (
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)",
+            borderRadius: 10, padding: "8px 12px", marginBottom: 12, fontWeight: 700,
+            fontSize: 12.5, color: "#4ADE80",
+          }}
+        >
+          <span>✓</span>
+          <span>
+            {order.autoReady ? "Auto-marked Ready (25m threshold)" : "Marked Ready"}
+            {order.readyAt ? ` at ${new Date(order.readyAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""}
+            {" · Customer notified via SMS & Email"}
+          </span>
+        </div>
+      )}
+
       {/* Customer name — 26pt bold anchor + discount badge */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
         <h2 className="rm-detail-customer" style={{ margin: 0 }}>{order.customerName || "Walk-in Guest"}</h2>

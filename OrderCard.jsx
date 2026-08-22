@@ -70,7 +70,9 @@ export default function OrderCard({ order, statusConfig, selected, onSelectCard 
       <div className="rm-card-row1">
         <div className="rm-card-status-group">
           <span className="rm-status-pip" style={{ backgroundColor: s.color, boxShadow: `0 0 7px ${s.color}` }} />
-          <span className="rm-card-status-label" style={{ color: s.color }}>{s.label}</span>
+          <span className="rm-card-status-label" style={{ color: s.color }}>
+            {order.autoReady && order.status === "done" ? "AUTO-READY" : s.label}
+          </span>
           {isScheduled && scheduledTime ? (
             <span className="rm-card-timer" style={{ color: "#E8A82E", fontWeight: 700 }}>
               For {scheduledTime}

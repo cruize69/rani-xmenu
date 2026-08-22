@@ -7,11 +7,27 @@
 // and validated at checkout; this only decides *when the kitchen sees it*.
 
 import { kv } from "../../lib/kv.js";
-import { getOrder, updateOrder, ORDER_STATUS } from "../../lib/orders.js";
+import { getOrder, updateOrder, ORDER_STATUS, getNYDateString, getOrdersByDate, autoResolveReadyPickupOrders } from "../../lib/orders.js";
 import { isCronSecretValid } from "../../lib/auth.js";
 import { sendNewOrderPush } from "../../lib/push.js";
 import { recordCronRun } from "../../lib/cronStatus.js";
 import { captureServerError } from "../../lib/sentry.js";
+import { sendCustomerStatusEmail } from "../../lib/notifications.js";
+
+async function sendCustomerSMS(to, body) {
+  const { TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, TWILIO_FROM } = process.env;
+  if (!TWILIO_API_KEY_SID) return;
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}`).toString("base64")}`,
+    },
+    body: new URLSearchParams({ From: TWILIO_FROM, To: to, Body: body }),
+  });
+  if (!r.ok) console.error("Twilio error:", await r.text());
+}
 
 export default async function handler(req, res) {
   if (!isCronSecretValid(req)) {
@@ -64,7 +80,24 @@ export default async function handler(req, res) {
       }
     }
 
-    const result = { ok: true, promoted, checked: dueIds.length };
+    // Auto-resolve pickup orders that reached the 25-minute mark
+    let autoReadied = 0;
+    try {
+      const todayOrders = await getOrdersByDate(getNYDateString());
+      await autoResolveReadyPickupOrders(todayOrders, async (updatedOrder) => {
+        autoReadied++;
+        const phone = updatedOrder.customerPhone;
+        if (phone && updatedOrder.smsConsent) {
+          const smsBody = `Rani Mahal: Your order #${updatedOrder.id.slice(-6).toUpperCase()} is READY for pickup! Come on in — we look forward to seeing you. (914) 835-9066 Reply STOP to opt out.`;
+          await sendCustomerSMS(phone, smsBody).catch(err => console.error("Cron auto-ready SMS failed:", err));
+        }
+        await sendCustomerStatusEmail(updatedOrder).catch(err => console.error("Cron auto-ready email failed:", err));
+      });
+    } catch (e) {
+      console.error("Cron auto-ready sweep failed:", e);
+    }
+
+    const result = { ok: true, promoted, autoReadied, checked: dueIds.length };
     await recordCronRun("promote-scheduled-orders", result);
     return res.status(200).json(result);
   } catch (err) {
