@@ -9,6 +9,8 @@ import AccountPortal from "./AccountPortal.jsx";
 import { useSwipeToClose } from "./src/hooks/useSwipeToClose.js";
 import { SectionJumpSheet, JumpIcon } from "./src/components/SectionTabsNav.jsx";
 import { ItemCard } from "./src/components/MenuItemCard.jsx";
+import { FeastSection } from "./src/components/FeastCard.jsx";
+import { FEASTS } from "./lib/feasts.js";
 import { ItemModal } from "./src/components/ItemCustomizerModal.jsx";
 import { CartDrawer, CheckoutGate, Notice } from "./src/components/CartDrawer.jsx";
 import { RaniHeader } from "./src/components/RaniHeader.jsx";
@@ -236,7 +238,12 @@ export default function RaniMahal() {
   const [view, setView] = useState(() =>
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "account" ? "account" : "menu"
   ); // "menu" | "account"
-  const [activeSection, setActiveSection] = useState("appetizers");
+  // "feasts" is deliberately the default, not "appetizers" — see the
+  // Family Feasts implementation plan: the whole point is to intercept
+  // decision fatigue before a customer reaches the individual-item grid,
+  // which only works if it's the first thing they see, not a tab they'd
+  // have to scroll the nav to find.
+  const [activeSection, setActiveSection] = useState("feasts");
   const [cart, setCart]         = useState(loadStoredCart);
   const [modalItem, setModalItem] = useState(null);
   const [notice, setNotice]     = useState(null);
@@ -668,6 +675,37 @@ export default function RaniMahal() {
     if (source) showNotice(`${source.name} added to your cart.`);
   };
 
+  // Bulk-adds every item in a feast bundle in one setCart call — the exact
+  // same merge pattern the ?add= URL handler and reorder-link handler
+  // already use (see their setCart(prev => {...}) blocks above), not a
+  // new mechanism. The cart ends up containing completely ordinary items
+  // at their real menu prices; nothing feast-specific is stored on the
+  // cart itself. The actual bundle price only gets applied server-side at
+  // checkout (api/create-checkout.js's extractFeasts) — this function is
+  // purely a convenience macro for populating the cart in one tap.
+  const addFeastToCart = useCallback((feast) => {
+    setCart(prev => {
+      const next = { ...prev };
+      feast.items.forEach(({ baseId, qty }) => {
+        const canonical = ITEM_MAP[baseId];
+        if (!canonical) return;
+        const key = baseId + "_1";
+        const existing = next[key];
+        next[key] = {
+          name: canonical.name,
+          price: canonical.price,
+          qty: (existing?.qty ?? 0) + qty,
+          spice: existing?.spice ?? null,
+          note: existing?.note ?? "",
+          baseId,
+        };
+      });
+      return next;
+    });
+    trackEvent("add_to_cart", { currency: "USD", value: feast.price, item_id: feast.id, item_name: feast.name });
+    showNotice(`${feast.name} added to your cart — ready when you are.`);
+  }, [showNotice]);
+
   const handleCheckout = () => {
     if (itemCount === 0) return;
     trackEvent("begin_checkout", { currency: "USD", value: total });
@@ -912,19 +950,23 @@ export default function RaniMahal() {
               {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
             </div>
 
-            {section?.subsections.map(sub => (
-              <div key={sub.label||"main"} style={{ marginBottom:sub.label?"2rem":0 }}>
-                {sub.label && (
-                  <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.2em", textTransform:"uppercase", color:"#B8A995", paddingBottom:8, borderBottom:"0.5px solid rgba(232,168,46,0.2)", marginBottom:10, textAlign:"center" }}>{sub.label}</p>
-                )}
-                <div style={{ background:"#1B1714", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)", border:"1px solid rgba(232, 168, 46, 0.08)" }}>
-                  {sub.ids.map(id => {
-                    const item = ITEM_MAP[id]; if (!item) return null;
-                    return <ItemCard key={id} item={item} cartEntry={cart[id+"_1"]} onOpen={setModalItem} imageUrl={cloudImages[id] ?? localStorage.getItem("img_"+id) ?? null} />;
-                  })}
+            {section?.id === "feasts" ? (
+              <FeastSection feasts={FEASTS} onAdd={addFeastToCart} />
+            ) : (
+              section?.subsections.map(sub => (
+                <div key={sub.label||"main"} style={{ marginBottom:sub.label?"2rem":0 }}>
+                  {sub.label && (
+                    <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.2em", textTransform:"uppercase", color:"#B8A995", paddingBottom:8, borderBottom:"0.5px solid rgba(232,168,46,0.2)", marginBottom:10, textAlign:"center" }}>{sub.label}</p>
+                  )}
+                  <div style={{ background:"#1B1714", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(250,246,239,0.06)", border:"1px solid rgba(232, 168, 46, 0.08)" }}>
+                    {sub.ids.map(id => {
+                      const item = ITEM_MAP[id]; if (!item) return null;
+                      return <ItemCard key={id} item={item} cartEntry={cart[id+"_1"]} onOpen={setModalItem} imageUrl={cloudImages[id] ?? localStorage.getItem("img_"+id) ?? null} />;
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Persistent footer — Privacy/Terms links previously only

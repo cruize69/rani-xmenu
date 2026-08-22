@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import crypto from "crypto";
 import { createClerkClient, verifyToken } from "@clerk/backend";
 import { VALID_ITEMS, TAX_RATE, CATERING_ITEM_IDS } from "../lib/menu.js";
+import { extractFeasts } from "../lib/feasts.js";
 import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { graduateLead } from "../lib/abandonedCart.js";
 import { isWithinServiceWindow, getOpenStatus, nyDateTimeToUtcMs } from "../lib/hours.js";
@@ -320,9 +321,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Re-price every line item from the canonical menu — client-submitted
-    // name/price/qty are never trusted.
-    const validatedItems = [];
+    // Validate every raw line against the canonical menu first — no
+    // pricing decided yet, since a line's final price depends on whether
+    // it turns out to be inside a feast bundle (decided below).
+    const rawLines = [];
     for (const raw of items) {
       const canonical = VALID_ITEMS[raw?.baseId];
       if (!canonical) {
@@ -333,6 +335,67 @@ export default async function handler(req, res) {
       if (!Number.isFinite(qty) || qty < 1 || qty > maxQty) {
         return res.status(400).json({ error: `Invalid quantity for ${canonical.name}` });
       }
+      rawLines.push({
+        baseId: raw.baseId,
+        name: canonical.name,
+        canonicalPrice: canonical.price,
+        qty,
+        spice: typeof raw.spice === "string" ? raw.spice.slice(0, 40) : null,
+        note: typeof raw.note === "string" ? raw.note.slice(0, 200) : "",
+        isCatering: CATERING_ITEM_IDS.has(raw?.baseId),
+      });
+    }
+
+    // Feast detection — server-derived only, from the real validated cart
+    // contents, never from anything the client claims. Catering lines are
+    // excluded: catering already has its own fixed per-person pricing and
+    // was never part of the feast concept. See lib/feasts.js for the full
+    // reasoning (greedy largest-bundle-first extraction, leftover items
+    // become true à la carte).
+    const { appliedFeasts, remaining } = extractFeasts(
+      rawLines.filter(l => !l.isCatering).map(l => ({ baseId: l.baseId, qty: l.qty }))
+    );
+
+    // Re-price every line item — client-submitted name/price/qty are never
+    // trusted, only baseId+qty (already validated above) feed into this.
+    const validatedItems = [];
+
+    // 1) Feast-priced lines. Built from the feast's OWN item list (not the
+    // raw cart) since lib/feasts.js already defines exactly what each
+    // bundle contains — one Stripe line item per item per applied feast,
+    // scaled proportionally to the bundle price, with the account
+    // discount (welcome/member/voucher) layered on top afterward. Bundle
+    // pricing and account discounts are independent mechanisms that
+    // compose — a new customer buying the Family Feast really does pay
+    // ~22% less than à la carte, not just the ~14% bundle discount alone.
+    // spice/note carry through from the matching raw cart line where the
+    // customer set one, since a stated spice preference applies to all of
+    // that dish regardless of which "portion" ends up inside a bundle.
+    for (const feast of appliedFeasts) {
+      const scaleFactor = feast.price / feast.aLaCarteTotal;
+      for (const req of feast.items) {
+        const canonical = VALID_ITEMS[req.baseId];
+        const rawLine = rawLines.find(l => l.baseId === req.baseId);
+        const bundleUnitPrice = canonical.price * scaleFactor;
+        const finalPrice = hasDiscount
+          ? parseFloat((bundleUnitPrice * (1 - discountPct)).toFixed(2))
+          : parseFloat(bundleUnitPrice.toFixed(2));
+        validatedItems.push({
+          baseId: req.baseId,
+          name: canonical.name,
+          price: finalPrice,
+          qty: req.qty,
+          spice: rawLine?.spice ?? null,
+          note: rawLine?.note ?? "",
+        });
+      }
+    }
+
+    // 2) Everything left over — true à la carte (or catering, untouched by
+    // feast extraction above), same discount logic as before this change.
+    for (const line of rawLines) {
+      const leftoverQty = line.isCatering ? line.qty : (remaining.get(line.baseId) ?? line.qty);
+      if (leftoverQty <= 0) continue; // fully consumed by a feast bundle above
       // Catering packages are already priced as a fixed, standalone rate
       // (see lib/menu.js's CATERING_ITEMS/CATERING_PACKAGES) — welcome/
       // member/reorder discounts are designed around à la carte pricing
@@ -340,16 +403,16 @@ export default async function handler(req, res) {
       // items always charge full price regardless of hasDiscount. A mixed
       // cart (catering + regular items) still discounts the regular items
       // normally — this only carves out the catering ids specifically.
-      const itemPrice = (hasDiscount && !CATERING_ITEM_IDS.has(raw?.baseId))
-        ? parseFloat((canonical.price * (1 - discountPct)).toFixed(2))
-        : canonical.price;
+      const itemPrice = (hasDiscount && !line.isCatering)
+        ? parseFloat((line.canonicalPrice * (1 - discountPct)).toFixed(2))
+        : line.canonicalPrice;
       validatedItems.push({
-        baseId: raw.baseId,
-        name:   canonical.name,
+        baseId: line.baseId,
+        name:   line.name,
         price:  itemPrice,
-        qty,
-        spice:  typeof raw.spice === "string" ? raw.spice.slice(0, 40)  : null,
-        note:   typeof raw.note  === "string" ? raw.note.slice(0, 200)  : "",
+        qty:    leftoverQty,
+        spice:  line.spice,
+        note:   line.note,
       });
     }
 
@@ -358,6 +421,12 @@ export default async function handler(req, res) {
     const canonicalSubtotal = validatedItems.reduce((s, i) => s + (VALID_ITEMS[i.baseId]?.price ?? i.price) * i.qty, 0);
     const discountAmount    = hasDiscount ? parseFloat((canonicalSubtotal - subtotal).toFixed(2)) : 0;
     const discountType      = welcomeDiscount ? "welcome" : memberDiscount ? "member" : (reorderToken && hasDiscount) ? "voucher" : "";
+    // A feast order ships free regardless of subtotal — even a stacked
+    // account discount that drops the subtotal below $99 must not charge
+    // delivery on an order that was sold as a flat-rate feast. See
+    // lib/feasts.js's extractFeasts — appliedFeasts is only non-empty when
+    // every required item+qty was genuinely present in the real cart.
+    const isFeastOrder      = isDelivery && appliedFeasts.length > 0;
 
     if (isDelivery) {
       const zone = getDeliveryZoneForZip(deliveryAddress?.zip);
@@ -378,7 +447,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const serverDeliveryFee = isDelivery ? (subtotal >= 99.00 ? 0 : 6.99) : 0;
+    const serverDeliveryFee = isDelivery ? (isFeastOrder || subtotal >= 99.00 ? 0 : 6.99) : 0;
     const tax               = parseFloat((subtotal * TAX_RATE).toFixed(2));
     const tip               = Math.min(Math.max(0, Number(rawTip) || 0), subtotal * 2);
     const grossBeforeCc     = subtotal + serverDeliveryFee + tax + tip;
