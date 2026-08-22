@@ -25,6 +25,27 @@ const fmt    = (n) => "$" + Number(n ?? 0).toLocaleString("en-US", { minimumFrac
 const fmtK   = (n) => n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : fmt(n);
 const fmtPct = (n) => Number(n ?? 0).toFixed(1) + "%";
 
+// `new Date("YYYY-MM-DD")` parses as UTC midnight, then .getMonth()/
+// .getDate() read it back in the BROWSER's local timezone — for any
+// Eastern-timezone browser (i.e. anyone actually running this dashboard
+// near the restaurant) that's always the PREVIOUS calendar day locally,
+// so every "M/D" label built this way was off by one. These date-only
+// strings (the API's already-NY-local order.date, never a full
+// timestamp) have no timezone of their own — just read the digits back
+// out directly instead of routing through Date/getMonth/getDate at all.
+const fmtDateLabel = (dateStr) => {
+  const [, m, d] = dateStr.split("-");
+  return `${Number(m)}/${Number(d)}`;
+};
+
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+// Same digit-reading approach as fmtDateLabel, just with a month name —
+// used for the Daily & Weekly tab's longer date labels.
+const fmtDateLong = (dateStr) => {
+  const [, m, d] = dateStr.split("-");
+  return `${MONTH_ABBR[Number(m) - 1]} ${Number(d)}`;
+};
+
 // Segment definitions for CRM (Midnight Slate style)
 const SEGMENTS = {
   all:     { label: "All Contacts",     bg: "#6366F1",                   color: "#FFFFFF" },
@@ -144,8 +165,7 @@ function StatCard({ title, value, sub, icon, trend, color = ACCENT }) {
 function RevenueChart({ series }) {
   const ref = useChartJs((canvas) => {
     const labels = series.map(s => {
-      const d = new Date(s.date);
-      return `${d.getMonth() + 1}/${d.getDate()}`;
+      return fmtDateLabel(s.date);
     });
     return new window.Chart(canvas, {
       type: "line",
@@ -217,8 +237,7 @@ function DayOfWeekChart({ data }) {
 function RevenueLedgerChart({ series }) {
   const ref = useChartJs((canvas) => {
     const labels = series.map(s => {
-      const d = new Date(s.date);
-      return `${d.getMonth() + 1}/${d.getDate()}`;
+      return fmtDateLabel(s.date);
     });
     return new window.Chart(canvas, {
       type: "line",
@@ -1526,6 +1545,165 @@ function MenuEngineeringMatrix({ topDishes }) {
   );
 }
 
+// Small colored % badge shared by the Daily and Weekly tables below —
+// green/up or red/down, "—" when there's no prior period to compare
+// against (the oldest row in whatever range is loaded).
+function DeltaBadge({ pct }) {
+  if (pct === null || pct === undefined) {
+    return <span style={{ fontSize: 11, color: TEXT_MUTED }}>—</span>;
+  }
+  const up = pct >= 0;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 800, color: up ? "#10B981" : "#F43F5E",
+      background: up ? "rgba(16, 185, 129, 0.12)" : "rgba(244, 63, 94, 0.12)",
+      padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", display: "inline-block",
+    }}>
+      {up ? "↑" : "↓"} {Math.abs(pct)}%
+    </span>
+  );
+}
+
+// Inline horizontal bar scaled to the largest value currently on screen —
+// lets someone scanning the table spot the best/worst day or week at a
+// glance without reading every number.
+function InlineBar({ value, max, color = "#10B981" }) {
+  const pct = max > 0 ? Math.max(value > 0 ? 2 : 0, Math.round((value / max) * 100)) : 0;
+  return (
+    <div style={{ width: 56, height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden", flexShrink: 0 }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3 }} />
+    </div>
+  );
+}
+
+const TH_STYLE = { textAlign: "right", padding: "8px 10px", fontSize: 10, fontWeight: 800, color: TEXT_MUTED, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" };
+const TD_STYLE = { textAlign: "right", padding: "10px", fontSize: 13, fontWeight: 700, color: TEXT_MAIN, whiteSpace: "nowrap" };
+
+// TAB: Daily & Weekly Breakdown — real per-day and per-week rollups
+// (orders, net sales, AOV, discounts, refunds, period-over-period %
+// change) instead of the single lump-sum-for-the-whole-range number every
+// other tab's StatCards show. This is what "30 days of aggregate data"
+// was missing: you couldn't see Tuesday vs Wednesday, or this week vs
+// last week, only the whole month at once.
+function DailyWeeklyTab({ dailyBreakdown, weeklyBreakdown }) {
+  const [view, setView] = useState("daily");
+  const rows = view === "daily" ? (dailyBreakdown ?? []) : (weeklyBreakdown ?? []);
+
+  const totalNet    = rows.reduce((s, r) => s + r.net, 0);
+  const totalOrders = rows.reduce((s, r) => s + r.orders, 0);
+  const avgNet      = rows.length ? totalNet / rows.length : 0;
+  const maxNet      = Math.max(1, ...rows.map(r => r.net));
+  const best        = rows.reduce((b, r) => (r.net > (b?.net ?? -1) ? r : b), null);
+
+  const bestLabel = best
+    ? (view === "daily" ? `${best.weekday}, ${fmtDateLong(best.date)}` : `Week of ${fmtDateLong(best.weekStart)}`)
+    : "—";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Daily / Weekly toggle */}
+      <div style={{ display: "inline-flex", gap: 4, background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 12, padding: 4, width: "fit-content" }}>
+        {[["daily", "📅 Daily"], ["weekly", "🗓️ Weekly"]].map(([k, lbl]) => (
+          <button key={k} onClick={() => setView(k)}
+            style={{
+              padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer",
+              fontSize: 12, fontWeight: 800,
+              background: view === k ? ACCENT : "transparent",
+              color: view === k ? "#FFFFFF" : TEXT_MUTED,
+            }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary strip for whatever's currently on screen */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+        <StatCard title={view === "daily" ? "Total (Shown Days)" : "Total (Shown Weeks)"} value={fmtK(totalNet)} icon="📈" color="#10B981" sub={`${totalOrders} orders`} />
+        <StatCard title={view === "daily" ? "Avg / Day" : "Avg / Week"} value={fmtK(avgNet)} icon="⚖️" color={ACCENT} sub={`Across ${rows.length} ${view === "daily" ? "days" : "weeks"}`} />
+        <StatCard title={view === "daily" ? "Best Day" : "Best Week"} value={best ? fmtK(best.net) : "—"} icon="🏆" color="#F59E0B" sub={bestLabel} />
+      </div>
+
+      {/* The breakdown table itself */}
+      <div style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: 16, padding: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: TEXT_MAIN, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          {view === "daily" ? "Daily Breakdown" : "Weekly Breakdown"}
+        </h3>
+        <p style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+          {view === "daily"
+            ? "Most recent first. Δ compares each day to the one before it."
+            : "Monday–Sunday weeks, most recent first. Δ compares each week to the one before it."}
+        </p>
+
+        {rows.length === 0 ? (
+          <p style={{ fontSize: 13, color: TEXT_MUTED, textAlign: "center", padding: "24px 0" }}>No orders in this range yet.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
+                  <th style={{ ...TH_STYLE, textAlign: "left" }}>{view === "daily" ? "Date" : "Week"}</th>
+                  <th style={TH_STYLE}>Orders</th>
+                  <th style={{ ...TH_STYLE, textAlign: "left" }}>Net Sales</th>
+                  <th style={TH_STYLE}>AOV</th>
+                  <th style={TH_STYLE}>Discounts</th>
+                  {view === "daily" && <th style={TH_STYLE}>Refunds</th>}
+                  <th style={TH_STYLE}>Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => {
+                  const isToday = view === "daily" && i === 0;
+                  const changePct = view === "daily" ? r.dodChangePct : r.wowChangePct;
+                  return (
+                    <tr key={view === "daily" ? r.date : r.weekStart}
+                      style={{ borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <td style={{ ...TD_STYLE, textAlign: "left", color: TEXT_MAIN }}>
+                        {view === "daily" ? (
+                          <>
+                            <span style={{ fontWeight: 800 }}>{r.weekday}</span>{" "}
+                            <span style={{ color: TEXT_MUTED, fontWeight: 600 }}>{fmtDateLabel(r.date)}</span>
+                            {isToday && (
+                              <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, color: ACCENT, background: ACCENT_LIGHT, padding: "1px 6px", borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                Today
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <span>{fmtDateLong(r.weekStart)} – {fmtDateLong(r.weekEnd)}</span>
+                            {r.isPartial && (
+                              <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, color: "#F59E0B", background: "rgba(245,158,11,0.12)", padding: "1px 6px", borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                Partial
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </td>
+                      <td style={TD_STYLE}>{r.orders}</td>
+                      <td style={{ ...TD_STYLE, textAlign: "left" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <InlineBar value={r.net} max={maxNet} />
+                          <span style={{ color: "#10B981" }}>{fmt(r.net)}</span>
+                        </div>
+                      </td>
+                      <td style={{ ...TD_STYLE, color: TEXT_MUTED, fontWeight: 600 }}>{fmt(r.aov)}</td>
+                      <td style={{ ...TD_STYLE, color: TEXT_MUTED, fontWeight: 600 }}>{r.discounts > 0 ? fmt(r.discounts) : "—"}</td>
+                      {view === "daily" && (
+                        <td style={{ ...TD_STYLE, color: TEXT_MUTED, fontWeight: 600 }}>{r.refunds > 0 ? fmt(r.refunds) : "—"}</td>
+                      )}
+                      <td style={TD_STYLE}><DeltaBadge pct={changePct} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Main Dashboard Controller
 export default function SalesDashboard() {
   const [data,    setData]    = useState(null);
@@ -1603,6 +1781,7 @@ export default function SalesDashboard() {
         <div ref={tabBarRef} style={{ display: "flex", gap: 16, maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
           {[
             ["analytics", "📊 Sales Ledger"],
+            ["daily", "📅 Daily & Weekly"],
             ["crm", "👥 Guest CRM"],
             ["menu", "🍽️ Menu Intelligence"],
             ["geo", "📍 Geo Spatial"],
@@ -1655,6 +1834,7 @@ export default function SalesDashboard() {
         ) : data ? (
           <>
             {tab === "analytics" && <SalesLedgerTab overview={data.overview} revenue={data.revenue} refunds={data.refunds} />}
+            {tab === "daily" && <DailyWeeklyTab dailyBreakdown={data.dailyBreakdown} weeklyBreakdown={data.weeklyBreakdown} />}
             {tab === "crm" && <GuestCRMTab customers={data.customers ?? []} />}
             {tab === "menu" && <MenuIntelligenceTab topDishes={data.topDishes} spice={data.spice} />}
             {tab === "geo" && <GeoSpatialTab geoZip={data.geoZip} hourly={data.hourly} />}

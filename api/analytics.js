@@ -62,7 +62,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       overview,
-      revenue:    buildRevenueSeries(orders, days),
+      revenue:         buildRevenueSeries(orders, days),
+      dailyBreakdown:  buildDailyBreakdown(orders, days),
+      weeklyBreakdown: buildWeeklyBreakdown(orders, days),
       topDishes:  buildTopDishes(orders),
       dayOfWeek:  buildDayOfWeek(orders),
       hourly:     buildHourly(orders),
@@ -137,6 +139,25 @@ async function fetchDrafts(days) {
     captureServerError(e, { route: "analytics", stage: "fetch_drafts" });
     return [];
   }
+}
+
+// This deployment (Vercel serverless) runs its Node process in UTC, and
+// order.createdAt is stored as a UTC ISO string — so `new Date(iso).getDay()`
+// / `.getHours()` return the UTC weekday/hour, not the NY one. For a
+// restaurant open past 7pm Eastern (UTC-4/-5), that silently shifts a big
+// chunk of real dinner-service orders into the wrong weekday and/or the
+// wrong hour bucket in every chart below. Every order already carries the
+// correct NY-local calendar day as order.date (lib/orders.js's
+// getNYDateString) — this is the equivalent for weekday + hour-of-day,
+// used everywhere day/hour buckets are built from a raw timestamp.
+export function nyWeekdayAndHour(isoString) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "numeric", hourCycle: "h23",
+  }).formatToParts(new Date(isoString));
+  return {
+    weekday: parts.find(p => p.type === "weekday")?.value ?? "Sun",
+    hour: Number(parts.find(p => p.type === "hour")?.value ?? 0),
+  };
 }
 
 // ── Aggregators ───────────────────────────────────────────────────
@@ -216,15 +237,17 @@ function calculateEstimatedCOGS(orders) {
   return Math.round(totalCost * 100) / 100;
 }
 
-function buildRevenueSeries(orders, days) {
+export function buildRevenueSeries(orders, days) {
   const grossMap = {};
   const netMap = {};
-  
+
   orders.forEach(o => {
-    const d = o.createdAt.slice(0, 10);
+    // order.date, not createdAt.slice(0,10) — see nyWeekdayAndHour's
+    // comment above for why the latter is a UTC calendar day, not NY's.
+    const d = o.date || o.createdAt.slice(0, 10);
     const orderTotal = o.total ?? (o.subtotal + o.tax + o.tip);
     const refundVal = o.refundedTotal ?? 0;
-    
+
     grossMap[d] = (grossMap[d] ?? 0) + orderTotal;
     netMap[d]   = (netMap[d] ?? 0) + Math.max(0, orderTotal - refundVal);
   });
@@ -232,18 +255,152 @@ function buildRevenueSeries(orders, days) {
   const series = [];
   const today  = new Date();
   const limit  = Math.min(days, 90); // chart max 90 points
-  
+
   for (let i = limit - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    series.push({ 
-      date: key, 
+    // getNYDateString, not toISOString().slice(0,10) — same reasoning: the
+    // "today" this walks backward from needs to be NY's today, not
+    // whatever UTC's clock currently reads (up to several hours ahead).
+    const key = getNYDateString(d);
+    series.push({
+      date: key,
       revenue: Math.round(grossMap[key] ?? 0),
       netRevenue: Math.round(netMap[key] ?? 0)
     });
   }
   return series;
+}
+
+// Real per-calendar-day (NY-local) rollups — one row per day, most recent
+// first — instead of the single lump-sum-for-the-whole-range StatCards the
+// Sales Ledger tab showed before this shipped. Capped at 120 rows even for
+// a 365d/all-time range: daily granularity that far back isn't actionable
+// (nobody's comparing today to a specific Tuesday 8 months ago), and
+// buildWeeklyBreakdown below covers the longer view properly instead of
+// this just silently truncating with no explanation.
+export function buildDailyBreakdown(orders, days) {
+  const byDate = {};
+  orders.forEach(o => {
+    const d = o.date || o.createdAt.slice(0, 10);
+    (byDate[d] ??= []).push(o);
+  });
+
+  const limit = Math.min(days, 120);
+  const today = new Date();
+  const rows = [];
+  for (let i = 0; i < limit; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = getNYDateString(d);
+    const dayOrders = byDate[key] ?? [];
+    const active = dayOrders.filter(o => o.status !== "refunded");
+    const refundAmt = dayOrders.reduce((s, o) => s + (o.refundedTotal ?? 0), 0);
+    const gross = dayOrders.reduce((s, o) => s + (o.total ?? (o.subtotal + o.tax + o.tip)), 0);
+    const net = Math.max(0, gross - refundAmt);
+    const discounts = active.reduce((s, o) => s + (o.discountAmount || 0), 0);
+
+    rows.push({
+      date: key,
+      // Noon-UTC anchor + reading the weekday back out in UTC — a plain
+      // YYYY-MM-DD string has no timezone of its own, so this is the
+      // simplest way to get "which weekday is this calendar date" right
+      // without any local-timezone or DST edge case creeping back in.
+      weekday: new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${key}T12:00:00Z`)),
+      orders: active.length,
+      gross: Math.round(gross * 100) / 100,
+      net: Math.round(net * 100) / 100,
+      aov: active.length ? Math.round((net / active.length) * 100) / 100 : 0,
+      discounts: Math.round(discounts * 100) / 100,
+      refunds: Math.round(refundAmt * 100) / 100,
+    });
+  }
+
+  // Day-over-day % change on net sales — rows[i+1] is the chronologically
+  // previous day, same reasoning as buildWeeklyBreakdown's wowChangePct
+  // below. "Today" compared to "yesterday" is necessarily comparing a
+  // still-accumulating day to a finished one — that's inherent to any
+  // daily dashboard (same tradeoff Toast/Square make), not a bug.
+  rows.forEach((r, i) => {
+    const prev = rows[i + 1];
+    r.dodChangePct = prev && prev.net > 0 ? Math.round(((r.net - prev.net) / prev.net) * 1000) / 10 : null;
+  });
+
+  return rows;
+}
+
+// Groups the same per-day data into Monday-start weeks (NY-local calendar
+// days, bucketed the same way buildDailyBreakdown does) — the "vs just
+// last 30 days of aggregate data" gap: a real week-over-week view instead
+// of only a single number for whatever range is selected. Walks back up
+// to 371 real calendar days (~53 weeks) regardless of the 120-row daily
+// cap above, so a longer-range selection still gets a meaningful weekly
+// trend even though its daily table got truncated.
+export function buildWeeklyBreakdown(orders, days) {
+  const byDate = {};
+  orders.forEach(o => {
+    const d = o.date || o.createdAt.slice(0, 10);
+    (byDate[d] ??= []).push(o);
+  });
+
+  const limitDays = Math.min(days, 371);
+  const today = new Date();
+  const weeks = new Map(); // weekStart (Monday) -> accumulator
+
+  for (let i = 0; i < limitDays; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = getNYDateString(d);
+    const anchor = new Date(`${key}T12:00:00Z`);
+    const dow = anchor.getUTCDay(); // 0=Sun..6=Sat
+    const mondayOffset = (dow + 6) % 7; // days since this date's Monday
+    const monday = new Date(anchor);
+    monday.setUTCDate(monday.getUTCDate() - mondayOffset);
+    const weekKey = monday.toISOString().slice(0, 10);
+
+    if (!weeks.has(weekKey)) weeks.set(weekKey, { weekStart: weekKey, orders: [], dayCount: 0 });
+    const bucket = weeks.get(weekKey);
+    bucket.dayCount++;
+    (byDate[key] ?? []).forEach(o => bucket.orders.push(o));
+  }
+
+  const rows = Array.from(weeks.values())
+    .sort((a, b) => b.weekStart.localeCompare(a.weekStart))
+    .map(w => {
+      const active = w.orders.filter(o => o.status !== "refunded");
+      const refundAmt = w.orders.reduce((s, o) => s + (o.refundedTotal ?? 0), 0);
+      const gross = w.orders.reduce((s, o) => s + (o.total ?? (o.subtotal + o.tax + o.tip)), 0);
+      const net = Math.max(0, gross - refundAmt);
+      const discounts = active.reduce((s, o) => s + (o.discountAmount || 0), 0);
+      const weekEnd = new Date(`${w.weekStart}T12:00:00Z`);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+      return {
+        weekStart: w.weekStart,
+        weekEnd: weekEnd.toISOString().slice(0, 10),
+        // The oldest and newest week in whatever range is selected will
+        // usually be cut off mid-week by the range boundary itself — flag
+        // that so the UI can show "partial week" instead of implying a
+        // full 7-day comparison against a row that's only got 2-3 days in it.
+        isPartial: w.dayCount < 7,
+        orders: active.length,
+        gross: Math.round(gross * 100) / 100,
+        net: Math.round(net * 100) / 100,
+        aov: active.length ? Math.round((net / active.length) * 100) / 100 : 0,
+        discounts: Math.round(discounts * 100) / 100,
+        refunds: Math.round(refundAmt * 100) / 100,
+      };
+    });
+
+  // Week-over-week % change on net sales — computed after sorting so each
+  // row can look at the chronologically-previous week (the next entry in
+  // this most-recent-first array) directly.
+  rows.forEach((w, i) => {
+    const prev = rows[i + 1];
+    w.wowChangePct = prev && prev.net > 0 ? Math.round(((w.net - prev.net) / prev.net) * 1000) / 10 : null;
+  });
+
+  return rows;
 }
 
 function buildTopDishes(orders) {
@@ -280,17 +437,17 @@ function buildTopDishes(orders) {
     });
 }
 
-function buildDayOfWeek(orders) {
+export function buildDayOfWeek(orders) {
   const days  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const counts = [0,0,0,0,0,0,0];
   orders.filter(o => o.status !== "refunded").forEach(o => {
-    counts[new Date(o.createdAt).getDay()]++;
+    counts[days.indexOf(nyWeekdayAndHour(o.createdAt).weekday)]++;
   });
   return days.map((label, i) => ({ label, count: counts[i] }));
 }
 
 // Convert hourly counts to 2D Day of Week vs Hour of Day matrix
-function buildHourly(orders) {
+export function buildHourly(orders) {
   const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   
   // Initialize 2D grid
@@ -307,10 +464,8 @@ function buildHourly(orders) {
   }
 
   orders.filter(o => o.status !== "refunded").forEach(o => {
-    const date = new Date(o.createdAt);
-    const dayName = days[date.getDay()];
-    const hour = date.getHours();
-    
+    const { weekday: dayName, hour } = nyWeekdayAndHour(o.createdAt);
+
     const cell = grid.find(c => c.day === dayName && c.hourNum === hour);
     if (cell) cell.count++;
   });
