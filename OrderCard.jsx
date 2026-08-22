@@ -32,15 +32,15 @@ export function formatScheduledTime(hhmm) {
   return `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-export default function OrderCard({ order, statusConfig, selected, onSelectCard }) {
-  const s = statusConfig[order.status] ?? statusConfig.new;
-  const isDelivery = order.orderMode === "delivery";
-  const isScheduled = order.status === "scheduled";
-  const scheduledTime = order.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
+export default function OrderCard({ order, statusConfig = {}, selected, onSelectCard }) {
+  const s = statusConfig?.[order?.status] ?? statusConfig?.new ?? { label: "NEW", color: "#F98A32" };
+  const isDelivery = order?.orderMode === "delivery";
+  const isScheduled = order?.status === "scheduled";
+  const scheduledTime = order?.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
 
   const shortId = useMemo(() => {
-    return order.id ? "#" + order.id.slice(-6).toUpperCase() : "#------";
-  }, [order.id]);
+    return order?.id ? "#" + String(order.id).slice(-6).toUpperCase() : "#------";
+  }, [order?.id]);
 
   // A scheduled order's kitchen clock starts when the cron promotes it
   // (order.updatedAt), not when the customer originally placed it hours

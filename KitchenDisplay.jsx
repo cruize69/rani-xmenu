@@ -105,7 +105,7 @@ function Ticket({ order, onAdvance, onUndo }) {
 
       {/* Special instructions — shown prominently if present */}
       {order.specialInstructions && (
-        <div style={{ background: order.specialInstructions.toUpperCase().includes("ALLERG") ? "#FEF0F0" : "#FFF3E8", padding:"10px 16px", borderBottom:"1px solid rgba(0,0,0,0.08)", display:"flex", gap:8, alignItems:"flex-start" }}>
+        <div style={{ background: String(order.specialInstructions || "").toUpperCase().includes("ALLERG") ? "#FEF0F0" : "#FFF3E8", padding:"10px 16px", borderBottom:"1px solid rgba(0,0,0,0.08)", display:"flex", gap:8, alignItems:"flex-start" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>⚠</span>
           <span style={{ fontSize:18, fontWeight:700, color:"#9B2626", lineHeight:1.4 }}>{order.specialInstructions}</span>
         </div>

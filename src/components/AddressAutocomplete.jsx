@@ -93,7 +93,7 @@ export function AddressAutocomplete({
   }, []);
 
   const handleInputChange = (e) => {
-    const val = e.target.value;
+    const val = e?.target?.value || "";
     setStreet(val);
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -115,10 +115,11 @@ export function AddressAutocomplete({
 
     // 1. Instant local database lookup
     const localMatches = POPULAR_WESTCHESTER_STREETS.filter(item => {
-      const cleanC = cleanTownName(item.city);
+      const streetStr = (item?.street || "").toLowerCase();
+      const cleanC = cleanTownName(item?.city || "");
       return (
-        item.street.toLowerCase().includes(query) ||
-        `${item.street} ${cleanC}`.toLowerCase().includes(query)
+        streetStr.includes(query) ||
+        `${streetStr} ${cleanC}`.toLowerCase().includes(query)
       );
     }).map(item => ({
       ...item,
@@ -175,7 +176,8 @@ export function AddressAutocomplete({
           setSuggestions(prev => {
             const combined = [...localMatches];
             remoteMatches.forEach(rm => {
-              if (!combined.some(c => c.street.toLowerCase() === rm.street.toLowerCase())) {
+              const rmStreet = (rm?.street || "").toLowerCase().trim();
+              if (rmStreet && !combined.some(c => (c?.street || "").toLowerCase().trim() === rmStreet)) {
                 combined.push(rm);
               }
             });
@@ -226,7 +228,7 @@ export function AddressAutocomplete({
           value={street}
           onChange={handleInputChange}
           onFocus={() => {
-            const query = street.toLowerCase().trim();
+            const query = (street || "").toLowerCase().trim();
             if (/^\d{2,}/.test(query) || query.length >= 3) setShowDropdown(true);
           }}
           style={{

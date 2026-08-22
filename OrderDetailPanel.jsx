@@ -8,7 +8,7 @@ import { formatPhoneNumber, formatScheduledTime } from "./OrderCard.jsx";
 const fmt = n => "$" + Number(n ?? 0).toFixed(2);
 
 function detectAllergy(notes) {
-  if (!notes) return false;
+  if (!notes || typeof notes !== "string") return false;
   const kws = ["allergy", "allergen", "nut", "peanut", "dairy", "gluten", "vegan", "celiac", "lactose", "shellfish", "soy"];
   return kws.some(k => notes.toLowerCase().includes(k));
 }
@@ -36,25 +36,25 @@ export default function OrderDetailPanel({
   const [showReprintMenu, setShowReprintMenu] = useState(false);
   const s = statusInfo;
 
-  const shortId    = "#" + (order.id ? order.id.slice(-6).toUpperCase() : "------");
-  const isDelivery = order.orderMode === "delivery";
-  const isScheduled = order.status === "scheduled";
-  const scheduledTime = order.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
-  const phone      = useMemo(() => formatPhoneNumber(order.customerPhone), [order.customerPhone]);
+  const shortId    = "#" + (order?.id ? String(order.id).slice(-6).toUpperCase() : "------");
+  const isDelivery = order?.orderMode === "delivery";
+  const isScheduled = order?.status === "scheduled";
+  const scheduledTime = order?.scheduledFor ? formatScheduledTime(order.scheduledFor.time) : null;
+  const phone      = useMemo(() => formatPhoneNumber(order?.customerPhone), [order?.customerPhone]);
   // Same basis fix as OrderCard.jsx: a scheduled order's kitchen clock
   // starts at promotion (updatedAt), not at original placement (createdAt)
   // hours earlier — otherwise this reads a false, alarming elapsed time
   // the instant the cron flips it live.
-  const slaBasis   = order.scheduledFor ? order.updatedAt : order.createdAt;
+  const slaBasis   = order?.scheduledFor ? order?.updatedAt : order?.createdAt;
   const sla        = useMemo(() => slaInfo(slaBasis), [slaBasis]);
-  const hasAllergy = useMemo(() => detectAllergy(order.specialInstructions), [order.specialInstructions]);
-  const canRefund  = order.stripePaymentId && order.status !== "refunded";
+  const hasAllergy = useMemo(() => detectAllergy(order?.specialInstructions), [order?.specialInstructions]);
+  const canRefund  = Boolean(order?.stripePaymentId && order?.status !== "refunded");
 
   const addressLine = useMemo(() => {
-    if (!isDelivery || !order.deliveryAddress) return null;
+    if (!isDelivery || !order?.deliveryAddress) return null;
     const a = order.deliveryAddress;
-    return `${a.street}${a.apt ? `, Apt ${a.apt}` : ""}${a.city ? `, ${a.city}` : ""}${a.zip ? ` ${a.zip}` : ""}`;
-  }, [isDelivery, order.deliveryAddress]);
+    return `${a?.street || ""}${a?.apt ? `, Apt ${a.apt}` : ""}${a?.city ? `, ${a.city}` : ""}${a?.zip ? ` ${a.zip}` : ""}`;
+  }, [isDelivery, order?.deliveryAddress]);
 
   // Intelligent Reprint Cooldown Timer (5 seconds)
   useEffect(() => {

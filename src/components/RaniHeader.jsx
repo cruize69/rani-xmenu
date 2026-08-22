@@ -137,7 +137,7 @@ export function RaniHeader({
             >
               {isSignedIn ? (
                 <span style={{ fontSize: 15, fontWeight: 800, color: "#080706" }}>
-                  {(userInitial ?? "•").toUpperCase()}
+                  {String(userInitial || "•").toUpperCase()}
                 </span>
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

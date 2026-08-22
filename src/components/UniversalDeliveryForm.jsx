@@ -36,11 +36,11 @@ export function UniversalDeliveryForm({
   setError,
 }) {
   const addr = deliveryAddress || {};
-  const street = addr.street || "";
-  const apt    = addr.apt    || "";
-  const city   = addr.city   || "";
-  const zip    = addr.zip    || "";
-  const notes  = addr.notes  || "";
+  const street = String(addr.street || "");
+  const apt    = String(addr.apt    || "");
+  const city   = String(addr.city   || "");
+  const zip    = String(addr.zip    || "");
+  const notes  = String(addr.notes  || "");
 
   const zipDone    = zip.trim().length === 5;
   const isZipValid = zipDone && isZipInDeliveryZone(zip);

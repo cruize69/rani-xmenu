@@ -513,7 +513,7 @@ export default function RaniMahal() {
       tokens.forEach(token => {
         let baseId = token;
         let count = 1;
-        if (token.includes(":")) {
+        if (typeof token === "string" && token.includes(":")) {
           const [idPart, qtyPart] = token.split(":");
           baseId = idPart;
           count = Math.max(1, parseInt(qtyPart, 10) || 1);

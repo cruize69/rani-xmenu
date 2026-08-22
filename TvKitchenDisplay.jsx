@@ -238,7 +238,7 @@ function TvOrderCard({ order }) {
 
       {/* Special Allergy / Instructions Warning Banner */}
       {order.specialInstructions && (
-        <div style={{ background: order.specialInstructions.toUpperCase().includes("ALLERG") ? "#7F1D1D" : "#78350F", color: "#FFFFFF", padding: "1.0vh 1.4vw", fontSize: "clamp(18px, 1.2vw, 24px)", fontWeight: 900, borderBottom: "3px solid #EF4444", lineHeight: 1.3, flexShrink: 0 }}>
+        <div style={{ background: String(order.specialInstructions || "").toUpperCase().includes("ALLERG") ? "#7F1D1D" : "#78350F", color: "#FFFFFF", padding: "1.0vh 1.4vw", fontSize: "clamp(18px, 1.2vw, 24px)", fontWeight: 900, borderBottom: "3px solid #EF4444", lineHeight: 1.3, flexShrink: 0 }}>
           ⚠️ NOTE: {order.specialInstructions}
         </div>
       )}

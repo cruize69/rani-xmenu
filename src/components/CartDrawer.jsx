@@ -594,7 +594,7 @@ export function CheckoutGate({
 
               <form onSubmit={handleGuestContinue}>
                 {!outOfZone && error && (
-                  error.includes("minimum food subtotal") ? (
+                  (typeof error === "string" && error.includes("minimum food subtotal")) ? (
                     <div style={{ background:"rgba(232,168,46,0.08)", border:"0.5px solid rgba(232,168,46,0.3)", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
                       <p style={{ fontSize:13, color:"#E8A82E", fontWeight:500, margin:"0 0 10px", lineHeight:1.5 }}>{error}</p>
                       <button
@@ -610,7 +610,7 @@ export function CheckoutGate({
                   )
                 )}
 
-                {!outOfZone && !(error && error.includes("minimum food subtotal")) && (
+                {!outOfZone && !(typeof error === "string" && error.includes("minimum food subtotal")) && (
                   <div style={{ marginTop: 14 }}>
                     <button
                       type="submit"
@@ -911,16 +911,17 @@ export function CartDrawer({
               <div style={{ padding:"0.75rem 1.25rem", borderTop:"0.5px solid rgba(250,246,239,0.07)" }}>
                 {[
                   ["Subtotal", fmt(subtotal), false],
-                  reorderDiscountAmt > 0 ? [discountLabel, `-${fmt(reorderDiscountAmt)}`, false] : null,
+                  reorderDiscountAmt > 0 ? [discountLabel || "👑 Discount", `-${fmt(reorderDiscountAmt)}`, false] : null,
                   isDelivery ? ["Delivery fee ($6.99 | Free over $99)", deliveryFee === 0 ? "FREE" : fmt(6.99), false] : null,
                   ["Tax (est. 8.375%)", fmt(tax), false],
                   ["Tip", fmt(tip), false],
                   ["Credit card processing fee", fmt(ccFee), false],
                   ["Total", fmt(total), true],
                 ].filter(Boolean).map(([l, v, isTotal]) => {
-                  const isDiscount = l.includes("Discount");
+                  const labelStr = typeof l === "string" ? l : (l ? String(l) : "Item");
+                  const isDiscount = labelStr.includes("Discount");
                   return (
-                    <div key={l} style={{
+                    <div key={labelStr} style={{
                       display:"flex", justifyContent:"space-between",
                       fontSize:isTotal?16:14, fontWeight:isTotal?500:400,
                       color:isTotal?"#FAF6EF":isDiscount?"#10B981":"#B8A995",
@@ -928,7 +929,7 @@ export function CartDrawer({
                       borderTop:isTotal?"0.5px solid rgba(250,246,239,0.08)":"none",
                       marginTop:isTotal?6:0
                     }}>
-                      <span>{l}</span><span>{v}</span>
+                      <span>{labelStr}</span><span>{v}</span>
                     </div>
                   );
                 })}

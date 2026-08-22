@@ -128,11 +128,11 @@ export function FulfillmentSheet({
 
   // Read live from deliveryAddress prop — no local shadow state
   const addr = deliveryAddress || {};
-  const zip = addr.zip || "";
-  const city = addr.city || "";
-  const street = addr.street || "";
+  const zip = String(addr.zip || "");
+  const city = String(addr.city || "");
+  const street = String(addr.street || "");
   const isZipValid = zip.trim().length >= 5 && isZipInDeliveryZone(zip);
-  const phoneDigits = localPhone.replace(/\D/g, "");
+  const phoneDigits = String(localPhone || "").replace(/\D/g, "");
   const isPhoneValid = phoneDigits.length === 0 || phoneDigits.length === 10;
 
   const handleSave = () => {
