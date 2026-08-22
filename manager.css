@@ -551,10 +551,23 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', system-ui, -a
   border: 1px dashed var(--rm-card-border);
 }
 
-/* ── Slide-Over Drawer (<1024px) ──────────────────────────────── */
+/* ── Slide-Over Drawer (<768px) ───────────────────────────────── */
+/* Always mounted whenever an order is selected (OrderManager.jsx no
+   longer gates this on its JS `isWide` check) — this media query is now
+   the ONLY thing deciding whether the drawer or the persistent right pane
+   is what the customer sees. Two independent sources of truth for the
+   same layout decision (a JS window.innerWidth check racing a CSS media
+   query) is exactly how a specific tablet could end up with BOTH
+   disagreeing after a rotation — CSS said "narrow, no room for 2 panes"
+   while JS said "wide enough, don't bother with the drawer," so tapping
+   an order opened nothing visible anywhere. Matches the 768px breakpoint
+   right pane uses above — keep in sync if that one ever changes. */
 .rm-drawer-backdrop {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0, 0, 0, 0.65);animation: rm-fade-in 0.2s ease;
+}
+@media (min-width: 768px) {
+  .rm-drawer-backdrop { display: none; }
 }
 .rm-drawer {
   position: absolute; right: 0; top: 0; bottom: 0;

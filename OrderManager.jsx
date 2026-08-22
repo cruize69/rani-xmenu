@@ -8,6 +8,7 @@ import OrderCard from "./OrderCard.jsx";
 import OrderDetailPanel from "./OrderDetailPanel.jsx";
 import RefundModal from "./RefundModal.jsx";
 import { useWakeLock } from "./src/hooks/useWakeLock.js";
+import { getAudioContext, unlockAudioContext, playNewOrderChime } from "./src/lib/kitchenChime.js";
 import "./manager.css";
 
 const API_BASE = "";
@@ -37,42 +38,6 @@ async function apiFetch(path, opts = {}) {
   });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json();
-}
-
-// Browsers suspend a freshly-created AudioContext until a user gesture
-// unlocks it, so a chime fired from a poll (no gesture in the call stack)
-// would otherwise stay silent. Reuse one context, unlocked below by the
-// first click/keydown on the page — same fix TvKitchenDisplay.jsx uses.
-let globalAudioCtx = null;
-
-function getAudioContext() {
-  if (!globalAudioCtx && typeof window !== "undefined") {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) globalAudioCtx = new AudioCtx();
-  }
-  if (globalAudioCtx && globalAudioCtx.state === "suspended") {
-    globalAudioCtx.resume().catch(() => {});
-  }
-  return globalAudioCtx;
-}
-
-function playChime() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    [523.25, 659.25, 783.99].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, now + i * 0.12);
-      gain.gain.setValueAtTime(0, now + i * 0.12);
-      gain.gain.linearRampToValueAtTime(0.24, now + i * 0.12 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.36);
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.42);
-    });
-  } catch (_) {}
 }
 
 export default function OrderManager() {
@@ -108,7 +73,7 @@ export default function OrderManager() {
   // order chime (fired later from a poll, with no gesture in the call
   // stack) isn't silently blocked by the browser's autoplay policy.
   useEffect(() => {
-    const unlock = () => getAudioContext();
+    const unlock = () => unlockAudioContext();
     window.addEventListener("click", unlock);
     window.addEventListener("keydown", unlock);
     return () => {
@@ -248,16 +213,20 @@ export default function OrderManager() {
       const data = await apiFetch(`/api/orders`);
       const nextOrders = data.orders || [];
 
-      // Sound + full-screen alert for a genuinely NEW order (playChime and
-      // the rm-alert-overlay markup already existed but were never wired
-      // up — this is what actually triggers them). Skipped on the very
-      // first load of a session (prevIds starts empty): otherwise opening
-      // the app fresh at the start of a shift would treat every order
-      // already sitting in "new" status as if it just came in.
+      // Sound + full-screen alert for a genuinely NEW order (the
+      // rm-alert-overlay markup already existed but was never wired up —
+      // this is what actually triggers it). Skipped on the very first
+      // load of a session (prevIds starts empty): otherwise opening the
+      // app fresh at the start of a shift would treat every order already
+      // sitting in "new" status as if it just came in. The chime itself
+      // is shared with TvKitchenDisplay.jsx (src/lib/kitchenChime.js) —
+      // ~5.5s of elephant-roar + thali-clash, long and distinct enough to
+      // catch attention mid-task, replacing the old ~0.5s chime here that
+      // was easy to miss entirely.
       if (prevIds.current.size > 0) {
         const freshlyNew = nextOrders.find(o => o.status === "new" && !prevIds.current.has(o.id));
         if (freshlyNew) {
-          playChime();
+          playNewOrderChime();
           setNewAlert(freshlyNew);
         }
       }
@@ -492,8 +461,16 @@ export default function OrderManager() {
         </div>
       </div>
 
-      {/* ── Slide-over Drawer for compact / portrait screens ── */}
-      {!isWide && selectedOrder && (
+      {/* ── Slide-over Drawer for compact / portrait screens ──
+          Mounted whenever an order is selected, full stop — manager.css's
+          `@media (min-width: 768px) { .rm-drawer-backdrop { display: none } }`
+          is what actually decides whether this or the persistent right
+          pane is visible. Previously gated on `!isWide` (a JS
+          window.innerWidth check) as well, which could disagree with the
+          CSS breakpoint after a rotation and leave a tap on an order
+          opening nothing anywhere — see manager.css's comment on
+          .rm-drawer-backdrop for the full story. */}
+      {selectedOrder && (
         <div className="rm-drawer-backdrop" onClick={e => e.target === e.currentTarget && setSelectedOrder(null)}>
           <div className="rm-drawer">
             <OrderDetailPanel
