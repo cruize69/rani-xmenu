@@ -95,13 +95,28 @@ export function FeastCard({ feast, onAdd }) {
           </div>
         </div>
 
-        <span style={{
-          display: "inline-block", marginTop: 14, background: "rgba(60,122,78,0.14)", color: "#6FBF87",
-          border: "0.5px solid rgba(60,122,78,0.35)", fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600,
-          padding: "4px 10px", borderRadius: 20,
-        }}>
-          Save {fmt(savings)} ({savingsPct}%)
-        </span>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+          <span style={{
+            display: "inline-block", background: "rgba(60,122,78,0.14)", color: "#6FBF87",
+            border: "0.5px solid rgba(60,122,78,0.35)", fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600,
+            padding: "4px 10px", borderRadius: 20,
+          }}>
+            Save {fmt(savings)} ({savingsPct}%)
+          </span>
+          {/* Feast item rows below don't list rice — entrees come with it
+              automatically per lib/menu.js's "All entrees served with
+              aromatic basmati rice" — so this is called out here as its
+              own highlighted pill instead of buried prose, since a
+              customer skimming the item list has no other way to know a
+              feast this size doesn't need a separate rice order. */}
+          <span style={{
+            display: "inline-block", background: "rgba(232,168,46,0.18)", color: "#E8A82E",
+            border: "0.5px solid rgba(232,168,46,0.5)", fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 700,
+            padding: "4px 10px", borderRadius: 20,
+          }}>
+            🍚 Rice Included
+          </span>
+        </div>
 
         <ul style={{ listStyle: "none", margin: "14px 0 0", padding: 0, borderTop: "0.5px solid rgba(250,246,239,0.08)" }}>
           {feast.items.map((it) => <FeastItemRow key={it.baseId} baseId={it.baseId} qty={it.qty} />)}
@@ -132,13 +147,8 @@ export function FeastCard({ feast, onAdd }) {
 
 export function FeastSection({ feasts, onAdd }) {
   return (
-    <div>
-      <p style={{ fontFamily: "'Fraunces',serif", fontStyle: "italic", fontSize: 13, color: "#B8A995", textAlign: "center", marginTop: -8, marginBottom: 20, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        One tap, no decision fatigue.
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {feasts.map((feast) => <FeastCard key={feast.id} feast={feast} onAdd={onAdd} />)}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {feasts.map((feast) => <FeastCard key={feast.id} feast={feast} onAdd={onAdd} />)}
     </div>
   );
 }

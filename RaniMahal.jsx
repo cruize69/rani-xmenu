@@ -1014,12 +1014,19 @@ export default function RaniMahal() {
         {/* Menu Body */}
         <div style={{ maxWidth:1100, margin:"0 auto", padding:"0 1rem 140px" }}>
           <div style={{ paddingTop:"2rem" }}>
-            <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
-              {section?.id !== "appetizers" && (
-                <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
-              )}
-              {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
-            </div>
+            {/* Feasts skips this header entirely (no eyebrow, no note) — the
+                cards themselves carry all the meaning now, and the eyebrow
+                + FeastSection's old subtitle together were the single
+                biggest chunk of above-the-fold space on this, the first
+                section a customer sees. */}
+            {section?.id !== "feasts" && (
+              <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
+                {section?.id !== "appetizers" && (
+                  <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
+                )}
+                {section?.note && <p style={{ fontSize:13, color:"#B8A995", marginTop:4 }}>{section.note}</p>}
+              </div>
+            )}
 
             {section?.id === "feasts" ? (
               <FeastSection feasts={FEASTS} onAdd={addFeastToCart} />
