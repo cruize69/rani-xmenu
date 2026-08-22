@@ -21,7 +21,7 @@ import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { kv } from "../lib/kv.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
-import { sanitizeDeliveryAddress, truncateToUtf8Bytes, chunkStringByBytes } from "../lib/sanitize.js";
+import { sanitizeDeliveryAddress, truncateToUtf8Bytes, chunkStringByBytes, MAX_CART_METADATA_CHUNKS } from "../lib/sanitize.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -527,6 +527,14 @@ export default async function handler(req, res) {
       metaCart.cart = cartJson;
     } else {
       const chunks = chunkStringByBytes(cartJson, 450);
+      // Must match MAX_CART_METADATA_CHUNKS in lib/syncStripe.js's reassembly
+      // loop, or a cart big enough to exceed it would silently lose its
+      // trailing items when the webhook rebuilds the order later — after
+      // the card has already been charged. Failing here, before Stripe is
+      // ever called, is the only safe place to catch this.
+      if (chunks.length > MAX_CART_METADATA_CHUNKS) {
+        return res.status(400).json({ error: "Your order has too many items to check out at once. Please split it into two orders." });
+      }
       for (let i = 0; i < chunks.length; i++) {
         metaCart[`cart_${i}`] = chunks[i];
       }
