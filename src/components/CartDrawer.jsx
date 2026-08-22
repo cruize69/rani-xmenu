@@ -437,14 +437,14 @@ export function CheckoutGate({
             instead), so this is the only real way to change a scheduled
             time without leaving checkout. */}
         {onOpenFulfillmentSheet && (
-          <div style={{ padding: "10px 20px 0", display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ padding: "10px 20px 0", display: "flex", justifyContent: "center" }}>
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); onOpenFulfillmentSheet(); }}
               style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20,
+                display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 22,
                 border: "1px solid rgba(232,168,46,0.3)", background: "rgba(232,168,46,0.08)",
-                color: "#E8A82E", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif",
+                color: "#E8A82E", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter',sans-serif",
               }}
             >
               {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "ASAP"} · Change
