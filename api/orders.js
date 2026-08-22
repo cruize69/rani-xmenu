@@ -21,6 +21,7 @@ import { getStripe, syncStripeSessions, getOrCreateOrderForSession } from "../li
 import { checkManagerAuth } from "../lib/auth.js";
 import { reportPaidOrderBuildFailed } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
+import { truncateToUtf8Bytes } from "../lib/sanitize.js";
 
 const VALID_STATUSES = Object.values(ORDER_STATUS);
 
@@ -398,11 +399,11 @@ async function handleRefund(req, res) {
       payment_intent: order.stripePaymentId,
       reason: mapReason(reason),
       metadata: {
-        orderId,
-        type,
-        staffName: staffName ?? "Manager",
-        itemName:  itemName ?? "",
-        internalReason: reason ?? "",
+        orderId: truncateToUtf8Bytes(orderId, 500),
+        type: truncateToUtf8Bytes(type, 500),
+        staffName: truncateToUtf8Bytes(staffName ?? "Manager", 500),
+        itemName:  truncateToUtf8Bytes(itemName ?? "", 500),
+        internalReason: truncateToUtf8Bytes(reason ?? "", 500),
       },
     };
     if (refundAmount) refundParams.amount = refundAmount;

@@ -20,7 +20,7 @@ import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
 import { kv } from "../lib/kv.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
-import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
+import { sanitizeDeliveryAddress, truncateToUtf8Bytes, chunkStringByBytes } from "../lib/sanitize.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
@@ -457,9 +457,9 @@ export default async function handler(req, res) {
     if (Buffer.byteLength(cartJson, "utf8") <= 500) {
       metaCart.cart = cartJson;
     } else {
-      const CHUNK_SIZE = 450;
-      for (let i = 0, offset = 0; offset < cartJson.length; i++, offset += CHUNK_SIZE) {
-        metaCart[`cart_${i}`] = cartJson.slice(offset, offset + CHUNK_SIZE);
+      const chunks = chunkStringByBytes(cartJson, 450);
+      for (let i = 0; i < chunks.length; i++) {
+        metaCart[`cart_${i}`] = chunks[i];
       }
     }
 
@@ -483,15 +483,15 @@ export default async function handler(req, res) {
       },
       metadata: {
         ...metaCart,
-        specialInstructions: (specialInstructions ?? "").slice(0, 500),
-        clerkUserId:         (clerkUserId  ?? "").slice(0, 500),
+        specialInstructions: truncateToUtf8Bytes(specialInstructions ?? "", 500),
+        clerkUserId:         truncateToUtf8Bytes(clerkUserId  ?? "", 500),
         welcomeDiscount:     welcomeDiscount ? "1" : "",
         memberDiscount:      memberDiscount ? "1" : "",
         discountPct:         hasDiscount ? String(discountPct) : "0",
         discountType:        discountType,
         discountAmount:      discountAmount.toFixed(2),
         originalSubtotal:    canonicalSubtotal.toFixed(2),
-        guestEmail:          (guestEmail   ?? "").slice(0, 500),
+        guestEmail:          truncateToUtf8Bytes(guestEmail   ?? "", 500),
         tip:                 tip.toFixed(2),
         orderMode:           isDelivery ? "delivery" : "pickup",
         deliveryFee:         serverDeliveryFee.toFixed(2),
@@ -499,11 +499,11 @@ export default async function handler(req, res) {
         source:              "online_ordering",
         reorderToken:        reorderToken || "",
         scheduledFor:        validScheduledFor ? JSON.stringify(validScheduledFor) : "",
-        utmSource:           typeof utm?.utm_source   === "string" ? utm.utm_source.slice(0, 100)   : "",
-        utmMedium:           typeof utm?.utm_medium   === "string" ? utm.utm_medium.slice(0, 100)   : "",
-        utmCampaign:         typeof utm?.utm_campaign === "string" ? utm.utm_campaign.slice(0, 100) : "",
-        gclid:               typeof utm?.gclid        === "string" ? utm.gclid.slice(0, 100)        : "",
-        fbclid:              typeof utm?.fbclid       === "string" ? utm.fbclid.slice(0, 100)       : "",
+        utmSource:           typeof utm?.utm_source   === "string" ? truncateToUtf8Bytes(utm.utm_source, 100)   : "",
+        utmMedium:           typeof utm?.utm_medium   === "string" ? truncateToUtf8Bytes(utm.utm_medium, 100)   : "",
+        utmCampaign:         typeof utm?.utm_campaign === "string" ? truncateToUtf8Bytes(utm.utm_campaign, 100) : "",
+        gclid:               typeof utm?.gclid        === "string" ? truncateToUtf8Bytes(utm.gclid, 100)        : "",
+        fbclid:              typeof utm?.fbclid       === "string" ? truncateToUtf8Bytes(utm.fbclid, 100)       : "",
       },
       success_url: `${baseUrl}/order-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${baseUrl}`,

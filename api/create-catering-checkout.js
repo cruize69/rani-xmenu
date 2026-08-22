@@ -25,7 +25,7 @@ import { getDeliveryZoneForZip } from "../src/utils/deliveryConfig.js";
 import { reportCheckoutError } from "../lib/errorAlerts.js";
 import { captureServerError } from "../lib/sentry.js";
 import { overLimit, clientIp } from "../lib/rateLimit.js";
-import { sanitizeDeliveryAddress } from "../lib/sanitize.js";
+import { sanitizeDeliveryAddress, truncateToUtf8Bytes, chunkStringByBytes } from "../lib/sanitize.js";
 import { recordCampaignClaimed } from "../lib/notifications.js";
 import { getNYDateString } from "../lib/orders.js";
 import { formatTime } from "../lib/hours.js";
@@ -290,7 +290,15 @@ export default async function handler(req, res) {
       note: notes,
     }]);
     const cartByteLen = Buffer.byteLength(cartJson, "utf8");
-    const metaCart = cartByteLen <= 500 ? { cart: cartJson } : { cart_0: cartJson.slice(0, 450), cart_1: cartJson.slice(450) };
+    const metaCart = {};
+    if (cartByteLen <= 500) {
+      metaCart.cart = cartJson;
+    } else {
+      const chunks = chunkStringByBytes(cartJson, 450);
+      for (let i = 0; i < chunks.length; i++) {
+        metaCart[`cart_${i}`] = chunks[i];
+      }
+    }
 
     const idempotencyKey = crypto
       .createHash("sha256")
@@ -326,10 +334,10 @@ export default async function handler(req, res) {
       },
       metadata: {
         ...metaCart,
-        specialInstructions: [`Event: ${eventDateTimeLabel}.`, notes || null].filter(Boolean).join(" ").slice(0, 500),
-        clerkUserId: (clerkUserId ?? "").slice(0, 500),
-        guestEmail: guestEmail.slice(0, 500),
-        guestPhone: typeof guestPhone === "string" ? guestPhone.slice(0, 40) : "",
+        specialInstructions: truncateToUtf8Bytes([`Event: ${eventDateTimeLabel}.`, notes || null].filter(Boolean).join(" "), 500),
+        clerkUserId: truncateToUtf8Bytes(clerkUserId ?? "", 500),
+        guestEmail: truncateToUtf8Bytes(guestEmail, 500),
+        guestPhone: typeof guestPhone === "string" ? truncateToUtf8Bytes(guestPhone, 40) : "",
         tip: tip.toFixed(2),
         orderMode: isDelivery ? "delivery" : "pickup",
         deliveryFee: serverDeliveryFee.toFixed(2),
@@ -338,11 +346,11 @@ export default async function handler(req, res) {
         eventDate,
         eventTime,
         reorderToken: reorderToken || "",
-        utmSource: typeof utm?.utm_source === "string" ? utm.utm_source.slice(0, 100) : "",
-        utmMedium: typeof utm?.utm_medium === "string" ? utm.utm_medium.slice(0, 100) : "",
-        utmCampaign: typeof utm?.utm_campaign === "string" ? utm.utm_campaign.slice(0, 100) : "",
-        gclid: typeof utm?.gclid === "string" ? utm.gclid.slice(0, 100) : "",
-        fbclid: typeof utm?.fbclid === "string" ? utm.fbclid.slice(0, 100) : "",
+        utmSource: typeof utm?.utm_source === "string" ? truncateToUtf8Bytes(utm.utm_source, 100) : "",
+        utmMedium: typeof utm?.utm_medium === "string" ? truncateToUtf8Bytes(utm.utm_medium, 100) : "",
+        utmCampaign: typeof utm?.utm_campaign === "string" ? truncateToUtf8Bytes(utm.utm_campaign, 100) : "",
+        gclid: typeof utm?.gclid === "string" ? truncateToUtf8Bytes(utm.gclid, 100) : "",
+        fbclid: typeof utm?.fbclid === "string" ? truncateToUtf8Bytes(utm.fbclid, 100) : "",
       },
       success_url: `${baseUrl}${returnPath}?catering_order=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}${returnPath}?catering_order=cancelled`,
