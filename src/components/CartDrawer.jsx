@@ -170,7 +170,7 @@ export function Notice({ message, onDismiss }) {
   );
 }
 
-export function ClerkSignInButton({ style, disabled, onSignedIn }) {
+export function ClerkSignInButton({ style, disabled, onSignedIn, label, savings = 0 }) {
   const { isSignedIn, user } = useUser();
   const clerk = useClerk();
   const firedRef = useRef(false);
@@ -182,8 +182,14 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
     }
   }, [isSignedIn, user]);
 
+  const buttonText = label || (savings > 0 ? `⚡ 1-Tap Claim $${savings.toFixed(2)} Off` : "⚡ 1-Tap Claim 10% Off");
+
   return (
-    <button style={style} disabled={disabled} onClick={() => clerk.openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href })}>
+    <button
+      style={style}
+      disabled={disabled}
+      onClick={() => clerk?.openSignUp({ forceRedirectUrl: window.location.href, signInForceRedirectUrl: window.location.href })}
+    >
       <span style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
         <svg width="14" height="14" viewBox="0 0 384 512" fill="currentColor" aria-hidden="true">
           <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
@@ -195,7 +201,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn }) {
           <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
         </svg>
       </span>
-      Sign in
+      {buttonText}
     </button>
   );
 }
@@ -459,20 +465,30 @@ export function CheckoutGate({
             <>
               <button onClick={onCancel} style={{ background:"transparent", border:"none", color:"#B8A995", fontSize:13, cursor:"pointer", padding:"0 0 14px", display:"flex", alignItems:"center", gap:4 }}>← Back to cart</button>
 
-              {/* Sign-in offered as a compact strip, not a separate screen —
-                  guests reach the payment button one tap sooner. */}
+              {/* High-converting Royal Club 1-Tap Claim Card */}
               {CLERK_ENABLED && (
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, textAlign:"center", background:"rgba(232,168,46,0.07)", border:"1px solid rgba(232,168,46,0.35)", borderRadius:12, padding:"16px 14px", marginBottom:16, boxShadow:"0 0 20px rgba(232,168,46,0.08)" }}>
-                  <span style={{ fontSize:12.5, color:"#FAF6EF", lineHeight:1.4, whiteSpace:"nowrap" }}>
-                    👑 <strong style={{ color:"#E8A82E" }}>10% off</strong> first order, <strong style={{ color:"#E8A82E" }}>5% off</strong> every order after
-                  </span>
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, textAlign:"center", background:"linear-gradient(145deg, rgba(232,168,46,0.12) 0%, rgba(28,24,20,0.85) 100%)", border:"1.5px solid rgba(232,168,46,0.45)", borderRadius:14, padding:"16px 14px", marginBottom:18, boxShadow:"0 4px 24px rgba(232,168,46,0.12)" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ fontSize:16 }}>👑</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:"#E8A82E", textTransform:"uppercase", letterSpacing:"0.08em" }}>Rani Royal Club</span>
+                  </div>
+                  <div style={{ fontSize:15, fontWeight:700, color:"#FAF6EF" }}>
+                    {subtotal > 0 ? (
+                      <>Save <strong style={{ color:"#E8A82E" }}>${(subtotal * 0.10).toFixed(2)}</strong> on this order</>
+                    ) : (
+                      <>Get <strong style={{ color:"#E8A82E" }}>10% off</strong> your first order</>
+                    )}
+                  </div>
+                  <p style={{ fontSize:12, color:"#D9CDBB", margin:"0 0 4px", lineHeight:1.4 }}>
+                    10% off tonight · 5% off every order after that · No passwords needed
+                  </p>
                   <ClerkSignInButton
                     style={{
                       width:"100%",
-                      padding:"12px 16px",
-                      background:"rgba(232,168,46,0.14)",
-                      color:"#E8A82E",
-                      border:"1.5px solid #E8A82E",
+                      padding:"13px 16px",
+                      background:"#E8A82E",
+                      color:"#080706",
+                      border:"none",
                       borderRadius:24,
                       fontSize:14,
                       fontWeight:700,
@@ -483,20 +499,20 @@ export function CheckoutGate({
                       justifyContent:"center",
                       gap:8,
                       whiteSpace:"nowrap",
+                      boxShadow:"0 4px 14px rgba(232,168,46,0.35)",
                     }}
+                    savings={subtotal * 0.10}
                     disabled={loading}
                     onSignedIn={clerkUserId => {
-                      // Eligibility is already known (RaniMahal.jsx checked
-                      // /api/account/profile the moment this session signed
-                      // in), so this fires the celebratory toast with zero
-                      // extra round-trip and zero added tap before the
-                      // automatic Stripe redirect below. This also covers
-                      // an ALREADY-signed-in customer: ClerkSignInButton's
-                      // effect fires onSignedIn on mount in that case too.
                       if (welcomeEligible) onWelcomeDiscount?.();
                       goToStripe({ clerkUserId });
                     }}
                   />
+                  <div style={{ width:"100%", display:"flex", alignItems:"center", gap:10, margin:"10px 0 2px" }}>
+                    <div style={{ flex:1, height:1, background:"rgba(250,246,239,0.1)" }} />
+                    <span style={{ fontSize:11, color:"#8A7560", textTransform:"uppercase", letterSpacing:"0.05em", whiteSpace:"nowrap" }}>or continue as guest (pay full {fmt(total)})</span>
+                    <div style={{ flex:1, height:1, background:"rgba(250,246,239,0.1)" }} />
+                  </div>
                 </div>
               )}
 

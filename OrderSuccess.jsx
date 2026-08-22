@@ -36,11 +36,11 @@ function AccountClaimCard({ email }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <span style={{ fontSize: 20 }}>👑</span>
         <h4 style={{ fontFamily: "'Playfair Display',serif", fontSize: 16, fontWeight: 600, color: "#FFFFFF", margin: 0 }}>
-          Join the Rani Royal Club — 10% Off Your Next Order
+          👑 Lock In 5% Off All Future Orders
         </h4>
       </div>
       <p style={{ fontSize: 13, color: "rgba(245,230,200,0.8)", marginBottom: 14, lineHeight: 1.5 }}>
-        Create an account with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1-click. Your first signed-in order is automatically 10% off, then 5% off every order after that — no punch card, no tracking required.
+        Activate your member perks with <strong style={{ color: "#FFFFFF" }}>{email}</strong> in 1 tap. Get 5% off every future order, saved order history, and instant 1-tap reordering.
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
         <button
@@ -71,7 +71,7 @@ function AccountClaimCard({ email }) {
           onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
         >
-          <span>Create Account / Claim Order →</span>
+          <span>⚡ 1-Tap Activate Member Perks</span>
         </button>
       </div>
     </div>

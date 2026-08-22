@@ -149,7 +149,7 @@ export function RaniHeader({
                 }} />
               )}
             </span>
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#B8A995" }}>{isSignedIn ? "Signed In" : "Account"}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isSignedIn ? "#FAF6EF" : "#E8A82E" }}>{isSignedIn ? "Signed In" : "👑 10% Off"}</span>
           </button>
 
           {/* Centered — logo emblem + name/tagline stacked, linking back to
