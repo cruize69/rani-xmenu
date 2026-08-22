@@ -156,7 +156,7 @@ export function FulfillmentSheet({
       }
     }
     if (!openStatus.isOpen && !scheduledFor) {
-      setError("Please pick a time for us to prepare your order — we're closed right now.");
+      setError("Please pick a time for us to prepare your order.");
       return;
     }
     setOrderMode(selectedMode);
@@ -401,24 +401,32 @@ export function FulfillmentSheet({
           </>
         </div>
 
-        {/* Order-for-later */}
-        <div style={{ margin: "1.25rem 1.25rem 0", padding: "16px", background: "#161310", border: `0.5px solid ${openStatus.isOpen ? "rgba(232,168,46,0.2)" : "rgba(217,72,44,0.3)"}`, borderRadius: 14 }}>
+        {/* Order-for-later — framed as a positive "Scheduled Order" even
+            when the kitchen happens to be closed right now, matching the
+            language already used in the top banner (RaniMahal.jsx). A
+            customer ordering ahead is planning, not being turned away —
+            red alert styling and "we're closed" language reads as a wall,
+            not an invitation, and was real friction worth removing. */}
+        <div style={{ margin: "1.25rem 1.25rem 0", padding: "16px", background: "#161310", border: "0.5px solid rgba(232,168,46,0.2)", borderRadius: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <div style={{
                 flexShrink: 0, width: 30, height: 30, borderRadius: "50%", marginTop: 1,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: openStatus.isOpen ? "rgba(232,168,46,0.12)" : "rgba(217,72,44,0.14)",
-                color: openStatus.isOpen ? "#E8A82E" : "#D9482C",
+                background: "rgba(232,168,46,0.12)", color: "#E8A82E",
               }}>
                 <ClockIcon size={15} color="currentColor" />
               </div>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: openStatus.isOpen ? "#FAF6EF" : "#F0846A", margin: 0 }}>
-                  {openStatus.isOpen ? "Order for later" : "We're closed right now"}
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#FAF6EF", margin: 0 }}>
+                  {openStatus.isOpen ? "Order for later" : "Scheduled Order"}
                 </p>
                 <p style={{ fontSize: 11.5, color: "#B8A995", margin: "2px 0 0", lineHeight: 1.4 }}>
-                  {openStatus.isOpen ? openStatus.label : `${openStatus.label} — pick a time below and we'll have it ready then.`}
+                  {openStatus.isOpen
+                    ? openStatus.label
+                    : openStatus.nextWindow
+                      ? `Kitchen opens for ${openStatus.nextWindow.name.toLowerCase()} at ${formatTime(openStatus.nextWindow.opens)} — pick a time below and we'll have it fresh and ready.`
+                      : "Pick a time below and we'll have it fresh and ready."}
                 </p>
               </div>
             </div>

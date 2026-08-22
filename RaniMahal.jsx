@@ -102,6 +102,17 @@ function loadStoredCart() {
   } catch { return {}; }
 }
 
+// Clerk's OAuth sign-in (Google) is a real page navigation away and back —
+// forceRedirectUrl brings the browser back to this same URL, but that's a
+// full reload, which wipes every plain useState (showCheckoutGate included)
+// even though the cart itself survives via CART_STORAGE_KEY above. Without
+// this flag, a customer who taps "Claim 10% Off" mid-checkout gets dumped
+// on the bare menu post-sign-in with no visible cart — exactly the friction
+// this key exists to close. sessionStorage (not localStorage) so it never
+// outlives the tab, and it's consumed (cleared) the instant it's read below
+// so an unrelated later reload in the same tab can't spuriously reopen it.
+const CHECKOUT_RESUME_KEY = "rani_checkout_resume";
+
 const GUEST_EMAIL_KEY = "rani_guest_email";
 const loadGuestEmail  = () => { try { return localStorage.getItem(GUEST_EMAIL_KEY) || ""; } catch { return ""; } };
 const saveGuestEmail  = email => { try { localStorage.setItem(GUEST_EMAIL_KEY, email); } catch {} };
@@ -248,7 +259,18 @@ export default function RaniMahal() {
   const [modalItem, setModalItem] = useState(null);
   const [notice, setNotice]     = useState(null);
   const [drawerOpen,       setDrawerOpen]       = useState(false);
-  const [showCheckoutGate, setShowCheckoutGate] = useState(false);
+  const [showCheckoutGate, setShowCheckoutGate] = useState(() => {
+    // Resume straight into checkout if we're reloading mid-flow (see
+    // CHECKOUT_RESUME_KEY above) — read+clear here, at init, so this can
+    // never fire more than once per navigation.
+    try {
+      if (sessionStorage.getItem(CHECKOUT_RESUME_KEY) === "1") {
+        sessionStorage.removeItem(CHECKOUT_RESUME_KEY);
+        return Object.keys(loadStoredCart()).length > 0;
+      }
+    } catch {}
+    return false;
+  });
   const [orderMode, setOrderModeState] = useState(() => loadStoredFulfillment().mode);
   const [deliveryAddress, setDeliveryAddressState] = useState(() => loadStoredFulfillment().address);
   const [tipPct, setTipPct] = useState(() => (loadStoredFulfillment().mode === "delivery" ? 0.18 : 0));
@@ -340,6 +362,24 @@ export default function RaniMahal() {
   const [cloudImages, setCloudImages] = useState({});
   const [showSectionSheet, setShowSectionSheet] = useState(false);
   const [showFulfillmentSheet, setShowFulfillmentSheet] = useState(false);
+  // Which surface opened the fulfillment sheet, so closing it (via ×, or
+  // via "Save Address & Continue") returns there instead of dumping the
+  // customer back on the bare menu — "cart" | "checkout" | null (opened
+  // standalone, e.g. from the header or the closed-banner "Choose a time").
+  const [fulfillmentOrigin, setFulfillmentOrigin] = useState(null);
+  // Single close path for the fulfillment sheet — used by its own × button,
+  // by "Save Address & Continue" (FulfillmentSheet always calls onClose
+  // after a successful save), and by the Escape-key handler below — so
+  // every way of leaving the sheet returns to whichever surface opened it
+  // instead of silently dropping back to the bare menu.
+  const closeFulfillmentSheet = useCallback(() => {
+    setShowFulfillmentSheet(false);
+    setFulfillmentOrigin(origin => {
+      if (origin === "checkout") setShowCheckoutGate(true);
+      else if (origin === "cart") setDrawerOpen(true);
+      return null;
+    });
+  }, []);
   const [showExitDrawer, setShowExitDrawer] = useState(false);
   const [exitPhone, setExitPhone] = useState(() => displayPhone(loadPhone()));
   const [exitSaved, setExitSaved] = useState(false);
@@ -401,7 +441,7 @@ export default function RaniMahal() {
     const onKey = e => {
       if (e.key !== "Escape") return;
       if (showCheckoutGate) setShowCheckoutGate(false);
-      else if (showFulfillmentSheet) setShowFulfillmentSheet(false);
+      else if (showFulfillmentSheet) closeFulfillmentSheet();
       else if (showExitDrawer) setShowExitDrawer(false);
       else if (modalItem) setModalItem(null);
       else if (showSectionSheet) setShowSectionSheet(false);
@@ -416,7 +456,7 @@ export default function RaniMahal() {
       window.scrollTo(0, scrollY);
       window.removeEventListener("keydown", onKey);
     };
-  }, [anyOverlayOpen, showCheckoutGate, showFulfillmentSheet, showExitDrawer, modalItem, showSectionSheet, drawerOpen]);
+  }, [anyOverlayOpen, showCheckoutGate, showFulfillmentSheet, showExitDrawer, modalItem, showSectionSheet, drawerOpen, closeFulfillmentSheet]);
 
   useEffect(() => {
     fetch("/api/images/list")
@@ -711,6 +751,7 @@ export default function RaniMahal() {
     trackEvent("begin_checkout", { currency: "USD", value: total });
     setDrawerOpen(false);
     setShowCheckoutGate(true);
+    try { sessionStorage.setItem(CHECKOUT_RESUME_KEY, "1"); } catch {}
   };
 
   // Exit-Intent & Inactivity Drawer: Captures phone before user closes or leaves tab
@@ -902,25 +943,34 @@ export default function RaniMahal() {
           <span style={{ fontSize: 12, fontWeight: 500, color: "#FAF6EF" }}>
             · {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "order ahead, fired fresh upon opening"}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowFulfillmentSheet(true)}
-            style={{
-              padding: "2px 9px",
-              borderRadius: 12,
-              cursor: "pointer",
-              border: "1px solid rgba(232,168,46,0.5)",
-              background: "rgba(232,168,46,0.18)",
-              fontSize: 11.5,
-              fontWeight: 700,
-              color: "#FAF6EF",
-              whiteSpace: "nowrap",
-              fontFamily: "'Inter',sans-serif",
-              transition: "all 0.15s ease",
-            }}
-          >
-            {scheduledFor ? "Change time" : "Choose a time"}
-          </button>
+          {/* Hidden (not just visually, but from hit-testing) while any
+              modal is open — this pill sits in normal document flow beneath
+              every overlay's fixed, full-viewport backdrop, so a click here
+              while e.g. checkout is open actually lands on the backdrop and
+              silently dismisses it instead of opening the time picker. Each
+              modal that needs to change the time now has its own in-modal
+              control instead (see CheckoutGate's "Ready at / Change" chip). */}
+          {!anyOverlayOpen && (
+            <button
+              type="button"
+              onClick={() => setShowFulfillmentSheet(true)}
+              style={{
+                padding: "2px 9px",
+                borderRadius: 12,
+                cursor: "pointer",
+                border: "1px solid rgba(232,168,46,0.5)",
+                background: "rgba(232,168,46,0.18)",
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: "#FAF6EF",
+                whiteSpace: "nowrap",
+                fontFamily: "'Inter',sans-serif",
+                transition: "all 0.15s ease",
+              }}
+            >
+              {scheduledFor ? "Change time" : "Choose a time"}
+            </button>
+          )}
         </div>
       )}
 
@@ -1006,14 +1056,14 @@ export default function RaniMahal() {
           setDeliveryAddress={setDeliveryAddress}
           guestEmail={guestEmail}
           setGuestEmail={(email) => { setGuestEmail(email); saveGuestEmail(email); }}
-          onCancel={() => { setShowCheckoutGate(false); setDrawerOpen(true); }}
+          onCancel={() => { setShowCheckoutGate(false); setDrawerOpen(true); try { sessionStorage.removeItem(CHECKOUT_RESUME_KEY); } catch {} }}
           onGuestIdentified={email => { setGuestEmail(email); saveGuestEmail(email); }}
           draftId={draftIdRef.current}
           onSaveLead={saveDraftLead}
           reorderToken={reorderToken}
           scheduledFor={scheduledFor}
           setScheduledFor={setScheduledFor}
-          onOpenFulfillmentSheet={() => { setShowCheckoutGate(false); setShowFulfillmentSheet(true); }}
+          onOpenFulfillmentSheet={() => { setShowCheckoutGate(false); setFulfillmentOrigin("checkout"); setShowFulfillmentSheet(true); }}
           utm={getStoredUtm()}
           welcomeEligible={reorderDiscount === 0 && welcomeEligible}
           onWelcomeDiscount={() => showNotice("🎉 Welcome! 10% off your first order is applied — redirecting to secure payment...")}
@@ -1044,7 +1094,7 @@ export default function RaniMahal() {
 
       <FulfillmentSheet
         isOpen={showFulfillmentSheet}
-        onClose={() => setShowFulfillmentSheet(false)}
+        onClose={closeFulfillmentSheet}
         orderMode={orderMode}
         setOrderMode={setOrderMode}
         deliveryAddress={deliveryAddress}
@@ -1276,7 +1326,7 @@ export default function RaniMahal() {
         orderMode={orderMode}
         deliveryAddress={deliveryAddress}
         deliveryFee={deliveryFee}
-        onOpenFulfillmentSheet={() => { setDrawerOpen(false); setShowFulfillmentSheet(true); }}
+        onOpenFulfillmentSheet={() => { setDrawerOpen(false); setFulfillmentOrigin("cart"); setShowFulfillmentSheet(true); }}
         guestEmail={guestEmail}
         setGuestEmail={setGuestEmail}
         handleCheckout={handleCheckout}

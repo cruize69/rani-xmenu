@@ -127,7 +127,7 @@ export default async function handler(req, res) {
       }
       validScheduledFor = { date: scheduledFor.date, time: scheduledFor.time };
     } else if (!getOpenStatus().isOpen) {
-      return res.status(400).json({ error: "We're closed right now — please schedule your order for our next opening." });
+      return res.status(400).json({ error: "Please pick a time for your order — the kitchen isn't open just yet." });
     }
 
     // Validate reorder/voucher discount token if provided. Same KV shape

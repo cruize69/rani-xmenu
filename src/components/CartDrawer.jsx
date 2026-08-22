@@ -8,7 +8,7 @@ import { PickupIcon, DeliveryIcon } from "./FulfillmentSheet.jsx";
 import { AddressAutocomplete } from "./AddressAutocomplete.jsx";
 import { UniversalDeliveryForm } from "./UniversalDeliveryForm.jsx";
 import { reportError } from "../utils/errorReport.js";
-import { isWithinServiceWindow, nyDateTimeToUtcMs } from "../../lib/hours.js";
+import { isWithinServiceWindow, nyDateTimeToUtcMs, formatTime } from "../../lib/hours.js";
 
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const fmt = (n) => "$" + n.toFixed(2);
@@ -430,6 +430,27 @@ export function CheckoutGate({
             </button>
           </div>
         </div>
+
+        {/* Ready-time chip — the header's own "Change time" pill sits behind
+            this modal's backdrop and can't actually be clicked while it's
+            open (the click lands on the backdrop and dismisses the modal
+            instead), so this is the only real way to change a scheduled
+            time without leaving checkout. */}
+        {onOpenFulfillmentSheet && (
+          <div style={{ padding: "10px 20px 0", display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); onOpenFulfillmentSheet(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 20,
+                border: "1px solid rgba(232,168,46,0.3)", background: "rgba(232,168,46,0.08)",
+                color: "#E8A82E", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter',sans-serif",
+              }}
+            >
+              {scheduledFor ? `Ready at ${formatTime(scheduledFor.time)}` : "ASAP"} · Change
+            </button>
+          </div>
+        )}
 
         {/* Delivery minimum */}
         {orderMode === "delivery" && (() => {

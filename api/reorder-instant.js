@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     // this is an immediate off-session charge that fires a live kitchen
     // ticket right now — it must never fire while the restaurant is closed.
     if (!getOpenStatus().isOpen) {
-      return res.status(400).json({ error: "We're closed right now. Please check back during business hours to reorder." });
+      return res.status(400).json({ error: "The kitchen isn't open just yet — please check back during business hours to reorder." });
     }
 
     // This is the only endpoint that charges a stored card with no further
