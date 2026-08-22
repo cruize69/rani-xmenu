@@ -61,15 +61,23 @@ export function FeastCard({ feast, onAdd }) {
           investment once available (see the plan's Section 2c); until
           then this reuses the app's existing placeholder language so an
           unphotographed card still reads as considered, not broken. */}
-      <div style={{
-        width: "100%", aspectRatio: "16/9", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.07) 0px,rgba(232,168,46,0.07) 1px,transparent 1px,transparent 10px)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
-      }}>
-        <CameraGlyph size={28} />
-        <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 10.5, fontWeight: 600, letterSpacing: "0.03em", color: "rgba(232,168,46,0.6)" }}>
-          Photo coming soon
-        </span>
-      </div>
+      {feast.heroImage ? (
+        <img
+          src={feast.heroImage}
+          alt={feast.name}
+          style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <div style={{
+          width: "100%", aspectRatio: "16/9", background: "repeating-linear-gradient(135deg,rgba(232,168,46,0.07) 0px,rgba(232,168,46,0.07) 1px,transparent 1px,transparent 10px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>
+          <CameraGlyph size={28} />
+          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 10.5, fontWeight: 600, letterSpacing: "0.03em", color: "rgba(232,168,46,0.6)" }}>
+            Photo coming soon
+          </span>
+        </div>
+      )}
 
       <div style={{ padding: "18px 16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
