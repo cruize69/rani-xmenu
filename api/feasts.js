@@ -35,7 +35,18 @@ export default async function handler(req, res) {
         // runs on real cart contents, not on how they got there), so the
         // marketing site can link "Order Now" straight into a pre-filled
         // cart instead of dumping the customer on an empty one.
-        return { baseId: it.baseId, name: item.name, qty: it.qty };
+        //
+        // swapTo (+ its resolved name) lets the marketing site offer the
+        // same Rani Ki Offering -> Masala Dosa swap FeastCard.jsx offers
+        // in the ordering app, without hand-copying which slot is
+        // swappable or what the substitute is called.
+        const swapItem = it.swapTo ? ITEM_MAP[it.swapTo] : null;
+        return {
+          baseId: it.baseId,
+          name: item.name,
+          qty: it.qty,
+          ...(swapItem ? { swapTo: it.swapTo, swapToName: swapItem.name } : {}),
+        };
       })
       .filter(Boolean),
   }));
