@@ -899,12 +899,20 @@ export default function RaniMahal() {
       <div style={{
         background: "linear-gradient(90deg, #0f0800 0%, #170d02 50%, #0f0800 100%)",
         borderBottom: "1px solid rgba(232, 168, 46, 0.15)",
-        padding: "8px 0",
-        fontSize: "12px",
+        padding: "7px 0",
+        fontSize: "11px",
         fontWeight: 500,
         color: "#F5E6C8",
         letterSpacing: "0.03em",
         overflow: "hidden",
+        // iOS Safari auto-boosts font size on text sitting inside a wide,
+        // horizontally-overflowing container like this marquee's track —
+        // it was rendering visibly larger than the 12px below despite
+        // matching px, since that inflation doesn't touch normal-flow
+        // content. Pinning this off is what actually fixes it; the lower
+        // fontSize on top is the "smaller for real" half of the ask.
+        WebkitTextSizeAdjust: "100%",
+        textSizeAdjust: "100%",
         // Fades the scrolling text at both edges instead of a hard clip.
         WebkitMaskImage: "linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)",
         maskImage: "linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)",
