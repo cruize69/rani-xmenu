@@ -46,18 +46,103 @@ function cateringInquiryEmailHtml({ name, contact, eventDate, headcount, occasio
   </div>`;
 }
 
+function isValidEmail(str) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(str).trim());
+}
+
+function isValidPhone(str) {
+  const digits = String(str || "").replace(/\D/g, "");
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith("1"));
+}
+
+function isValidEventDate(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return true; // Optional field
+  const trimmed = dateStr.trim();
+  if (!trimmed) return true;
+  
+  // Accept standard ISO YYYY-MM-DD
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return true; // Non-standard or descriptive date string like "Mid-October"
+  
+  const [_, y, m, d] = match;
+  const eventDate = new Date(Number(y), Number(m) - 1, Number(d));
+  if (isNaN(eventDate.getTime())) return false;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Reject past dates (e.g. 1970)
+  if (eventDate < today) return false;
+  
+  // Reject dates > 3 years in future
+  const maxFuture = new Date();
+  maxFuture.setFullYear(maxFuture.getFullYear() + 3);
+  if (eventDate > maxFuture) return false;
+  
+  return true;
+}
+
+function isValidHeadcount(countStr) {
+  if (!countStr || typeof countStr !== "string") return true; // Optional field
+  const trimmed = countStr.trim();
+  if (!trimmed) return true;
+  
+  // Must contain at least one digit (e.g. "~25", "50-75", "100")
+  if (!/\d/.test(trimmed)) return false;
+  
+  // Extract number and ensure it's in a reasonable catering range (e.g. 1 to 5000)
+  const num = parseInt(trimmed.replace(/\D/g, ""), 10);
+  if (isNaN(num) || num < 1 || num > 5000) return false;
+  
+  return true;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, contact, eventDate, headcount, occasion, packageInterest, notes } = req.body || {};
+  const { name, contact, eventDate, headcount, occasion, packageInterest, notes, website, renderedAt } = req.body || {};
+
+  // 1. Invisible Honeypot Trap — bots fill every input they see
+  if (website && typeof website === "string" && website.trim().length > 0) {
+    // Silently succeed so the bot doesn't retry, but DO NOT store or notify
+    return res.status(200).json({ ok: true });
+  }
+
+  // 2. Submission Velocity Check — bots submit in milliseconds
+  if (renderedAt && typeof renderedAt === "number") {
+    const elapsed = Date.now() - renderedAt;
+    if (elapsed < 1200) {
+      // Submitting a 6-field form in under 1.2 seconds is physically impossible for a human
+      return res.status(200).json({ ok: true });
+    }
+  }
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Please enter your name." });
   }
   if (!contact || typeof contact !== "string" || !contact.trim()) {
     return res.status(400).json({ error: "Please enter an email or phone number so we can reach you." });
+  }
+
+  const trimmedContact = contact.trim();
+  const looksLikeEmail = trimmedContact.includes("@");
+  if (looksLikeEmail && !isValidEmail(trimmedContact)) {
+    return res.status(400).json({ error: "Please enter a valid email address." });
+  }
+  if (!looksLikeEmail && !isValidPhone(trimmedContact)) {
+    return res.status(400).json({ error: "Please enter a valid 10-digit phone number or email address." });
+  }
+
+  // 3. Event Date Sanity Validation — reject past dates (e.g. 1970)
+  if (!isValidEventDate(eventDate)) {
+    return res.status(400).json({ error: "Please select a valid upcoming event date." });
+  }
+
+  // 4. Headcount Validation — reject random alphanumeric bot strings
+  if (!isValidHeadcount(headcount)) {
+    return res.status(400).json({ error: "Please enter an estimated guest headcount (e.g. 25)." });
   }
 
   // No account/order to key a rate limit on (this is often someone's FIRST
@@ -91,7 +176,6 @@ export default async function handler(req, res) {
     // that reaches an inbox but not KV is still a lead staff can act on.
   }
 
-  const looksLikeEmail = inquiry.contact.includes("@");
   const staffEmail = sendEmail({
     to: ["ranimahal327@gmail.com", "riyadhjuwel@gmail.com"],
     subject: `Catering inquiry — ${inquiry.name}${inquiry.eventDate ? ` (${inquiry.eventDate})` : ""}`,

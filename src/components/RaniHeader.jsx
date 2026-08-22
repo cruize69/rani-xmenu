@@ -33,121 +33,137 @@ export function RaniHeader({
             desktop widths, so left untouched above 640px. */}
         <style>{`
           @media (max-width: 640px) {
-            .rm-header-namerow { padding-left: 92px !important; padding-right: 92px !important; }
+            .rm-header-namerow { padding-left: 68px !important; padding-right: 68px !important; }
           }
-          .rm-hotel-btn {
+          .rm-circle-nav-btn {
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
           }
-          .rm-hotel-btn:hover {
-            border-color: #E8A82E !important;
-            background: linear-gradient(145deg, rgba(232,168,46,0.24) 0%, rgba(32,26,20,0.95) 100%) !important;
-            box-shadow: 0 4px 18px rgba(232,168,46,0.35), inset 0 1px 0 rgba(232,168,46,0.3) !important;
-            transform: translateY(-50%) scale(1.03) !important;
+          .rm-circle-nav-btn:hover {
+            transform: translateY(-2px) scale(1.04);
           }
-          .rm-hotel-btn:active {
-            transform: translateY(-50%) scale(0.97) !important;
+          .rm-circle-nav-btn:hover .rm-circle-disc {
+            border-color: #E8A82E !important;
+            background: rgba(232,168,46,0.22) !important;
+            box-shadow: 0 0 16px rgba(232,168,46,0.4) !important;
+          }
+          .rm-circle-nav-btn:active {
+            transform: translateY(0) scale(0.96);
           }
         `}</style>
-        <div className="rm-header-namerow" style={{ position:"relative", padding:"12px 96px 10px", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          {/* Boutique Hotel Button with Icon + Text — Call (Left) */}
+        <div className="rm-header-namerow" style={{ position:"relative", padding:"10px 68px 8px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {/* Circular Button + Text — Call (Left) */}
           <a
             href="tel:9148359066"
             aria-label="Call Rani Mahal: (914) 835-9066"
-            className="rm-hotel-btn"
+            className="rm-circle-nav-btn"
             style={{
               position: "absolute",
-              top: "50%",
-              transform: "translateY(-50%)",
+              top: 8,
               left: 12,
-              height: 38,
-              padding: "0 13px",
-              borderRadius: 10,
-              background: "linear-gradient(145deg, rgba(232,168,46,0.14) 0%, rgba(22,18,14,0.92) 100%)",
-              border: "1px solid rgba(232,168,46,0.32)",
-              color: "#FAF6EF",
-              display: "inline-flex",
+              width: 52,
+              display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: 7,
-              boxShadow: "0 3px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(232,168,46,0.18)",
+              gap: 3,
               cursor: "pointer",
               textDecoration: "none",
-              fontFamily: "'Inter',sans-serif",
-              fontSize: 12.5,
-              fontWeight: 600,
-              letterSpacing: "0.01em",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.4 1L7.2 10a12 12 0 0 0 5.8 5.8l1.2-1.5c.2-.3.6-.5 1-.4l3 .8c.5.1.8.5.8 1V18c0 .6-.4 1-1 1h-1C9.7 19 4 13.3 4 6V5Z" />
-            </svg>
-            <span>Call</span>
+            <div
+              className="rm-circle-disc"
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                background: "rgba(232, 168, 46, 0.12)",
+                border: "1px solid rgba(232, 168, 46, 0.35)",
+                color: "#E8A82E",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 3px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(232,168,46,0.18)",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.4 1L7.2 10a12 12 0 0 0 5.8 5.8l1.2-1.5c.2-.3.6-.5 1-.4l3 .8c.5.1.8.5.8 1V18c0 .6-.4 1-1 1h-1C9.7 19 4 13.3 4 6V5Z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#FAF6EF", letterSpacing: "0.01em", lineHeight: 1 }}>
+              Call
+            </span>
           </a>
 
-          {/* Boutique Hotel Button with Icon + Text — Account (Right) */}
+          {/* Circular Button + Text — Account / Sign In (Right) */}
           <button
             onClick={() => setView("account")}
-            aria-label="Account & orders"
-            className="rm-hotel-btn"
+            aria-label={isSignedIn ? "Your account & orders" : "Sign in to your account"}
+            className="rm-circle-nav-btn"
             style={{
               position: "absolute",
-              top: "50%",
-              transform: "translateY(-50%)",
+              top: 8,
               right: 12,
-              height: 38,
-              padding: "0 13px",
-              borderRadius: 10,
-              background: isSignedIn
-                ? "linear-gradient(135deg, rgba(232,168,46,0.25) 0%, rgba(30,24,18,0.95) 100%)"
-                : "linear-gradient(145deg, rgba(232,168,46,0.14) 0%, rgba(22,18,14,0.92) 100%)",
-              border: `1px solid ${isSignedIn ? "#E8A82E" : "rgba(232,168,46,0.32)"}`,
-              color: "#FAF6EF",
-              display: "inline-flex",
+              width: 52,
+              display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: 7,
-              boxShadow: isSignedIn
-                ? "0 3px 14px rgba(232,168,46,0.35), inset 0 1px 0 rgba(232,168,46,0.3)"
-                : "0 3px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(232,168,46,0.18)",
+              gap: 3,
+              background: "transparent",
+              border: "none",
               cursor: "pointer",
-              fontFamily: "'Inter',sans-serif",
-              fontSize: 12.5,
-              fontWeight: 600,
-              letterSpacing: "0.01em",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
+              padding: 0,
             }}
           >
-            {isSignedIn ? (
-              <>
-                <span
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    background: "#E8A82E",
-                    color: "#080706",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    flexShrink: 0,
-                  }}
-                >
+            <div
+              className="rm-circle-disc"
+              style={{
+                position: "relative",
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                background: isSignedIn
+                  ? "linear-gradient(135deg, #E8A82E 0%, #C8871A 100%)"
+                  : "rgba(232, 168, 46, 0.12)",
+                border: `1px solid ${isSignedIn ? "#E8A82E" : "rgba(232, 168, 46, 0.35)"}`,
+                color: isSignedIn ? "#080706" : "#E8A82E",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: isSignedIn
+                  ? "0 3px 14px rgba(232,168,46,0.4)"
+                  : "0 3px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(232,168,46,0.18)",
+                transition: "all 0.2s ease",
+              }}
+            >
+              {isSignedIn ? (
+                <span style={{ fontSize: 15, fontWeight: 800, color: "#080706" }}>
                   {(userInitial ?? "•").toUpperCase()}
                 </span>
-                <span>Account</span>
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8A82E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="8" r="4" />
                   <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
                 </svg>
-                <span>Sign In</span>
-              </>
-            )}
+              )}
+              {isSignedIn && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    bottom: -1,
+                    right: -1,
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#4ADE80",
+                    border: "2px solid #080706",
+                  }}
+                />
+              )}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#FAF6EF", letterSpacing: "0.01em", lineHeight: 1 }}>
+              {isSignedIn ? "Account" : "Sign In"}
+            </span>
           </button>
 
           {/* Centered — logo emblem + name/tagline stacked, linking back to
