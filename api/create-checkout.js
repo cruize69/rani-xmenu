@@ -366,7 +366,7 @@ export default async function handler(req, res) {
     // scaled proportionally to the bundle price, with the account
     // discount (welcome/member/voucher) layered on top afterward. Bundle
     // pricing and account discounts are independent mechanisms that
-    // compose — a new customer buying the Family Feast really does pay
+    // compose — a new customer buying the Family Meal really does pay
     // ~22% less than à la carte, not just the ~14% bundle discount alone.
     // spice/note carry through from the matching raw cart line where the
     // customer set one, since a stated spice preference applies to all of

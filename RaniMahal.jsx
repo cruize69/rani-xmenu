@@ -261,12 +261,12 @@ export default function RaniMahal() {
   const [view, setView] = useState(() =>
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "account" ? "account" : "menu"
   ); // "menu" | "account"
-  // "feasts" is deliberately the default, not "appetizers" — see the
-  // Family Feasts implementation plan: the whole point is to intercept
-  // decision fatigue before a customer reaches the individual-item grid,
-  // which only works if it's the first thing they see, not a tab they'd
-  // have to scroll the nav to find.
-  const [activeSection, setActiveSection] = useState("feasts");
+  // "family-meals" is deliberately the default, not "appetizers" — see
+  // the Family Feasts implementation plan: the whole point is to
+  // intercept decision fatigue before a customer reaches the
+  // individual-item grid, which only works if it's the first thing they
+  // see, not a tab they'd have to scroll the nav to find.
+  const [activeSection, setActiveSection] = useState("family-meals");
   const [cart, setCart]         = useState(loadStoredCart);
   const [modalItem, setModalItem] = useState(null);
   const [notice, setNotice]     = useState(null);
@@ -1027,7 +1027,7 @@ export default function RaniMahal() {
                 + FeastSection's old subtitle together were the single
                 biggest chunk of above-the-fold space on this, the first
                 section a customer sees. */}
-            {section?.id !== "feasts" && (
+            {section?.id !== "family-meals" && (
               <div style={{ marginBottom: (section?.id !== "appetizers" || section?.note) ? "1.5rem" : "0.5rem", textAlign:"center" }}>
                 {section?.id !== "appetizers" && (
                   <p style={{ fontSize:11, fontWeight:500, letterSpacing:"0.25em", textTransform:"uppercase", color:"#E8A82E", marginBottom:4 }}>{section?.eyebrow}</p>
@@ -1036,7 +1036,7 @@ export default function RaniMahal() {
               </div>
             )}
 
-            {section?.id === "feasts" ? (
+            {section?.id === "family-meals" ? (
               <FeastSection feasts={FEASTS} onAdd={addFeastToCart} />
             ) : (
               section?.subsections.map(sub => (

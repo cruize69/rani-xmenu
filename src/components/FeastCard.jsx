@@ -1,11 +1,14 @@
-// FeastCard.jsx — "Family Feasts" hero cards, first section a customer
-// sees. See the Family Feasts implementation plan for the full design
-// rationale; this file follows its Section 2c spec closely — every choice
-// here (single hero image slot instead of per-dish thumbnails, full
-// transparent item list instead of a collapsed "see more", 48px CTA,
-// button state change after adding, 320px-safe layout) is deliberate, not
-// a default. Don't casually change the structure without re-reading that
-// spec first.
+// FeastCard.jsx — Family Meal / Group Meal hero cards, first section a
+// customer sees. Named "Feast*" internally (this file, lib/feasts.js) as
+// implementation vocabulary only — the customer-facing names are "Family
+// Meal" and "Group Meal", chosen specifically to not collide with the
+// catering menu's "Rani Feast" tier in search or in a customer's head. See
+// the Family Feasts implementation plan for the full design rationale;
+// this file follows its Section 2c spec closely — every choice here
+// (single hero image slot instead of per-dish thumbnails, full transparent
+// item list instead of a collapsed "see more", 48px CTA, button state
+// change after adding, 320px-safe layout) is deliberate, not a default.
+// Don't casually change the structure without re-reading that spec first.
 import { useState } from "react";
 import { CameraGlyph } from "./MenuItemCard.jsx";
 import { ITEM_MAP } from "../../lib/menu.js";
@@ -135,7 +138,7 @@ export function FeastCard({ feast, onAdd }) {
         </button>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#6FBF87" }}>
-          🚚 Free delivery on this feast, always
+          🚚 Free delivery on this meal, always
         </div>
         <p style={{ textAlign: "center", fontFamily: "'Fraunces',serif", fontStyle: "italic", fontSize: 12, color: "#8A7560", marginTop: 8, lineHeight: 1.5 }}>
           Real menu items, real prices — this is what {fmt(feast.price)} actually gets you.
