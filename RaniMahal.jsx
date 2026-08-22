@@ -101,7 +101,7 @@ function loadStoredCart() {
 }
 
 const GUEST_EMAIL_KEY = "rani_guest_email";
-const loadGuestEmail  = () => { try { return localStorage.getItem(GUEST_EMAIL_KEY) || null; } catch { return null; } };
+const loadGuestEmail  = () => { try { return localStorage.getItem(GUEST_EMAIL_KEY) || ""; } catch { return ""; } };
 const saveGuestEmail  = email => { try { localStorage.setItem(GUEST_EMAIL_KEY, email); } catch {} };
 
 const PHONE_KEY = "rani_guest_phone";

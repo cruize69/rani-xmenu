@@ -340,7 +340,8 @@ export function CheckoutGate({
 
   const handleGuestContinue = async e => {
     e.preventDefault();
-    if (!guestEmail.includes("@")) { setError("Please enter a valid email for your receipt"); return; }
+    const safeEmail = guestEmail || "";
+    if (!safeEmail.includes("@")) { setError("Please enter a valid email for your receipt"); return; }
     if (!validateDelivery()) return;
     onGuestIdentified?.(guestEmail);
     onSaveLead?.({ email: guestEmail });
