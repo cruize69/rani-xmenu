@@ -18,27 +18,61 @@ const fmt = (n) => "$" + Number(n).toFixed(2);
 // Compact receipt-style line — qty + name only, no price, no description.
 // Keeps every row on one line at 320px even for the longest real dish
 // names in these bundles ("Dal Maharani Makhni", "Tandoori Medley").
-function FeastItemRow({ baseId, qty }) {
-  const item = ITEM_MAP[baseId];
+//
+// swapTo/swapped/onToggleSwap only apply to the one slot lib/feasts.js
+// marks swappable (Rani Ki Offering <-> Masala Dosa) — every other row
+// renders exactly as before. This is the ONE row allowed to wrap to two
+// lines at 320px; the swap toggle earns that exception, everything else
+// still holds the one-line rule.
+function FeastItemRow({ baseId, qty, swapTo, swapped, onToggleSwap }) {
+  const item = ITEM_MAP[swapped ? swapTo : baseId];
   if (!item) return null;
+  const swapItem = swapTo ? ITEM_MAP[swapTo] : null;
   return (
     <li style={{
-      display: "flex", alignItems: "baseline", gap: 6, padding: "7px 0",
+      display: "flex", alignItems: "baseline", flexWrap: swapTo ? "wrap" : "nowrap", gap: 6, padding: "7px 0",
       borderBottom: "0.5px solid rgba(250,246,239,0.06)", fontFamily: "'Inter',sans-serif", fontSize: 12.5, color: "#B8A995",
     }}>
       <span style={{ color: "#E8A82E", fontWeight: 700, flexShrink: 0 }}>{qty}×</span>
       <span style={{ color: "#FAF6EF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+      {swapTo && swapItem && (
+        <button
+          type="button"
+          onClick={onToggleSwap}
+          style={{
+            marginLeft: "auto", flexShrink: 0, background: swapped ? "rgba(60,122,78,0.16)" : "rgba(232,168,46,0.12)",
+            border: `0.5px solid ${swapped ? "rgba(60,122,78,0.4)" : "rgba(232,168,46,0.4)"}`,
+            color: swapped ? "#6FBF87" : "#E8A82E", fontFamily: "'Inter',sans-serif", fontSize: 10.5, fontWeight: 700,
+            padding: "3px 9px", borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
+          }}
+        >
+          {swapped ? "↩ Undo swap" : `🔁 Swap for ${swapItem.name} (veg)`}
+        </button>
+      )}
     </li>
   );
 }
 
 export function FeastCard({ feast, onAdd }) {
   const [justAdded, setJustAdded] = useState(false);
+  // Only one slot per feast is currently swappable (Rani Ki Offering ->
+  // Masala Dosa, see lib/feasts.js) — a single boolean is enough. If a
+  // second swappable slot is ever added, this becomes a Set of baseIds
+  // instead of a bool.
+  const [swapped, setSwapped] = useState(false);
   const savings = feast.aLaCarteTotal - feast.price;
   const savingsPct = Math.round((savings / feast.aLaCarteTotal) * 100);
 
   const handleAdd = () => {
-    onAdd(feast);
+    // Resolve the swap into real baseId/qty pairs before handing off —
+    // the cart (and from there, checkout's extractFeasts) only ever sees
+    // real items, never a separate "isSwapped" flag it would have to
+    // trust. Whichever item is actually in the cart IS the customer's
+    // choice, same principle as everything else about how feasts work.
+    const resolvedItems = feast.items.map((it) =>
+      it.swapTo && swapped ? { baseId: it.swapTo, qty: it.qty } : it
+    );
+    onAdd(feast, resolvedItems);
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 2400);
   };
@@ -122,7 +156,16 @@ export function FeastCard({ feast, onAdd }) {
         </div>
 
         <ul style={{ listStyle: "none", margin: "14px 0 0", padding: 0, borderTop: "0.5px solid rgba(250,246,239,0.08)" }}>
-          {feast.items.map((it) => <FeastItemRow key={it.baseId} baseId={it.baseId} qty={it.qty} />)}
+          {feast.items.map((it) => (
+            <FeastItemRow
+              key={it.baseId}
+              baseId={it.baseId}
+              qty={it.qty}
+              swapTo={it.swapTo}
+              swapped={it.swapTo ? swapped : false}
+              onToggleSwap={it.swapTo ? () => setSwapped((s) => !s) : undefined}
+            />
+          ))}
         </ul>
 
         <button

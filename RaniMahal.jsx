@@ -735,10 +735,14 @@ export default function RaniMahal() {
   // cart itself. The actual bundle price only gets applied server-side at
   // checkout (api/create-checkout.js's extractFeasts) — this function is
   // purely a convenience macro for populating the cart in one tap.
-  const addFeastToCart = useCallback((feast) => {
+  const addFeastToCart = useCallback((feast, resolvedItems) => {
     setCart(prev => {
       const next = { ...prev };
-      feast.items.forEach(({ baseId, qty }) => {
+      // resolvedItems (from FeastCard's own swap toggle — see
+      // src/components/FeastCard.jsx) already has any swapped slot's real
+      // baseId in it; falls back to the feast's default items when no
+      // swap was made (or for any other caller that doesn't pass one).
+      (resolvedItems ?? feast.items).forEach(({ baseId, qty }) => {
         const canonical = ITEM_MAP[baseId];
         if (!canonical) return;
         const key = baseId + "_1";

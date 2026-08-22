@@ -363,6 +363,10 @@ export default async function handler(req, res) {
     // 1) Feast-priced lines. Built from the feast's OWN item list (not the
     // raw cart) since lib/feasts.js already defines exactly what each
     // bundle contains — one Stripe line item per item per applied feast,
+    // each req.baseId already resolved by extractFeasts to whichever real
+    // item is in the box (e.g. Masala Dosa if that slot was swapped), so
+    // this needs no swap-awareness of its own — it just prices whatever
+    // baseId it's handed, same as always.
     // scaled proportionally to the bundle price, with the account
     // discount (welcome/member/voucher) layered on top afterward. Bundle
     // pricing and account discounts are independent mechanisms that
