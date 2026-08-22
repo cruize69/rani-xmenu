@@ -188,7 +188,7 @@ export function ClerkSignInButton({ style, disabled, onSignedIn, label, savings 
     <button
       style={style}
       disabled={disabled}
-      onClick={() => clerk?.openSignUp({ forceRedirectUrl: window.location.href, signInForceRedirectUrl: window.location.href })}
+      onClick={() => clerk?.openSignIn({ forceRedirectUrl: window.location.href, signUpForceRedirectUrl: window.location.href })}
     >
       <span style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
         <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
