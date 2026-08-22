@@ -31,7 +31,7 @@
       "source": "/(.*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://*.clerk.accounts.dev https://clerk.ranimahal.cc https://cdnjs.cloudflare.com https://js.stripe.com; connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.clerk.accounts.dev https://clerk.ranimahal.cc https://ranimahal.food https://ranimahal.cc https://nominatim.openstreetmap.org https://*.ingest.us.sentry.io https://api.stripe.com; img-src 'self' data: https://*.public.blob.vercel-storage.com https://www.ranimahalny.com https://www.google-analytics.com https://*.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://*.clerk.accounts.dev https://clerk.ranimahal.cc https://www.google.com/maps/embed https://maps.google.com https://js.stripe.com https://hooks.stripe.com; worker-src 'self' blob:" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=(), payment=(self)" }
