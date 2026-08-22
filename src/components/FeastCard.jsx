@@ -125,8 +125,8 @@ export function FeastCard({ feast, onAdd }) {
 export function FeastSection({ feasts, onAdd }) {
   return (
     <div>
-      <p style={{ fontFamily: "'Fraunces',serif", fontStyle: "italic", fontSize: 14, color: "#B8A995", textAlign: "center", marginTop: -8, marginBottom: 20, lineHeight: 1.6 }}>
-        A complete, correct meal for the whole table — one tap, no decision fatigue.
+      <p style={{ fontFamily: "'Fraunces',serif", fontStyle: "italic", fontSize: 13, color: "#B8A995", textAlign: "center", marginTop: -8, marginBottom: 20, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        One tap, no decision fatigue.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {feasts.map((feast) => <FeastCard key={feast.id} feast={feast} onAdd={onAdd} />)}

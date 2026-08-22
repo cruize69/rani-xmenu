@@ -41,6 +41,18 @@ button{cursor:pointer;font-family:'Inter',sans-serif}
   90%  { opacity:1; }
   100% { opacity:0; transform:translateX(-6px); }
 }
+@keyframes announcementMarquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.announcement-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: announcementMarquee 18s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .announcement-marquee-track { animation: none; }
+}
 @media (min-width: 1024px) {
   .desktop-golden-frame {
     max-width: 1200px;
@@ -887,24 +899,33 @@ export default function RaniMahal() {
       <div style={{
         background: "linear-gradient(90deg, #0f0800 0%, #170d02 50%, #0f0800 100%)",
         borderBottom: "1px solid rgba(232, 168, 46, 0.15)",
-        padding: "8px 16px",
-        textAlign: "center",
+        padding: "8px 0",
         fontSize: "12px",
         fontWeight: 500,
         color: "#F5E6C8",
         letterSpacing: "0.03em",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 6
+        overflow: "hidden",
+        // Fades the scrolling text at both edges instead of a hard clip.
+        WebkitMaskImage: "linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)",
+        maskImage: "linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)",
       }}>
         {(() => {
           const now = new Date();
           const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
           const isCommuteWindow = isWeekday && now.getHours() >= 15 && now.getHours() < 19;
-          return isCommuteWindow
-            ? <span>On the train? Schedule your order now — it'll be ready when you get home.</span>
-            : <span>Support Local: Save on hidden delivery app markups and fees by ordering direct from us.</span>;
+          const message = isCommuteWindow
+            ? "On the train? Schedule your order now — it'll be ready when you get home."
+            : "Support Local: Save on hidden delivery app markups and fees by ordering direct from us.";
+          // Two copies back-to-back with a fixed gap, animated exactly -50%,
+          // is the standard seamless-marquee trick: the moment the first
+          // copy has scrolled fully offscreen, the second is in the exact
+          // position the first started in, so the loop has no visible seam.
+          return (
+            <div className="announcement-marquee-track">
+              <span style={{ paddingRight: 48 }}>{message}</span>
+              <span style={{ paddingRight: 48 }} aria-hidden="true">{message}</span>
+            </div>
+          );
         })()}
       </div>
 
